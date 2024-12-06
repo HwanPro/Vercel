@@ -1,4 +1,4 @@
-"use client"
+'use client';
 
 import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
@@ -20,6 +20,8 @@ function RegisterPage() {
   } = useForm<RegisterData>();
   const router = useRouter();
   const [error, setError] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
 
   const onSubmit = handleSubmit(async (data) => {
     if (data.password !== data.confirmPassword) {
@@ -50,6 +52,14 @@ function RegisterPage() {
       setError('Error en el registro, por favor inténtalo de nuevo');
     }
   });
+
+  const togglePasswordVisibility = () => {
+    setPasswordVisible(!passwordVisible);
+  };
+
+  const toggleConfirmPasswordVisibility = () => {
+    setConfirmPasswordVisible(!confirmPasswordVisible);
+  };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
@@ -100,27 +110,45 @@ function RegisterPage() {
         <label htmlFor="password" className="text-slate-500 mb-2 block text-sm">
           Contraseña:
         </label>
-        <input
-          type="password"
-          {...register('password', {
-            required: { value: true, message: 'La contraseña es obligatoria' },
-          })}
-          className="border p-2 w-full mb-4 text-gray-800"
-          placeholder="Contraseña"
-        />
+        <div className="relative mb-4">
+          <input
+            type={passwordVisible ? 'text' : 'password'}
+            {...register('password', {
+              required: { value: true, message: 'La contraseña es obligatoria' },
+            })}
+            className="border p-2 w-full text-gray-800"
+            placeholder="Contraseña"
+          />
+          <button
+            type="button"
+            onClick={togglePasswordVisibility}
+            className="absolute inset-y-0 right-0 px-3 text-gray-600"
+          >
+            {passwordVisible ? 'Ocultar' : 'Mostrar'}
+          </button>
+        </div>
         {errors.password && <span className="text-red-500 text-xs">{errors.password.message}</span>}
 
         <label htmlFor="confirmPassword" className="text-slate-500 mb-2 block text-sm">
           Confirmar contraseña:
         </label>
-        <input
-          type="password"
-          {...register('confirmPassword', {
-            required: { value: true, message: 'Es obligatorio confirmar la contraseña' },
-          })}
-          className="border p-2 w-full mb-4 text-gray-800"
-          placeholder="Confirmar contraseña"
-        />
+        <div className="relative mb-4">
+          <input
+            type={confirmPasswordVisible ? 'text' : 'password'}
+            {...register('confirmPassword', {
+              required: { value: true, message: 'Es obligatorio confirmar la contraseña' },
+            })}
+            className="border p-2 w-full text-gray-800"
+            placeholder="Confirmar contraseña"
+          />
+          <button
+            type="button"
+            onClick={toggleConfirmPasswordVisibility}
+            className="absolute inset-y-0 right-0 px-3 text-gray-600"
+          >
+            {confirmPasswordVisible ? 'Ocultar' : 'Mostrar'}
+          </button>
+        </div>
         {errors.confirmPassword && (
           <span className="text-red-500 text-xs">{errors.confirmPassword.message}</span>
         )}
