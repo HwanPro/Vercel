@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 //app/api/auth/register/route.ts
 
 "use client"
@@ -85,6 +86,9 @@ export async function POST(req: Request) {
 
 
 // /app/auth/register/page.tsx
+=======
+//app/auth/register/page.tsx
+>>>>>>> 35d1c7a (Mensaje descriptivo de los cambios realizados)
 
 'use client';
 import { useForm } from 'react-hook-form';
