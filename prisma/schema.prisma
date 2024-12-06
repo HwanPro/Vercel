@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String               @id @default(cuid())
+  name           String?
+  email          String               @unique
+  password       String
+  emailVerified  Boolean              @default(false)
+  image          String?
+  role           String               @default("client")
+  twoFASecret    String?
+  isVerified     Boolean              @default(false)
+  memberships    UserMembershipPlan[]
+  payments       PaymentRecord[]      @relation("UserPayments")
+  contacts       UserContact[]        @relation("UserContacts")
+  profile        ClientProfile?
+  accounts       Account[]
+  sessions       Session[]
+  purchases      Purchase[]           // Relación con Purchase
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+}
+
+model MembershipPlan {
+  membership_id       Int                  @id @default(autoincrement())
+  membership_type     String
+  membership_cost     Float
+  membership_features String[]
+  membership_created  DateTime             @default(now())
+  membership_duration Int
+  membership_users    UserMembershipPlan[]
+}
+
+model UserMembershipPlan {
+  userId       String
+  membershipId Int
+  assignedAt   DateTime       @default(now())
+  user         User           @relation(fields: [userId], references: [id])
+  membership   MembershipPlan @relation(fields: [membershipId], references: [membership_id])
+
+  @@id([userId, membershipId])
+}
+
+model PaymentRecord {
+  payment_id     Int      @id @default(autoincrement())
+  payer_user_id  String
+  payment_amount Float
+  payment_method String
+  payment_date   DateTime @default(now())
+  payer_user     User     @relation("UserPayments", fields: [payer_user_id], references: [id])
+}
+
+model UserContact {
+  contact_id      Int      @id @default(autoincrement())
+  contact_user_id String   // Si siempre debe haber un usuario relacionado, elimina el `?`
+  contact_message String
+  contact_created DateTime @default(now())
+  contact_user    User     @relation("UserContacts", fields: [contact_user_id], references: [id])
+}
+
+
+model ClientProfile {
+  profile_id              String   @id @default(cuid())
+  profile_first_name      String
+  profile_last_name       String
+  profile_plan            String
+  profile_start_date      DateTime
+  profile_end_date        DateTime
+  profile_created_at      DateTime @default(now())
+  profile_emergency_phone String
+  profile_phone           String
+  profile_updated_at      DateTime @updatedAt
+  user_id                 String   @unique
+  user                    User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+
+model InventoryItem {
+  item_id          String     @id @default(uuid())
+  item_name        String
+  item_description String
+  item_price       Float
+  item_discount    Float?
+  item_stock       Int
+  item_image_url   String
+  item_created_at  DateTime   @default(now())
+  item_updated_at  DateTime   @updatedAt
+  purchases        Purchase[] // Relación con Purchase
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  role              String               @default("client")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  id         String    @id @default(cuid())
+  identifier String    // Correo del usuario
+  token      String    @unique
+  expires    DateTime  // Fecha de expiración
+
+  @@unique([identifier, token])
+}
+
+model Purchase {
+  id                String        @id @default(cuid())
+  purchase_quantity Int
+  purchase_total    Float
+  purchase_date     DateTime      @default(now())
+  customer          User          @relation(fields: [customerId], references: [id])
+  customerId        String
+  product           InventoryItem @relation(fields: [productId], references: [item_id])
+  productId         String
+}
