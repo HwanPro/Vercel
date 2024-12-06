@@ -1,4 +1,5 @@
 // /app/api/auth/register/route.ts
+" use client" 
 
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcrypt';
