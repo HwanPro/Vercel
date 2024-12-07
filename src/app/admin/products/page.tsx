@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Image from "next/image";
+import Link from "next/link";
+
 import {
   Dialog,
   DialogTrigger,
@@ -82,7 +84,7 @@ export default function ProductList() {
   const handleEditSave = async (updatedProduct: Product) => {
     try {
       console.log("Datos enviados al servidor:", updatedProduct);
-  
+
       const response = await fetch(`/api/products/${updatedProduct.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -96,16 +98,18 @@ export default function ProductList() {
           item_image_url: updatedProduct.imageUrl,
         }),
       });
-  
+
       if (!response.ok) {
         const errorData = await response.json();
         console.error("Error del servidor:", errorData);
-        throw new Error(errorData.message || "Error desconocido en el servidor");
+        throw new Error(
+          errorData.message || "Error desconocido en el servidor"
+        );
       }
-  
+
       const data = await response.json();
       console.log("Respuesta del servidor:", data);
-  
+
       setProducts((prev) =>
         prev.map((product) =>
           product.id === data.item_id
@@ -125,11 +129,12 @@ export default function ProductList() {
     } catch (error) {
       console.error("Error al actualizar el producto:", error);
       toast.error(
-        error instanceof Error ? error.message : "Error al actualizar el producto"
+        error instanceof Error
+          ? error.message
+          : "Error al actualizar el producto"
       );
     }
   };
-  
 
   const handleAddSave = (newProduct: NewProduct) => {
     setProducts((prev) => [
@@ -153,19 +158,27 @@ export default function ProductList() {
         <h1 className="text-2xl font-bold text-yellow-400">
           Gestión de Productos
         </h1>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button className="bg-yellow-400 text-black hover:bg-yellow-500">
-              Agregar Producto
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogTitle className="text-yellow-400 text-center">
-              Agregar Producto
-            </DialogTitle>
-            
-          </DialogContent>
-        </Dialog>
+        <div className="flex items-center gap-4">
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button className="bg-yellow-400 text-black hover:bg-yellow-500">
+                Agregar Producto
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogTitle className="text-yellow-400 text-center">
+                Agregar Producto
+              </DialogTitle>
+            </DialogContent>
+          </Dialog>
+
+          <Link
+            href="/admin/dashboard"
+            className="bg-yellow-400 text-black px-4 py-2 rounded hover:bg-yellow-500"
+          >
+            Volver al Dashboard
+          </Link>
+        </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
         {products.map((product) => (
