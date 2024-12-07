@@ -10,6 +10,7 @@ export async function POST(req: Request) {
   try {
     const { username, email, password } = await req.json();
 
+    // Validar campos obligatorios
     if (!username || !email || !password) {
       return NextResponse.json(
         { message: 'Todos los campos son obligatorios' },
@@ -17,10 +18,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-    });
-
+    // Verificar si el usuario ya existe
+    const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       return NextResponse.json(
         { message: 'El correo ya está registrado' },
@@ -28,8 +27,10 @@ export async function POST(req: Request) {
       );
     }
 
+    // Encriptar contraseña
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Crear el usuario
     const user = await prisma.user.create({
       data: {
         name: username,
@@ -39,44 +40,61 @@ export async function POST(req: Request) {
       },
     });
 
-    // Crear el ClientProfile asociado
+    // Crear el perfil del cliente
+    const profileEndDate = new Date();
+    profileEndDate.setFullYear(profileEndDate.getFullYear() + 1); // Lógica para plan básico
     await prisma.clientProfile.create({
       data: {
         profile_first_name: username,
         profile_last_name: '',
         profile_plan: 'Básico',
         profile_start_date: new Date(),
-        profile_end_date: new Date(), // Ajusta la fecha según tu lógica
+        profile_end_date: profileEndDate,
         profile_phone: '',
         profile_emergency_phone: '',
         user_id: user.id,
       },
     });
 
-    // Generar y guardar el token de verificación
+    // Generar token de verificación
     const token = generateVerificationToken();
     await prisma.verificationToken.create({
       data: {
         identifier: email,
         token,
-        expires: new Date(Date.now() + 24 * 60 * 60 * 1000), // Token válido por 24 horas
+        expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
       },
     });
 
-    // Enviar el correo de verificación
-    await sendVerificationEmail(email, token);
+    // Enviar correo de verificación
+    try {
+      await sendVerificationEmail(email, token);
+    } catch (emailError) {
+      console.error('Error al enviar el correo:', emailError);
+      return NextResponse.json(
+        { message: 'Error al enviar el correo de verificación' },
+        { status: 500 }
+      );
+    }
 
+    // Respuesta de éxito
     return NextResponse.json(
-      {
-        message:
-          'Usuario registrado con éxito. Revisa tu correo para verificar la cuenta.',
-      },
+      { message: 'Usuario registrado con éxito. Revisa tu correo para verificar la cuenta.' },
       { status: 201 }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error al registrar el usuario:', error);
+
+    // Identificar posibles errores de Prisma
+    if (error.code === 'P2002') {
+      return NextResponse.json(
+        { message: 'El correo ya está registrado.' },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
-      { message: 'Error al registrar el usuario' },
+      { message: 'Error al registrar el usuario. Inténtalo nuevamente.' },
       { status: 500 }
     );
   }
