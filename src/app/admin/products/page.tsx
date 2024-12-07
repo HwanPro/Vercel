@@ -1,237 +1,236 @@
 "use client";
 
-import ConfirmDialog from "@/components/ConfirmDialog";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
-} from "@/components/ui/table";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import Image from "next/image";
 import {
   Dialog,
   DialogTrigger,
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
-import AddClientDialog from "@/components/AddClientDialog";
-import Link from "next/link";
-import { toast, ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 
-// Definir la interfaz para los datos del cliente
-interface Client {
+import AddProductDialog from "@/components/AddProductDialog";
+import EditProductDialog from "@/components/EditProductDialog";
+
+type Product = {
   id: string;
-  firstName: string;
-  lastName: string;
-  plan: string;
-  membershipStart: string;
-  membershipEnd: string;
-  phone: string;
-  emergencyPhone: string;
-  email: string;
-  hasPaid: boolean;
-}
+  name: string;
+  description: string;
+  price: number;
+  discount: number;
+  stock: number;
+  imageUrl: string;
+};
 
-export default function ClientsPage() {
-  const [clients, setClients] = useState<Client[]>([]);
+type NewProduct = Omit<Product, "id">;
+
+export default function ProductList() {
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filteredClients, setFilteredClients] = useState<Client[]>([]);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [clientToDelete, setClientToDelete] = useState<string | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   useEffect(() => {
-    const fetchClients = async () => {
+    const fetchProducts = async () => {
       try {
-        const response = await fetch("/api/clients");
-        if (!response.ok) throw new Error("Error al obtener los clientes");
+        const response = await fetch("/api/products");
+        if (!response.ok) throw new Error("Error al obtener los productos");
+
         const data = await response.json();
-
-        // Mapear los campos de la API a campos amigables para el frontend
-        const sanitizedData: Client[] = data.map((client: any) => ({
-          id: client.profile_id,
-          firstName: client.profile_first_name || "Sin nombre",
-          lastName: client.profile_last_name || "Sin apellido",
-          plan: client.profile_plan || "Sin plan",
-          membershipStart: client.profile_start_date
-            ? new Date(client.profile_start_date).toLocaleDateString()
-            : "Sin fecha",
-          membershipEnd: client.profile_end_date
-            ? new Date(client.profile_end_date).toLocaleDateString()
-            : "Sin fecha",
-          phone: client.profile_phone,
-          emergencyPhone: client.profile_emergency_phone,
-          email: client.profile_email,
-          hasPaid: client.profile_has_paid,
-        }));
-
-        setClients(sanitizedData);
-        setFilteredClients(sanitizedData);
+        setProducts(
+          data.map((product: any) => ({
+            id: product.item_id,
+            name: product.item_name,
+            description: product.item_description,
+            price: product.item_price,
+            discount: product.item_discount || 0,
+            stock: product.item_stock,
+            imageUrl: product.item_image_url || "/placeholder-image.png",
+          }))
+        );
       } catch (error) {
-        console.error("Error al cargar clientes:", error);
-        toast.error("Error al cargar clientes. Inténtelo más tarde.");
+        console.error("Error al obtener los productos:", error);
+        toast.error("Error al obtener los productos");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchClients();
+    fetchProducts();
   }, []);
 
-  // Filtro de búsqueda
-  useEffect(() => {
-    const filter = clients.filter((client) =>
-      `${client.firstName} ${client.lastName}`
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase())
+  const handleDelete = async (id: string) => {
+    const confirm = window.confirm(
+      "¿Estás seguro de que deseas eliminar este producto?"
     );
-    setFilteredClients(filter);
-  }, [searchQuery, clients]);
-
-  const handleDeleteClick = (id: string) => {
-    setClientToDelete(id);
-    setShowConfirm(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!clientToDelete) {
-      toast.error("No se pudo identificar al cliente a eliminar.");
-      return;
-    }
+    if (!confirm) return;
 
     try {
-      const response = await fetch(`/api/clients/${clientToDelete}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await fetch(`/api/products/${id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Error al eliminar el producto");
 
+      setProducts((prev) => prev.filter((product) => product.id !== id));
+      toast.success("Producto eliminado con éxito");
+    } catch (error) {
+      console.error("Error al eliminar el producto:", error);
+      toast.error("Error al eliminar el producto");
+    }
+  };
+
+  const handleEditSave = async (updatedProduct: Product) => {
+    try {
+      console.log("Datos enviados al servidor:", updatedProduct);
+  
+      const response = await fetch(`/api/products/${updatedProduct.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          item_id: updatedProduct.id,
+          item_name: updatedProduct.name,
+          item_description: updatedProduct.description,
+          item_price: updatedProduct.price,
+          item_discount: updatedProduct.discount,
+          item_stock: updatedProduct.stock,
+          item_image_url: updatedProduct.imageUrl,
+        }),
+      });
+  
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Error al eliminar el cliente");
+        console.error("Error del servidor:", errorData);
+        throw new Error(errorData.message || "Error desconocido en el servidor");
       }
-
-      setClients((prev) =>
-        prev.filter((client) => client.id !== clientToDelete)
+  
+      const data = await response.json();
+      console.log("Respuesta del servidor:", data);
+  
+      setProducts((prev) =>
+        prev.map((product) =>
+          product.id === data.item_id
+            ? {
+                ...product,
+                name: data.item_name,
+                description: data.item_description,
+                price: data.item_price,
+                discount: data.item_discount,
+                stock: data.item_stock,
+                imageUrl: data.item_image_url,
+              }
+            : product
+        )
       );
-      setFilteredClients((prev) =>
-        prev.filter((client) => client.id !== clientToDelete)
-      );
-      toast.success("Cliente eliminado con éxito.");
+      toast.success("Producto actualizado con éxito");
     } catch (error) {
-      if (error instanceof Error) {
-        console.error("Error al eliminar cliente:", error.message);
-        toast.error(error.message || "Error al eliminar cliente. Inténtelo más tarde.");
-      }
-    } finally {
-      setShowConfirm(false);
-      setClientToDelete(null);
+      console.error("Error al actualizar el producto:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Error al actualizar el producto"
+      );
     }
+  };
+  
+
+  const handleAddSave = (newProduct: NewProduct) => {
+    setProducts((prev) => [
+      ...prev,
+      {
+        ...newProduct,
+        id: crypto.randomUUID(),
+      },
+    ]);
+    toast.success("Producto agregado con éxito");
   };
 
   if (loading) {
-    return <p className="text-center text-yellow-400">Cargando clientes...</p>;
+    return <p className="text-center text-yellow-400">Cargando productos...</p>;
   }
 
   return (
-    <div className="p-6 bg-black min-h-screen text-white">
-      <ToastContainer />
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-yellow-400">Gestión de Clientes</h1>
-        <Link
-          href="/admin/dashboard"
-          className="bg-yellow-400 text-black px-4 py-2 rounded hover:bg-yellow-500"
-        >
-          Volver al Dashboard
-        </Link>
-      </div>
-
-      <div className="flex items-center justify-between mb-6">
-        <input
-          type="text"
-          className="p-2 rounded border w-full max-w-sm"
-          placeholder="Buscar cliente por nombre o apellido"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+    <div className="p-6 bg-black min-h-screen">
+      <ToastContainer position="top-right" autoClose={3000} />
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold text-yellow-400">
+          Gestión de Productos
+        </h1>
         <Dialog>
           <DialogTrigger asChild>
-            <Button className="ml-4 bg-yellow-400 text-black hover:bg-yellow-500">
-              Añadir Cliente
+            <Button className="bg-yellow-400 text-black hover:bg-yellow-500">
+              Agregar Producto
             </Button>
           </DialogTrigger>
-          <DialogContent className="bg-white p-6 rounded-lg shadow-lg max-w-md mx-auto">
-            <DialogTitle className="text-black text-lg font-bold mb-4">
-              Registrar Nuevo Cliente
+          <DialogContent>
+            <DialogTitle className="text-yellow-400 text-center">
+              Agregar Producto
             </DialogTitle>
-            <AddClientDialog
-              onSave={(newClient: Omit<Client, "id">) => {
-                const clientWithId: Client = {
-                  ...newClient,
-                  id: Math.random().toString(36).substr(2, 9),
-                };
-
-                setClients((prev) => [...prev, clientWithId]);
-                setFilteredClients((prev) => [...prev, clientWithId]);
-                toast.success("Cliente agregado con éxito.");
-              }}
-            />
+            
           </DialogContent>
         </Dialog>
       </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+        {products.map((product) => (
+          <div
+            key={product.id}
+            className="bg-white rounded-lg shadow-lg p-4 flex flex-col items-center text-center"
+          >
+            <Image
+              src={product.imageUrl || "/placeholder-image.png"}
+              alt={product.name || "Producto"}
+              width={96}
+              height={96}
+              className="h-24 w-24 object-contain mb-4"
+            />
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="text-yellow-400">Nombre</TableHead>
-            <TableHead className="text-yellow-400">Apellidos</TableHead>
-            <TableHead className="text-yellow-400">Plan</TableHead>
-            <TableHead className="text-yellow-400">Fecha de Inicio</TableHead>
-            <TableHead className="text-yellow-400">Fecha de Fin</TableHead>
-            <TableHead className="text-yellow-400">Acción</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {filteredClients.length > 0 ? (
-            filteredClients.map((client) => (
-              <TableRow key={client.id}>
-                <TableCell>{client.firstName}</TableCell>
-                <TableCell>{client.lastName}</TableCell>
-                <TableCell>{client.plan}</TableCell>
-                <TableCell>{client.membershipStart}</TableCell>
-                <TableCell>{client.membershipEnd}</TableCell>
-                <TableCell>
+            <h2 className="text-lg font-bold text-black">
+              {product.name || "Sin nombre"}
+            </h2>
+            <p className="text-sm text-gray-500">
+              {product.description || "Sin descripción"}
+            </p>
+            <p className="text-yellow-400 font-bold">
+              S/. {(product.price ?? 0).toFixed(2)}
+            </p>
+            {product.discount > 0 && (
+              <p className="text-sm text-green-500">
+                Descuento: {product.discount}%
+              </p>
+            )}
+            <p className="text-sm text-gray-500">
+              Stock: {product.stock ?? "Sin stock"}
+            </p>
+            <div className="flex gap-4 mt-4">
+              <Dialog>
+                <DialogTrigger asChild>
                   <Button
-                    className="bg-red-500 text-white hover:bg-red-600"
-                    onClick={() => handleDeleteClick(client.id)}
+                    className="bg-yellow-400 text-black hover:bg-yellow-500"
+                    onClick={() => setSelectedProduct(product)}
                   >
-                    Eliminar
+                    Editar
                   </Button>
-                </TableCell>
-              </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={6} className="text-center">
-                No hay clientes disponibles
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-
-      {showConfirm && (
-        <ConfirmDialog
-          message="¿Estás seguro de que deseas eliminar este cliente?"
-          onConfirm={confirmDelete}
-          onCancel={() => setShowConfirm(false)}
-        />
-      )}
+                </DialogTrigger>
+                {selectedProduct?.id === product.id && (
+                  <DialogContent>
+                    <DialogTitle className="text-yellow-400 text-center">
+                      Editar Producto
+                    </DialogTitle>
+                    <EditProductDialog
+                      product={selectedProduct}
+                      onSave={handleEditSave}
+                      onClose={() => setSelectedProduct(null)}
+                    />
+                  </DialogContent>
+                )}
+              </Dialog>
+              <Button
+                onClick={() => handleDelete(product.id)}
+                className="bg-red-500 text-white hover:bg-red-600"
+              >
+                Eliminar
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

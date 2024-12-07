@@ -1,14 +1,21 @@
-// components/AddProductDialog.tsx
-
 import { useState } from "react";
-import { ToastContainer, toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { Button } from "@/components/ui/button";
+
+type NewProduct = {
+  name: string;
+  description: string;
+  price: number;
+  discount?: number;
+  stock: number;
+  imageUrl: string;
+};
 
 function AddProductDialog({
   onSave,
 }: {
-  onSave: (product: { name: string; price: number; description: string; stock: number; discount?: number; imageUrl: string }) => void; // Definición clara del tipo
+  onSave: (product: NewProduct) => void;
 }) {
   const [name, setName] = useState<string>("");
   const [description, setDescription] = useState<string>("");
