@@ -20,11 +20,11 @@ const VerifyEmail = () => {
       try {
         const response = await fetch(`/api/auth/verify-email?token=${token}`);
         const data = await response.json();
-
         if (response.ok) {
-          setMessage("Correo verificado exitosamente.");
-        } else {
-          setMessage(data.message);
+          setMessage("Correo verificado exitosamente. Redirigiendo...");
+          setTimeout(() => {
+            router.push("/auth/login"); // Redirigir a la página de inicio de sesión
+          }, 3000);
         }
       } catch (error) {
         setMessage("Error al verificar el correo.");
