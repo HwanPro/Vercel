@@ -1,4 +1,4 @@
-// src/lib/utils.ts
+// /lib/utils.ts
 export function cn(...classes: string[]) {
     return classes.filter(Boolean).join(" ");
   }
