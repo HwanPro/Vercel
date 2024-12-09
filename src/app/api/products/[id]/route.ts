@@ -5,86 +5,32 @@ import prisma from "@/libs/prisma";
 import { promises as fs } from "fs";
 import path from "path";
 
-export async function GET(
+// Tipo para el contexto que incluye `params`
+type ContextParams = {
+  params: Promise<{
+    id: string;
+  }>;
+};
+
+// Eliminar producto por ID
+export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: ContextParams
 ) {
   try {
-    const product = await prisma.inventoryItem.findUnique({
-      where: { item_id: params.id },
-    });
+    // Esperar a que `params` esté disponible
+    const { id } = await context.params;
 
-    if (!product) {
+    if (!id) {
       return NextResponse.json(
-        { error: "Producto no encontrado" },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json(product);
-  } catch (error) {
-    console.error("Error al obtener el producto:", error);
-    return NextResponse.json(
-      { error: "Error al obtener el producto" },
-      { status: 500 }
-    );
-  }
-}
-
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const body = await req.json();
-    const {
-      item_name,
-      item_description,
-      item_price,
-      item_discount,
-      item_stock,
-    } = body;
-
-    if (
-      !item_name ||
-      !item_description ||
-      isNaN(item_price) ||
-      isNaN(item_stock)
-    ) {
-      return NextResponse.json(
-        { error: "Campos incompletos" },
+        { error: "ID del producto no proporcionado" },
         { status: 400 }
       );
     }
 
-    const updatedProduct = await prisma.inventoryItem.update({
-      where: { item_id: params.id },
-      data: {
-        item_name,
-        item_description,
-        item_price,
-        item_discount: item_discount || 0,
-        item_stock,
-      },
-    });
-
-    return NextResponse.json(updatedProduct);
-  } catch (error) {
-    console.error("Error al actualizar el producto:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
-  }
-}
-
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
+    // Verificar si el producto existe
     const product = await prisma.inventoryItem.findUnique({
-      where: { item_id: params.id },
+      where: { item_id: id },
     });
 
     if (!product) {
@@ -106,7 +52,7 @@ export async function DELETE(
 
     // Eliminar el producto de la base de datos
     await prisma.inventoryItem.delete({
-      where: { item_id: params.id },
+      where: { item_id: id },
     });
 
     return NextResponse.json(
@@ -117,6 +63,63 @@ export async function DELETE(
     console.error("Error al eliminar el producto:", error);
     return NextResponse.json(
       { error: "Error interno del servidor al eliminar el producto" },
+      { status: 500 }
+    );
+  }
+}
+
+// Actualizar un producto por ID
+export async function PUT(
+  req: NextRequest,
+  context: ContextParams
+) {
+  try {
+    // Esperar a que `params` esté disponible
+    const { id } = await context.params;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "ID del producto no proporcionado" },
+        { status: 400 }
+      );
+    }
+
+    const data = await req.json();
+    const { item_name, item_description, item_price, item_discount, item_stock } = data;
+
+    // Validar los datos
+    if (
+      !item_name ||
+      !item_description ||
+      isNaN(parseFloat(item_price)) ||
+      isNaN(parseInt(item_stock))
+    ) {
+      return NextResponse.json(
+        { error: "Todos los campos son requeridos y deben ser válidos" },
+        { status: 400 }
+      );
+    }
+
+    // Actualizar el producto en la base de datos
+    const updatedProduct = await prisma.inventoryItem.update({
+      where: { item_id: id },
+      data: {
+        item_name,
+        item_description,
+        item_price: parseFloat(item_price),
+        item_discount: parseFloat(item_discount) || 0,
+        item_stock: parseInt(item_stock),
+      },
+    });
+
+    return NextResponse.json(
+      { message: "Producto actualizado correctamente", product: updatedProduct },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Error al actualizar el producto:", error);
+    return NextResponse.json(
+      { error: "Error interno del servidor al actualizar el producto" },
       { status: 500 }
     );
   }

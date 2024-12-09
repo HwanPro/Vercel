@@ -1,21 +1,21 @@
 import { useState } from "react";
-import { toast, ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 import { Button } from "@/components/ui/button";
 
 type NewProduct = {
   name: string;
   description: string;
   price: number;
-  discount?: number;
+  discount: number;
   stock: number;
   imageUrl: string;
 };
 
 function AddProductDialog({
   onSave,
+  onClose,
 }: {
   onSave: (product: NewProduct) => void;
+  onClose: () => void;
 }) {
   const [name, setName] = useState<string>("");
   const [description, setDescription] = useState<string>("");
@@ -26,7 +26,7 @@ function AddProductDialog({
 
   const handleAddProduct = async () => {
     if (!name || !description || !price || !stock || !image) {
-      toast.error("Por favor, completa todos los campos requeridos.");
+      console.error("Todos los campos son obligatorios.");
       return;
     }
 
@@ -41,7 +41,7 @@ function AddProductDialog({
     try {
       const res = await fetch("/api/products", {
         method: "POST",
-        body: formData,
+        body: formData, // No headers for FormData
       });
 
       if (res.ok) {
@@ -52,28 +52,30 @@ function AddProductDialog({
           description: data.product.item_description,
           stock: data.product.item_stock,
           discount: data.product.item_discount,
-          imageUrl: data.product.imageUrl,
+          imageUrl: data.product.item_image_url,
         });
-        toast.success("Producto agregado exitosamente!");
-        setName("");
-        setDescription("");
-        setPrice("");
-        setDiscount("");
-        setStock("");
-        setImage(null);
+        resetForm();
+        onClose();
       } else {
-        const errorData = await res.json();
-        toast.error(errorData.error || "Error al agregar el producto");
+        const errorText = await res.text();
+        console.error("Error al crear el producto:", errorText);
       }
     } catch (error) {
       console.error("Error en el servidor:", error);
-      toast.error("Error en el servidor");
     }
+  };
+
+  const resetForm = () => {
+    setName("");
+    setDescription("");
+    setPrice("");
+    setDiscount("");
+    setStock("");
+    setImage(null);
   };
 
   return (
     <div>
-      <ToastContainer />
       <div className="p-6 bg-white rounded-lg shadow-lg w-full max-w-md mx-auto">
         <input
           type="text"

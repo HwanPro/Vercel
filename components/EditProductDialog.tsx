@@ -20,14 +20,15 @@ function EditProductDialog({
   onSave: (updatedProduct: Product) => void;
   onClose: () => void;
 }) {
-  const [name, setName] = useState(product.name);
-  const [description, setDescription] = useState(product.description);
-  const [price, setPrice] = useState(product.price.toString());
-  const [discount, setDiscount] = useState(product.discount.toString());
-  const [stock, setStock] = useState(product.stock.toString());
+  const [name, setName] = useState<string>(product.name);
+  const [description, setDescription] = useState<string>(product.description);
+  const [price, setPrice] = useState<string>(product.price.toString());
+  const [discount, setDiscount] = useState<string>(
+    product.discount.toString()
+  );
+  const [stock, setStock] = useState<string>(product.stock.toString());
   const [error, setError] = useState<string | null>(null);
 
-  // Actualiza los estados cuando el `product` cambie
   useEffect(() => {
     setName(product.name);
     setDescription(product.description);
@@ -36,15 +37,16 @@ function EditProductDialog({
     setStock(product.stock.toString());
   }, [product]);
 
-  const handleSave = () => {
-    // Validación de datos
-    if (!name.trim() || !description.trim()) {
+  const handleSave = async () => {
+    setError(null);
+
+    if (!name || !description) {
       setError("El nombre y la descripción son obligatorios.");
       return;
     }
 
     const parsedPrice = parseFloat(price);
-    const parsedDiscount = parseFloat(discount);
+    const parsedDiscount = parseFloat(discount) || 0;
     const parsedStock = parseInt(stock, 10);
 
     if (isNaN(parsedPrice) || parsedPrice < 0) {
@@ -62,8 +64,6 @@ function EditProductDialog({
       return;
     }
 
-    // Si pasa las validaciones, limpia el error y guarda
-    setError(null);
     const updatedProduct: Product = {
       ...product,
       name: name.trim(),
@@ -83,53 +83,46 @@ function EditProductDialog({
         <h2 className="text-lg font-bold text-center text-black mb-4">
           Editar Producto
         </h2>
-        {error && (
-          <p className="text-red-500 text-sm mb-4 text-center">{error}</p>
-        )}
+        {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Nombre del producto"
           className="w-full p-2 mb-4 border rounded bg-white text-black"
         />
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Descripción del producto"
           className="w-full p-2 mb-4 border rounded bg-white text-black"
         />
         <input
           type="number"
           value={price}
           onChange={(e) => setPrice(e.target.value)}
-          placeholder="Precio"
           className="w-full p-2 mb-4 border rounded bg-white text-black"
         />
         <input
           type="number"
           value={discount}
           onChange={(e) => setDiscount(e.target.value)}
-          placeholder="Descuento (%)"
           className="w-full p-2 mb-4 border rounded bg-white text-black"
         />
         <input
           type="number"
           value={stock}
           onChange={(e) => setStock(e.target.value)}
-          placeholder="Stock"
           className="w-full p-2 mb-4 border rounded bg-white text-black"
         />
         <div className="flex gap-4">
           <Button
-            onClick={handleSave}
             className="bg-yellow-400 text-black py-2 rounded hover:bg-yellow-500 w-full"
+            onClick={handleSave}
           >
             Guardar Cambios
           </Button>
           <Button
-            onClick={onClose}
             className="bg-red-500 text-white py-2 rounded hover:bg-red-600 w-full"
+            onClick={onClose}
           >
             Cancelar
           </Button>

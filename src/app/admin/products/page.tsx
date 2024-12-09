@@ -34,34 +34,88 @@ export default function ProductList() {
   const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
+  const fetchProducts = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/products");
+      if (!response.ok) throw new Error("Error al obtener los productos");
+
+      const data = await response.json();
+      setProducts(
+        data.map((product: any) => ({
+          id: product.item_id,
+          name: product.item_name,
+          description: product.item_description,
+          price: product.item_price,
+          discount: product.item_discount || 0,
+          stock: product.item_stock,
+          imageUrl: product.item_image_url || "/placeholder-image.png",
+        }))
+      );
+    } catch (error) {
+      console.error("Error al obtener los productos:", error);
+      toast.error("Error al obtener los productos", {
+        position: "top-center",
+        style: { backgroundColor: "#FF0000", color: "#FFF" },
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const response = await fetch("/api/products");
-        if (!response.ok) throw new Error("Error al obtener los productos");
-
-        const data = await response.json();
-        setProducts(
-          data.map((product: any) => ({
-            id: product.item_id,
-            name: product.item_name,
-            description: product.item_description,
-            price: product.item_price,
-            discount: product.item_discount || 0,
-            stock: product.item_stock,
-            imageUrl: product.item_image_url || "/placeholder-image.png",
-          }))
-        );
-      } catch (error) {
-        console.error("Error al obtener los productos:", error);
-        toast.error("Error al obtener los productos");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchProducts();
   }, []);
+
+  // **Corrección Aquí: Eliminamos la solicitud POST**
+  const handleAddSave = async (newProduct: NewProduct) => {
+    try {
+      // Mostrar mensaje de éxito
+      toast.success("Producto agregado con éxito", {
+        position: "top-right",
+        style: { backgroundColor: "#00C853", color: "#FFF" },
+      });
+      // Actualizar la lista de productos
+      await fetchProducts();
+    } catch (error) {
+      console.error("Error al agregar el producto:", error);
+      toast.error("Error al agregar el producto", {
+        position: "top-center",
+        style: { backgroundColor: "#FF0000", color: "#FFF" },
+      });
+    }
+  };
+
+  const handleEditSave = async (updatedProduct: Product) => {
+    try {
+      const response = await fetch(`/api/products/${updatedProduct.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          item_name: updatedProduct.name,
+          item_description: updatedProduct.description,
+          item_price: updatedProduct.price,
+          item_discount: updatedProduct.discount || 0,
+          item_stock: updatedProduct.stock,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Error al actualizar el producto");
+
+      toast.success("Producto actualizado con éxito", {
+        position: "top-right",
+        style: { backgroundColor: "#00C853", color: "#FFF" },
+      });
+      await fetchProducts();
+      setSelectedProduct(null);
+    } catch (error) {
+      console.error("Error al actualizar el producto:", error);
+      toast.error("Error al actualizar el producto", {
+        position: "top-center",
+        style: { backgroundColor: "#FF0000", color: "#FFF" },
+      });
+    }
+  };
 
   const handleDelete = async (id: string) => {
     const confirm = window.confirm(
@@ -73,78 +127,18 @@ export default function ProductList() {
       const response = await fetch(`/api/products/${id}`, { method: "DELETE" });
       if (!response.ok) throw new Error("Error al eliminar el producto");
 
-      setProducts((prev) => prev.filter((product) => product.id !== id));
-      toast.success("Producto eliminado con éxito");
+      toast.success("Producto eliminado con éxito", {
+        position: "top-right",
+        style: { backgroundColor: "#00C853", color: "#FFF" },
+      });
+      await fetchProducts();
     } catch (error) {
       console.error("Error al eliminar el producto:", error);
-      toast.error("Error al eliminar el producto");
-    }
-  };
-
-  const handleEditSave = async (updatedProduct: Product) => {
-    try {
-      console.log("Datos enviados al servidor:", updatedProduct);
-
-      const response = await fetch(`/api/products/${updatedProduct.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          item_id: updatedProduct.id,
-          item_name: updatedProduct.name,
-          item_description: updatedProduct.description,
-          item_price: updatedProduct.price,
-          item_discount: updatedProduct.discount,
-          item_stock: updatedProduct.stock,
-          item_image_url: updatedProduct.imageUrl,
-        }),
+      toast.error("Error al eliminar el producto", {
+        position: "top-center",
+        style: { backgroundColor: "#FF0000", color: "#FFF" },
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Error del servidor:", errorData);
-        throw new Error(
-          errorData.message || "Error desconocido en el servidor"
-        );
-      }
-
-      const data = await response.json();
-      console.log("Respuesta del servidor:", data);
-
-      setProducts((prev) =>
-        prev.map((product) =>
-          product.id === data.item_id
-            ? {
-                ...product,
-                name: data.item_name,
-                description: data.item_description,
-                price: data.item_price,
-                discount: data.item_discount,
-                stock: data.item_stock,
-                imageUrl: data.item_image_url,
-              }
-            : product
-        )
-      );
-      toast.success("Producto actualizado con éxito");
-    } catch (error) {
-      console.error("Error al actualizar el producto:", error);
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Error al actualizar el producto"
-      );
     }
-  };
-
-  const handleAddSave = (newProduct: NewProduct) => {
-    setProducts((prev) => [
-      ...prev,
-      {
-        ...newProduct,
-        id: crypto.randomUUID(),
-      },
-    ]);
-    toast.success("Producto agregado con éxito");
   };
 
   if (loading) {
@@ -169,6 +163,10 @@ export default function ProductList() {
               <DialogTitle className="text-yellow-400 text-center">
                 Agregar Producto
               </DialogTitle>
+              <AddProductDialog
+                onSave={handleAddSave} // Ahora solo actualiza la lista
+                onClose={() => console.log("Modal cerrado")}
+              />
             </DialogContent>
           </Dialog>
 
@@ -180,7 +178,7 @@ export default function ProductList() {
           </Link>
         </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-6">
         {products.map((product) => (
           <div
             key={product.id}
@@ -203,15 +201,13 @@ export default function ProductList() {
             <p className="text-yellow-400 font-bold">
               S/. {(product.price ?? 0).toFixed(2)}
             </p>
-            {product.discount > 0 && (
-              <p className="text-sm text-green-500">
-                Descuento: {product.discount}%
-              </p>
-            )}
+            <p className="text-sm text-green-500">
+              {product.discount > 0 ? `Descuento: ${product.discount}%` : " "}
+            </p>
             <p className="text-sm text-gray-500">
               Stock: {product.stock ?? "Sin stock"}
             </p>
-            <div className="flex gap-4 mt-4">
+            <div className="flex gap-4 mt-auto">
               <Dialog>
                 <DialogTrigger asChild>
                   <Button

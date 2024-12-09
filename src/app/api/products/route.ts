@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from "uuid";
 import { promises as fs } from "fs";
 import path from "path";
 
+// Obtener todos los productos
 export async function GET() {
   try {
     const products = await prisma.inventoryItem.findMany();
@@ -19,26 +20,28 @@ export async function GET() {
   }
 }
 
+// Crear un nuevo producto
 export async function POST(req: NextRequest) {
   try {
-    const data = await req.formData();
+    const contentType = req.headers.get("content-type");
+    if (!contentType || !contentType.includes("multipart/form-data")) {
+      return NextResponse.json(
+        { error: "Content-Type debe ser multipart/form-data" },
+        { status: 400 }
+      );
+    }
 
+    const data = await req.formData();
     const item_name = data.get("item_name") as string;
     const item_description = data.get("item_description") as string;
     const item_price = parseFloat(data.get("item_price") as string);
     const item_discount = parseFloat(data.get("item_discount") as string) || 0;
-    const item_stock = parseInt(data.get("item_stock") as string);
+    const item_stock = parseInt(data.get("item_stock") as string, 10);
     const file = data.get("file") as File;
 
-    if (
-      !item_name ||
-      !item_description ||
-      isNaN(item_price) ||
-      isNaN(item_stock) ||
-      !file
-    ) {
+    if (!item_name || !item_description || isNaN(item_price) || isNaN(item_stock) || !file) {
       return NextResponse.json(
-        { error: "Todos los campos son obligatorios" },
+        { error: "Todos los campos son requeridos" },
         { status: 400 }
       );
     }
@@ -59,6 +62,7 @@ export async function POST(req: NextRequest) {
     // Crear el producto en la base de datos
     const newProduct = await prisma.inventoryItem.create({
       data: {
+        item_id: uuidv4(),
         item_name,
         item_description,
         item_price,
