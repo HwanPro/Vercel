@@ -39,7 +39,7 @@ const VerifyEmail = () => {
     };
 
     verifyEmail();
-  }, []);
+  }, [router]); // Incluye 'router' en el array de dependencias
 
   const renderContent = () => {
     switch (status) {
@@ -64,7 +64,7 @@ const VerifyEmail = () => {
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                d="M9 12l2 2 4-4m-7 4a9 9 0 1018 0 9 9 0 00-18 0z"
+                d="M9 12l2 2 4-4m-7 4a9 9 0 1018 0 9 9 0 010-20z"
               />
             </svg>
             <p className="mt-4 text-green-600">{message}</p>
