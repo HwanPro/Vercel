@@ -1,3 +1,7 @@
+// types/next-connect.d.ts
+import { NextApiRequest } from 'next';
+import multer from 'multer';
+
 import NextAuth from "next-auth";
 
 declare module "next-auth" {
@@ -22,5 +26,12 @@ declare module "next-auth" {
     id: string;
     role: string;
     emailVerified: boolean;
+  }
+}
+
+declare module 'next' {
+  interface NextApiRequest {
+    file?: multer.File;
+    files?: multer.File[];
   }
 }
