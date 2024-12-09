@@ -51,8 +51,8 @@
     "@types/node": "^22.10.1",
     "@types/nodemailer": "^6.4.17",
     "@types/qrcode": "^1.5.5",
-    "@types/react": "^19.0.1",
-    "@types/react-dom": "^19.0.1",
+    "@types/react": "18.0.28",
+    "@types/react-dom": "18.0.11",
     "@types/react-phone-number-input": "^3.0.17",
     "@types/speakeasy": "^2.0.10",
     "@types/uuid": "^10.0.0",
@@ -73,6 +73,10 @@
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.17.0"
   },
-"include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "types/**/*.d.ts"],
-"exclude": ["node_modules"]
+  "overrides": {
+    "@types/react": "18.0.28",
+    "@types/react-dom": "18.0.11"
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "types/**/*.d.ts"],
+  "exclude": ["node_modules"]
 }

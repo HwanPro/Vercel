@@ -1,7 +1,8 @@
 // types/next-connect.d.ts
 import { NextApiRequest } from 'next';
-import multer from 'multer';
+import { Express } from 'express';
 
+// Extender las interfaces de NextAuth si es necesario
 import NextAuth from "next-auth";
 
 declare module "next-auth" {
@@ -31,7 +32,7 @@ declare module "next-auth" {
 
 declare module 'next' {
   interface NextApiRequest {
-    file?: multer.File;
-    files?: multer.File[];
+    file?: Express.Multer.File;
+    files?: Express.Multer.File[];
   }
 }
