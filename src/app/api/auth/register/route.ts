@@ -1,5 +1,3 @@
-//app/api/auth/register/route.ts
-
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcrypt';
 import prisma from '@/libs/prisma';
@@ -8,7 +6,7 @@ import { generateVerificationToken } from '@/utils/auth';
 
 export async function POST(req: Request) {
   try {
-    const { username, email, password } = await req.json();
+    const { username, email, password, plan, startDate, endDate } = await req.json();
 
     // Validar campos obligatorios
     if (!username || !email || !password) {
@@ -41,20 +39,19 @@ export async function POST(req: Request) {
     });
 
     // Crear el perfil del cliente
-    const profileEndDate = new Date();
-    profileEndDate.setFullYear(profileEndDate.getFullYear() + 1); // Lógica para plan básico
     await prisma.clientProfile.create({
       data: {
         profile_first_name: username,
         profile_last_name: '',
-        profile_plan: 'Básico',
-        profile_start_date: new Date(),
-        profile_end_date: profileEndDate,
+        profile_plan: plan || undefined,
+        ...(startDate && { profile_start_date: new Date(startDate) }), // Solo agrega si existe
+        ...(endDate && { profile_end_date: new Date(endDate) }), // Solo agrega si existe
         profile_phone: '',
         profile_emergency_phone: '',
         user_id: user.id,
       },
     });
+       
 
     // Generar token de verificación
     const token = generateVerificationToken();

@@ -34,72 +34,78 @@ export default function AdminDashboard() {
   });
   const [products, setProducts] = useState<any[]>([]);
   const [recentClients, setRecentClients] = useState<any[]>([]);
+  const fetchRecentClients = async () => {
+    try {
+      const response = await fetch("/api/clients", { credentials: "include" });
+      if (!response.ok) throw new Error("Error al obtener los clientes recientes");
+  
+      const data = await response.json();
+  
+      // Filtrar usuarios que no sean administradores
+      const nonAdminClients = data.filter(
+        (client: any) => client.user.role !== "admin"
+      );
+  
+      // Procesar clientes restantes
+      const processedClients = nonAdminClients.map((client: any) => {
+        const today = new Date();
+        const membershipStart = client.profile_start_date
+          ? new Date(client.profile_start_date)
+          : null;
+        const membershipEnd = client.profile_end_date
+          ? new Date(client.profile_end_date)
+          : null;
+  
+        let daysRemaining: number | string = "N/A";
+        if (membershipEnd && !isNaN(membershipEnd.getTime())) {
+          const timeDiff = membershipEnd.getTime() - today.getTime();
+          daysRemaining =
+            timeDiff > 0 ? Math.ceil(timeDiff / (1000 * 3600 * 24)) : "Finalizado";
+        }
+  
+        return {
+          id: client.profile_id,
+          name: client.profile_first_name || "Sin nombre",
+          lastName: client.profile_last_name || "Sin apellido",
+          plan: client.profile_plan || "Sin plan",
+          membershipStartFormatted: membershipStart
+            ? membershipStart.toLocaleDateString("es-ES")
+            : "N/A",
+          membershipEndFormatted: membershipEnd
+            ? membershipEnd.toLocaleDateString("es-ES")
+            : "N/A",
+          daysRemaining,
+          email: client.user.email,
+        };
+      });
+  
+      setRecentClients(processedClients);
+    } catch (error) {
+      console.error("Error fetching recent clients:", error);
+      toast.error("Error al obtener los clientes recientes");
+    }
+  };
+  
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-    
-    };
-
-    const fetchProducts = async () => {
-      try {
-        const response = await fetch("/api/products", {
-          credentials: "include",
-        });
-        if (!response.ok) {
-          throw new Error("Error al obtener los productos");
-        }
-        const data = await response.json();
-        setProducts(data);
-      } catch (error) {
-        console.error("Error fetching products:", error);
-        toast.error("Error al obtener los productos");
-      }
-    };
-
-    const fetchRecentClients = async () => {
-      try {
-        const response = await fetch("/api/clients", {
-          credentials: "include",
-        });
-        if (!response.ok) {
-          throw new Error("Error al obtener los clientes recientes");
-        }
-        const data = await response.json();
-
-        // Procesar datos de clientes y calcular días restantes
-        const processedClients = data.map((client: any) => {
-          const membershipStart = new Date(client.profile_start_date);
-          const membershipEnd = new Date(client.profile_end_date);
-          const today = new Date();
-          const timeDiff = membershipEnd.getTime() - today.getTime();
-          const daysRemaining = Math.ceil(timeDiff / (1000 * 3600 * 24));
-
-          return {
-            id: client.profile_id,
-            name: client.profile_first_name,
-            lastName: client.profile_last_name,
-            plan: client.profile_plan,
-            membershipStartFormatted: membershipStart.toLocaleDateString("es-ES"),
-            membershipEndFormatted: membershipEnd.toLocaleDateString("es-ES"),
-            daysRemaining,
-            email: client.user.email,
-          };
-        });
-
-        setRecentClients(processedClients);
-
-        // Calcular notificaciones
-        calculateNotifications(processedClients);
-      } catch (error) {
-        console.error("Error fetching recent clients:", error);
-        toast.error("Error al obtener los clientes recientes");
-      }
-    };
-
-    fetchDashboardData();
     fetchProducts();
     fetchRecentClients();
   }, []);
+  
+  const fetchProducts = async () => {
+    try {
+      const response = await fetch("/api/products", { credentials: "include" });
+      if (!response.ok) {
+        throw new Error("Error al obtener los productos");
+      }
+      const data = await response.json();
+      setProducts(data); // Actualiza el estado con los productos
+    } catch (error) {
+      console.error("Error al obtener los productos:", error);
+      toast.error("Error al obtener los productos");
+    }
+  };
+    
 
   // Función para manejar el cierre de sesión
   const handleSignOut = async () => {

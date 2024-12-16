@@ -18,11 +18,16 @@ const clientUpdateSchema = z.object({
 });
 
 // GET: Obtener cliente por ID
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
-    if (!params.id) {
+    if (!params?.id) {
       return NextResponse.json(
-        { error: "El ID del cliente es inválido o no está presente" },
+        {
+          error: "ID del cliente no está presente en los parámetros de la URL",
+        },
         { status: 400 }
       );
     }
@@ -48,8 +53,12 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
+
 // PUT: Actualizar cliente por ID
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
     if (!params.id) {
       return NextResponse.json(
@@ -96,7 +105,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 }
 
 // DELETE: Eliminar cliente por ID
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
     if (!params.id) {
       return NextResponse.json(

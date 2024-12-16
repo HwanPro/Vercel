@@ -8,8 +8,11 @@ export async function GET(req: NextRequest) {
   try {
     const token = (await getToken({ req })) as JWT;
 
-    if (!token || !token.id) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    if (!token?.id) {
+      return NextResponse.json(
+        { error: "No autorizado, token inválido o expirado" },
+        { status: 401 }
+      );
     }
 
     const userId: string = token.id as string;

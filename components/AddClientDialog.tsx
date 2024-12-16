@@ -1,6 +1,6 @@
+import { useState } from "react";
 import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
-import { useState } from "react";
 import { Button } from "./ui/button";
 
 interface Client {
@@ -12,10 +12,8 @@ interface Client {
   membershipEnd: string;
   phone: string;
   emergencyPhone: string;
-  email: string;
   hasPaid: boolean;
 }
-
 
 export default function AddClientDialog({
   onSave,
@@ -31,9 +29,12 @@ export default function AddClientDialog({
   const [emergencyPhone, setEmergencyPhone] = useState<string | undefined>(
     undefined
   );
-  const [email, setEmail] = useState("");
   const [hasPaid, setHasPaid] = useState<boolean | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+
+  // Declaración de paymentMethod
+  const [paymentMethod, setPaymentMethod] = useState<string>("Efectivo");
+  const qrImageURL = "https://example.com/qr"; // URL del QR de ejemplo
 
   const handleSave = () => {
     if (
@@ -43,15 +44,9 @@ export default function AddClientDialog({
       !membershipEnd ||
       !phone ||
       !emergencyPhone ||
-      !email ||
-      hasPaid === null
+      hasPaid === undefined
     ) {
       setErrorMessage("Por favor, complete todos los campos.");
-      return;
-    }
-
-    if (!isValidPhoneNumber(phone) || !isValidPhoneNumber(emergencyPhone)) {
-      setErrorMessage("Por favor, ingrese números de teléfono válidos.");
       return;
     }
 
@@ -64,22 +59,20 @@ export default function AddClientDialog({
       );
       return;
     }
+
     const newClient: Omit<Client, "id"> = {
-      firstName: name,
-      lastName: lastName,
+      firstName: name.trim(),
+      lastName: lastName.trim(),
       plan: plan,
       membershipStart: membershipStart,
       membershipEnd: membershipEnd,
-      phone: phone,
-      emergencyPhone: emergencyPhone,
-      email: email,
+      phone: phone!,
+      emergencyPhone: emergencyPhone!,
       hasPaid: hasPaid!,
     };
-    
 
     try {
       onSave(newClient);
-
       setName("");
       setLastName("");
       setPlan("Básico");
@@ -87,7 +80,6 @@ export default function AddClientDialog({
       setMembershipEnd("");
       setPhone(undefined);
       setEmergencyPhone(undefined);
-      setEmail("");
       setHasPaid(null);
       setErrorMessage("");
     } catch (error) {
@@ -111,13 +103,7 @@ export default function AddClientDialog({
         value={lastName}
         onChange={(e) => setLastName(e.target.value)}
       />
-      <input
-        type="email"
-        className="w-full p-2 mb-4 border rounded bg-white text-black placeholder-gray-500"
-        placeholder="Correo electrónico"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-      />
+      
       <select
         className="w-full p-2 mb-4 border rounded bg-white text-black"
         value={plan}
@@ -128,26 +114,27 @@ export default function AddClientDialog({
         <option value="Promoción Premium">Promoción Premium</option>
         <option value="Promoción VIP">Promoción VIP</option>
       </select>
-      <label className="block text-sm font-bold mb-1 text-black">
-        ¿Ha pagado?
-      </label>
+
       <select
-        className="w-full p-2 mb-4 border rounded bg-white text-black"
-        value={hasPaid !== null ? (hasPaid ? "Sí" : "No") : ""}
-        onChange={(e) => {
-          setHasPaid(e.target.value === "Sí");
-        }}
+        value={paymentMethod}
+        onChange={(e) => setPaymentMethod(e.target.value)}
+        className="w-full p-2 mb-4 border rounded"
       >
-        <option value="">Seleccione una opción</option>
-        <option value="Sí">Sí</option>
-        <option value="No">No</option>
+        <option value="Efectivo">Efectivo</option>
+        <option value="Tarjeta">Tarjeta</option>
+        <option value="Billetera">Billetera Virtual</option>
       </select>
+      {paymentMethod === "Tarjeta" && (
+        <Button onClick={() => alert("Ir a POS")}>Ir a POS</Button>
+      )}
+      {paymentMethod === "Billetera" && <img src={qrImageURL} alt="QR Pago" />}
+
       <label className="block text-sm font-bold mb-1 text-black">
         Fecha de inicio de membresía
       </label>
       <input
         type="date"
-        className="w-full p-2 mb-4 border rounded bg-white text-black placeholder-gray-500"
+        className="w-full p-2 mb-4 border rounded bg-white text-black"
         value={membershipStart}
         onChange={(e) => setMembershipStart(e.target.value)}
       />
@@ -156,23 +143,24 @@ export default function AddClientDialog({
       </label>
       <input
         type="date"
-        className="w-full p-2 mb-4 border rounded bg-white text-black placeholder-gray-500"
+        className="w-full p-2 mb-4 border rounded bg-white text-black"
         value={membershipEnd}
         onChange={(e) => setMembershipEnd(e.target.value)}
       />
+
       <PhoneInput
         defaultCountry="PE"
         placeholder="Número de teléfono principal"
         value={phone}
         onChange={setPhone}
-        className="w-full p-2 mb-4 border rounded bg-white text-black placeholder-gray-500"
+        className="w-full p-2 mb-4 border rounded bg-white text-black"
       />
       <PhoneInput
         defaultCountry="PE"
         placeholder="Número de emergencia"
         value={emergencyPhone}
         onChange={setEmergencyPhone}
-        className="w-full p-2 mb-4 border rounded bg-white text-black placeholder-gray-500"
+        className="w-full p-2 mb-4 border rounded bg-white text-black"
       />
       <Button
         className="bg-yellow-400 text-black hover:bg-yellow-500 w-full"

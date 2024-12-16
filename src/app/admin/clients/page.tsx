@@ -2,6 +2,7 @@
 
 "use client";
 
+import { format } from "date-fns";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -34,7 +35,6 @@ interface Client {
   membershipEnd: string;
   phone: string;
   emergencyPhone: string;
-  email: string;
   hasPaid: boolean;
 }
 
@@ -52,21 +52,36 @@ export default function ClientsPage() {
       try {
         const response = await fetch("/api/clients");
         if (!response.ok) throw new Error("Error al obtener los clientes");
+
         const data = await response.json();
 
-        // Map API fields to frontend-friendly names
-        const sanitizedData: Client[] = data.map((client: any) => ({
-          id: client.profile_id,
-          name: client.profile_first_name || "Sin nombre",
-          lastName: client.profile_last_name || "Sin apellido",
-          plan: client.profile_plan || "Sin plan",
-          membershipStart: client.profile_start_date
-            ? new Date(client.profile_start_date).toLocaleDateString()
-            : "Sin fecha",
-          membershipEnd: client.profile_end_date
-            ? new Date(client.profile_end_date).toLocaleDateString()
-            : "Sin fecha",
-        }));
+        // Filtrar usuarios que no sean administradores
+        const filteredClients = data.filter(
+          (client: any) => client.user.role !== "admin" // Asegúrate de que client.user.role exista
+        );
+
+        // Mapear y sanitizar los datos
+        const sanitizedData: Client[] = filteredClients.map((client: any) => {
+          const membershipStart = client.profile_start_date
+            ? new Date(client.profile_start_date)
+            : null;
+          const membershipEnd = client.profile_end_date
+            ? new Date(client.profile_end_date)
+            : null;
+
+          return {
+            id: client.profile_id,
+            firstName: client.profile_first_name || "Sin nombre",
+            lastName: client.profile_last_name || "Sin apellido",
+            plan: client.profile_plan || "Sin plan",
+            membershipStart: membershipStart
+              ? membershipStart.toLocaleDateString("es-ES")
+              : "Sin fecha",
+            membershipEnd: membershipEnd
+              ? membershipEnd.toLocaleDateString("es-ES")
+              : "Sin fecha",
+          };
+        });
 
         setClients(sanitizedData);
         setFilteredClients(sanitizedData);

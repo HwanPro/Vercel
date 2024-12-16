@@ -15,12 +15,14 @@
     "@radix-ui/react-dialog": "^1.1.2",
     "@radix-ui/react-icons": "^1.3.2",
     "@radix-ui/react-slot": "^1.1.0",
+    "aws-sdk": "^2.1692.0",
     "axios": "^1.7.9",
     "bcrypt": "^5.1.1",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.1",
     "country-telephone-data": "^0.6.3",
     "culqi-node": "^2.1.0",
+    "date-fns": "^4.1.0",
     "jsonwebtoken": "^9.0.2",
     "libphonenumber-js": "^1.11.15",
     "lucide-react": "^0.468.0",
@@ -38,6 +40,7 @@
     "react-phone-number-input": "^3.4.10",
     "react-toastify": "^10.0.6",
     "speakeasy": "^2.0.0",
+    "sweetalert2": "^11.15.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
