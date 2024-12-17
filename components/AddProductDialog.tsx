@@ -31,12 +31,18 @@ function AddProductDialog({
     }
 
     const formData = new FormData();
+    formData.append("file", image); // Asegúrate que "image" sea el archivo correcto
     formData.append("item_name", name);
     formData.append("item_description", description);
     formData.append("item_price", price);
     formData.append("item_discount", discount || "0");
     formData.append("item_stock", stock);
-    formData.append("file", image);
+    
+    const res = await fetch("/api/uploads", {
+      method: "POST",
+      body: formData, // Sin headers para FormData
+    });
+    
 
     try {
       const res = await fetch("/api/products", {
