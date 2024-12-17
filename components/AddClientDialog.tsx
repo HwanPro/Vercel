@@ -7,6 +7,7 @@ interface Client {
   id: string;
   firstName: string;
   lastName: string;
+  email: string;
   plan: string;
   membershipStart: string;
   membershipEnd: string;
@@ -22,6 +23,7 @@ export default function AddClientDialog({
 }) {
   const [name, setName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
   const [plan, setPlan] = useState("Básico");
   const [membershipStart, setMembershipStart] = useState("");
   const [membershipEnd, setMembershipEnd] = useState("");
@@ -30,26 +32,37 @@ export default function AddClientDialog({
     undefined
   );
   const [hasPaid, setHasPaid] = useState<boolean | null>(null);
-  const [errorMessage, setErrorMessage] = useState("");
-
-  // Declaración de paymentMethod
   const [paymentMethod, setPaymentMethod] = useState<string>("Efectivo");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+
   const qrImageURL = "https://example.com/qr"; // URL del QR de ejemplo
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    setErrorMessage("");
+
+    // Validación de campos vacíos
     if (
       !name ||
       !lastName ||
+      !email ||
       !membershipStart ||
       !membershipEnd ||
       !phone ||
-      !emergencyPhone ||
-      hasPaid === undefined
+      !emergencyPhone
     ) {
       setErrorMessage("Por favor, complete todos los campos.");
       return;
     }
+    
 
+    // Validar formato del email
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      setErrorMessage("El correo electrónico no es válido.");
+      return;
+    }
+
+    // Validación de fechas
     const startDate = new Date(membershipStart);
     const endDate = new Date(membershipEnd);
 
@@ -60,37 +73,65 @@ export default function AddClientDialog({
       return;
     }
 
+    // Validar teléfonos
+    if (!isValidPhoneNumber(phone || "")) {
+      setErrorMessage("El número de teléfono principal no es válido.");
+      return;
+    }
+    if (!isValidPhoneNumber(emergencyPhone || "")) {
+      setErrorMessage("El número de emergencia no es válido.");
+      return;
+    }
+
+    // Validación del método de pago
+    if (paymentMethod === "Tarjeta") {
+      alert("Por favor, complete el pago en el POS.");
+      return;
+    }
+    if (paymentMethod === "Billetera") {
+      alert("Por favor, confirme el pago escaneando el QR.");
+      return;
+    }
+
+    // Crear cliente
     const newClient: Omit<Client, "id"> = {
       firstName: name.trim(),
       lastName: lastName.trim(),
-      plan: plan,
-      membershipStart: membershipStart,
-      membershipEnd: membershipEnd,
+      email: email.trim(),
+      plan,
+      membershipStart,
+      membershipEnd,
       phone: phone!,
       emergencyPhone: emergencyPhone!,
       hasPaid: hasPaid!,
     };
 
     try {
-      onSave(newClient);
+      setLoading(true);
+      await onSave(newClient);
+      // Resetear campos
       setName("");
       setLastName("");
+      setEmail("");
       setPlan("Básico");
       setMembershipStart("");
       setMembershipEnd("");
       setPhone(undefined);
       setEmergencyPhone(undefined);
       setHasPaid(null);
-      setErrorMessage("");
+      setPaymentMethod("Efectivo");
+      setLoading(false);
     } catch (error) {
       console.error("Error al guardar cliente:", error);
       setErrorMessage("No se pudo guardar el cliente. Intente nuevamente.");
+      setLoading(false);
     }
   };
 
   return (
     <div className="relative p-6 bg-white rounded-lg shadow-lg w-96">
       {errorMessage && <p className="text-red-500 mb-4">{errorMessage}</p>}
+
       <input
         className="w-full p-2 mb-4 border rounded bg-white text-black placeholder-gray-500"
         placeholder="Nombre"
@@ -103,7 +144,13 @@ export default function AddClientDialog({
         value={lastName}
         onChange={(e) => setLastName(e.target.value)}
       />
-      
+      <input
+        className="w-full p-2 mb-4 border rounded bg-white text-black placeholder-gray-500"
+        placeholder="Correo electrónico"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+      />
+
       <select
         className="w-full p-2 mb-4 border rounded bg-white text-black"
         value={plan}
@@ -114,20 +161,6 @@ export default function AddClientDialog({
         <option value="Promoción Premium">Promoción Premium</option>
         <option value="Promoción VIP">Promoción VIP</option>
       </select>
-
-      <select
-        value={paymentMethod}
-        onChange={(e) => setPaymentMethod(e.target.value)}
-        className="w-full p-2 mb-4 border rounded"
-      >
-        <option value="Efectivo">Efectivo</option>
-        <option value="Tarjeta">Tarjeta</option>
-        <option value="Billetera">Billetera Virtual</option>
-      </select>
-      {paymentMethod === "Tarjeta" && (
-        <Button onClick={() => alert("Ir a POS")}>Ir a POS</Button>
-      )}
-      {paymentMethod === "Billetera" && <img src={qrImageURL} alt="QR Pago" />}
 
       <label className="block text-sm font-bold mb-1 text-black">
         Fecha de inicio de membresía
@@ -162,11 +195,27 @@ export default function AddClientDialog({
         onChange={setEmergencyPhone}
         className="w-full p-2 mb-4 border rounded bg-white text-black"
       />
+
+      <select
+        value={paymentMethod}
+        onChange={(e) => setPaymentMethod(e.target.value)}
+        className="w-full p-2 mb-4 border rounded"
+      >
+        <option value="Efectivo">Efectivo</option>
+        <option value="Tarjeta">Tarjeta</option>
+        <option value="Billetera">Billetera Virtual</option>
+      </select>
+      {paymentMethod === "Tarjeta" && (
+        <Button onClick={() => alert("Ir a POS")}>Ir a POS</Button>
+      )}
+      {paymentMethod === "Billetera" && <img src={qrImageURL} alt="QR Pago" />}
+    
       <Button
         className="bg-yellow-400 text-black hover:bg-yellow-500 w-full"
         onClick={handleSave}
+        disabled={loading}
       >
-        Guardar Cliente
+        {loading ? "Guardando..." : "Guardar Cliente"}
       </Button>
     </div>
   );
