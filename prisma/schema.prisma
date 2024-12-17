@@ -9,8 +9,8 @@ datasource db {
 
 model User {
   id            String               @id @default(cuid())
-  name          String               // Hacerlo obligatorio
-  email         String?              @unique(map: "unique_email_null") // Nombre del índice único
+  name          String
+  email         String?              @unique(map: "unique_email_null")
   image         String?
   role          String               @default("client")
   password      String
@@ -66,19 +66,19 @@ model UserContact {
 }
 
 model ClientProfile {
-  profile_id              String   @id @default(cuid())
   profile_first_name      String
   profile_last_name       String
-  profile_plan            String?     // Campo opcional
-  profile_start_date      DateTime?   // Campo opcional
-  profile_end_date        DateTime?   // Campo opcional
-  profile_created_at      DateTime @default(now())
-  profile_updated_at      DateTime @updatedAt
-  profile_phone           String
+  profile_plan            String?
+  profile_start_date      DateTime?
+  profile_end_date        DateTime?
+  profile_created_at      DateTime  @default(now())
   profile_emergency_phone String
-  isManual                Boolean  @default(true) // Nuevo campo agregado
-  user_id                 String   @unique
-  user                    User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  profile_phone           String
+  profile_updated_at      DateTime  @updatedAt
+  user_id                 String    @unique
+  profile_id              String    @id @default(cuid())
+  isManual                Boolean   @default(true)
+  user                    User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
 model InventoryItem {

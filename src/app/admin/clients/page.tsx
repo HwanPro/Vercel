@@ -1,4 +1,4 @@
-// src/app/admin/clients/dashboard/page.tsx
+// src/app/admin/clients/page.tsx
 
 "use client";
 
@@ -50,7 +50,7 @@ export default function ClientsPage() {
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        const response = await fetch("/api/clients");
+        const response = await fetch("/api/clients", { credentials: "include" });
         if (!response.ok) throw new Error("Error al obtener los clientes");
 
         const data = await response.json();

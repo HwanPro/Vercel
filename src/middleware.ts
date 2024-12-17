@@ -10,9 +10,9 @@ export async function middleware(request: NextRequest) {
     secret: process.env.NEXTAUTH_SECRET,
     secureCookie: process.env.NODE_ENV === "production",
   });
-
+  
   console.log("Token obtenido en el middleware:", token);
-
+  
   const { pathname } = request.nextUrl;
 
   // Permitir el acceso a la API, páginas de autenticación y verificación de correo

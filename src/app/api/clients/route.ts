@@ -2,17 +2,16 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/libs/prisma";
-import { z } from "zod";
+import { z, ZodError } from "zod";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/libs/authOptions";
+import { getToken } from "next-auth/jwt";
 import bcrypt from "bcryptjs";
 
 // Esquema de validación con Zod
 const clientSchema = z.object({
   firstName: z.string().min(1, "El nombre es obligatorio"),
   lastName: z.string().min(1, "El apellido es obligatorio"),
-  plan: z.enum(["Básico", "Premium", "VIP"]),
+  plan: z.enum(["Mensual", "Promoción Básica", "Promoción Premium", "Promoción VIP"]),
   startDate: z.string().refine((date) => !isNaN(Date.parse(date)), {
     message: "La fecha de inicio es inválida",
   }),
@@ -24,12 +23,15 @@ const clientSchema = z.object({
   email: z.string().email("Correo electrónico inválido"),
 });
 
-// Función GET: Solo accesible para administradores
+// Función GET
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const token = await getToken({
+      req: request,
+      secret: process.env.NEXTAUTH_SECRET,
+    });
 
-    if (!session || session.user.role !== "admin") {
+    if (!token || token.role !== "admin") {
       return NextResponse.json({ message: "No autorizado" }, { status: 401 });
     }
 
@@ -49,13 +51,12 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Función POST: Crear cliente
+// Función POST
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const validatedData = clientSchema.parse(body);
 
-    // Validación de números de teléfono
     const phoneNumber = parsePhoneNumberFromString(validatedData.phone, "PE");
     const emergencyPhoneNumber = parsePhoneNumberFromString(
       validatedData.emergencyPhone,
@@ -69,20 +70,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Hashear la contraseña predeterminada
     const hashedPassword = await bcrypt.hash("defaultPassword123", 10);
 
-    // Crear el usuario
     const user = await prisma.user.create({
       data: {
         name: `${validatedData.firstName} ${validatedData.lastName}`,
-        email: validatedData.email || `${Date.now()}@temporal.com`, // Correo temporal
+        email: validatedData.email,
         role: "client",
         password: hashedPassword,
       },
     });
 
-    // Crear el perfil del cliente
     const clientProfile = await prisma.clientProfile.create({
       data: {
         profile_first_name: validatedData.firstName,
@@ -96,16 +94,20 @@ export async function POST(request: NextRequest) {
           connect: { id: user.id },
         },
       },
-    });    
-
-    console.log("Client Profile Created:", clientProfile);
+    });
 
     return NextResponse.json(
       { message: "Cliente registrado con éxito", clientProfile },
       { status: 201 }
     );
   } catch (error) {
-    console.error("Error al guardar cliente en la base de datos:", error);
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        { error: "Datos inválidos", details: error.errors },
+        { status: 400 }
+      );
+    }
+    console.error("Error interno:", error);
     return NextResponse.json(
       { error: "Error interno del servidor" },
       { status: 500 }
