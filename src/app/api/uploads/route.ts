@@ -101,8 +101,5 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export const config = {
-  api: {
-    bodyParser: false, // Deshabilitar bodyParser
-  },
-};
+// Configuración de runtime
+export const runtime = "nodejs"; // Opcional: Puedes usar "edge" o "nodejs"
