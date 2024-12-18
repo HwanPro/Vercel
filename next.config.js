@@ -5,13 +5,13 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'cdn-icons-png.flaticon.com',
+        hostname: 'wolf-gym.s3.us-east-1.amazonaws.com',
         port: '',
-        pathname: '/**',
+        pathname: '/uploads/**',
       },
       {
         protocol: 'https',
-        hostname: process.env.AWS_S3_BUCKET_HOSTNAME || 'wolf-gym.s3.amazonaws.com',
+        hostname: 'wolf-gym.s3.amazonaws.com',
         port: '',
         pathname: '/uploads/**',
       },
