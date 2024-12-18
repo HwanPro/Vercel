@@ -12,6 +12,9 @@ const s3Client = new S3Client({
   },
 });
 
+// Definir el entorno para el API route
+export const runtime = "nodejs";
+
 // Obtener productos
 export async function GET() {
   try {
@@ -58,7 +61,7 @@ export async function POST(req: NextRequest) {
     await s3Client.send(new PutObjectCommand(uploadParams));
     const imageUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/uploads/${uniqueFileName}`;
 
-    // Crear producto
+    // Crear producto en la base de datos
     const newProduct = await prisma.inventoryItem.create({
       data: {
         item_id: uuidv4(),
@@ -80,9 +83,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
