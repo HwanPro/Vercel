@@ -1,25 +1,31 @@
-// src/app/api/products/[id]/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/libs/prisma";
-import { promises as fs } from "fs";
-import path from "path";
+import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import dotenv from "dotenv";
 
-// Tipo para el contexto que incluye `params`
+// Cargar variables de entorno desde .env.local
+dotenv.config({ path: ".env.local" });
+
+// Configuración de S3
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION!,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  },
+});
+
+// Tipo para el contexto de parámetros
 type ContextParams = {
-  params: Promise<{
+  params: {
     id: string;
-  }>;
+  };
 };
 
 // Eliminar producto por ID
-export async function DELETE(
-  req: NextRequest,
-  context: ContextParams
-) {
+export async function DELETE(req: NextRequest, context: ContextParams) {
   try {
-    // Esperar a que `params` esté disponible
-    const { id } = await context.params;
+    const { id } = context.params;
 
     if (!id) {
       return NextResponse.json(
@@ -28,7 +34,7 @@ export async function DELETE(
       );
     }
 
-    // Verificar si el producto existe
+    // Buscar el producto en la base de datos
     const product = await prisma.inventoryItem.findUnique({
       where: { item_id: id },
     });
@@ -40,20 +46,20 @@ export async function DELETE(
       );
     }
 
-    // Eliminar la imagen asociada si existe
-    if (product.item_image_url) {
-      const filePath = path.join(process.cwd(), "public", product.item_image_url);
-      try {
-        await fs.unlink(filePath);
-      } catch (err) {
-        console.warn("No se pudo eliminar la imagen:", err);
-      }
+    // Eliminar la imagen de S3 si existe
+    if (product.item_image_url?.startsWith("https")) {
+      const s3Key = product.item_image_url.split("/uploads/")[1];
+
+      await s3Client.send(
+        new DeleteObjectCommand({
+          Bucket: process.env.AWS_BUCKET_NAME!,
+          Key: `uploads/${s3Key}`,
+        })
+      );
     }
 
     // Eliminar el producto de la base de datos
-    await prisma.inventoryItem.delete({
-      where: { item_id: id },
-    });
+    await prisma.inventoryItem.delete({ where: { item_id: id } });
 
     return NextResponse.json(
       { message: "Producto eliminado correctamente" },
@@ -62,20 +68,16 @@ export async function DELETE(
   } catch (error) {
     console.error("Error al eliminar el producto:", error);
     return NextResponse.json(
-      { error: "Error interno del servidor al eliminar el producto" },
+      { error: "Error interno del servidor" },
       { status: 500 }
     );
   }
 }
 
 // Actualizar un producto por ID
-export async function PUT(
-  req: NextRequest,
-  context: ContextParams
-) {
+export async function PUT(req: NextRequest, context: ContextParams) {
   try {
-    // Esperar a que `params` esté disponible
-    const { id } = await context.params;
+    const { id } = context.params;
 
     if (!id) {
       return NextResponse.json(
@@ -87,7 +89,7 @@ export async function PUT(
     const data = await req.json();
     const { item_name, item_description, item_price, item_discount, item_stock } = data;
 
-    // Validar los datos
+    // Validar los datos recibidos
     if (
       !item_name ||
       !item_description ||
@@ -119,7 +121,7 @@ export async function PUT(
   } catch (error) {
     console.error("Error al actualizar el producto:", error);
     return NextResponse.json(
-      { error: "Error interno del servidor al actualizar el producto" },
+      { error: "Error interno del servidor" },
       { status: 500 }
     );
   }

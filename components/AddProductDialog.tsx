@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { toast } from "react-toastify";
 
 type NewProduct = {
   name: string;
@@ -26,48 +27,70 @@ function AddProductDialog({
 
   const handleAddProduct = async () => {
     if (!name || !description || !price || !stock || !image) {
-      console.error("Todos los campos son obligatorios.");
+      toast.error("Todos los campos son obligatorios", {
+        position: "top-center",
+        style: { backgroundColor: "#FF0000", color: "#FFF" },
+      });
       return;
     }
 
-    const formData = new FormData();
-    formData.append("file", image); // Asegúrate que "image" sea el archivo correcto
-    formData.append("item_name", name);
-    formData.append("item_description", description);
-    formData.append("item_price", price);
-    formData.append("item_discount", discount || "0");
-    formData.append("item_stock", stock);
-    
-    const res = await fetch("/api/uploads", {
-      method: "POST",
-      body: formData, // Sin headers para FormData
-    });
-    
-
     try {
-      const res = await fetch("/api/products", {
+      // Subir la imagen
+      const formData = new FormData();
+      formData.append("file", image);
+
+      const uploadRes = await fetch("/api/uploads", {
         method: "POST",
-        body: formData, // No headers for FormData
+        body: formData,
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        onSave({
-          name: data.product.item_name,
-          price: data.product.item_price,
-          description: data.product.item_description,
-          stock: data.product.item_stock,
-          discount: data.product.item_discount,
-          imageUrl: data.product.item_image_url,
-        });
-        resetForm();
-        onClose();
-      } else {
-        const errorText = await res.text();
-        console.error("Error al crear el producto:", errorText);
+      if (!uploadRes.ok) {
+        const errorText = await uploadRes.text();
+        console.error("Error al subir la imagen:", errorText);
+        toast.error("Error al subir la imagen", { position: "top-center" });
+        return;
       }
+
+      const { fileUrl } = await uploadRes.json();
+
+      // Crear el producto
+      const productRes = await fetch("/api/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          item_name: name,
+          item_description: description,
+          item_price: price,
+          item_discount: discount || "0",
+          item_stock: stock,
+          item_image_url: fileUrl,
+        }),
+      });
+
+      if (!productRes.ok) {
+        const errorText = await productRes.text();
+        console.error("Error al crear el producto:", errorText);
+        toast.error("Error al crear el producto", { position: "top-center" });
+        return;
+      }
+
+      const data = await productRes.json();
+      onSave({
+        name: data.product.item_name,
+        description: data.product.item_description,
+        price: data.product.item_price,
+        discount: data.product.item_discount,
+        stock: data.product.item_stock,
+        imageUrl: data.product.item_image_url,
+      });
+
+      resetForm();
+      onClose();
+
+      toast.success("Producto agregado con éxito", { position: "top-right" });
     } catch (error) {
-      console.error("Error en el servidor:", error);
+      console.error("Error en el proceso de subida:", error);
+      toast.error("Error en el proceso de subida", { position: "top-center" });
     }
   };
 

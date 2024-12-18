@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { FaShoppingCart, FaUserCircle, FaSearch } from "react-icons/fa";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 type Product = {
   id: string;
@@ -32,19 +34,10 @@ export default function PublicProductList() {
       try {
         const response = await fetch("/api/products/public");
         if (!response.ok) {
-          const errorDetails = await response
-            .json()
-            .catch(() => ({ error: "Unknown error" }));
-          console.error("API Error Details:", errorDetails);
-          throw new Error(errorDetails.error || "Error al cargar datos");
+          throw new Error("Error al cargar productos");
         }
 
         const data = await response.json();
-        if (!Array.isArray(data)) {
-          throw new Error("Unexpected API response format");
-        }
-
-        // Mapear los datos correctamente
         const formattedProducts = data.map((product: any) => ({
           id: product.item_id,
           name: product.item_name,
@@ -57,8 +50,8 @@ export default function PublicProductList() {
 
         setProducts(formattedProducts);
         setFilteredProducts(formattedProducts);
-      } catch (error: any) {
-        console.error("Error fetching products:", error.message);
+      } catch (error) {
+        console.error("Error al cargar productos:", error);
       }
     };
 
@@ -74,7 +67,7 @@ export default function PublicProductList() {
 
   const handleAddToCart = (product: Product) => {
     if (quantity > product.stock) {
-      alert("No hay suficiente stock disponible para agregar esta cantidad.");
+      toast.warn("⚠️ No hay suficiente stock disponible.");
       return;
     }
 
@@ -82,7 +75,9 @@ export default function PublicProductList() {
     if (existingProduct) {
       const newQuantity = (existingProduct.quantity || 1) + quantity;
       if (newQuantity > product.stock) {
-        alert("No puedes agregar más productos de los que hay en stock.");
+        toast.warn(
+          "⚠️ No puedes agregar más productos de los que hay en stock."
+        );
         return;
       }
       setCart((prev) =>
@@ -100,42 +95,22 @@ export default function PublicProductList() {
 
   const handleRemoveFromCart = (id: string) => {
     setCart((prev) => prev.filter((product) => product.id !== id));
-  };
-
-  const calculateTotal = () => {
-    return cart.reduce(
-      (total, product) =>
-        total +
-        product.price *
-          (1 - (product.discount || 0) / 100) *
-          (product.quantity || 1),
-      0
-    );
+    toast.info("🗑 Producto eliminado del carrito.");
   };
 
   const pagarCompra = async () => {
-    try {
-      // Simulación de la compra y actualización del stock
-      for (const item of cart) {
-        await fetch(`/api/products/updateStock`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            productId: item.id,
-            quantity: item.quantity,
-          }),
-        });
-      }
-
-      alert("Compra realizada con éxito");
-      setCart([]);
-      setShowCart(false);
-    } catch (error) {
-      alert("Error al procesar la compra");
-      console.error("Error:", error);
+    if (cart.length === 0) {
+      toast.error("🛒 El carrito está vacío. Agrega productos antes de pagar.");
+      return;
     }
+
+    toast.info(
+      "⚠️ Actualmente no contamos con pagos en línea. ¡Acércate a la tienda para completar tu compra!",
+      { position: "top-right" }
+    );
+
+    setShowCart(false);
+    setCart([]);
   };
 
   return (
@@ -176,7 +151,6 @@ export default function PublicProductList() {
           </button>
         </div>
       </div>
-
       {/* Products */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-6 p-6 mx-auto">
         {filteredProducts.map((product) => (
@@ -225,8 +199,6 @@ export default function PublicProductList() {
                 Agotado
               </button>
             )}
-
-            {/* Modal de Opciones de Producto */}
             {selectedProduct?.id === product.id && (
               <div className="absolute inset-0 bg-white bg-opacity-90 flex flex-col justify-center items-center rounded-lg shadow-lg text-black">
                 <button
@@ -261,70 +233,52 @@ export default function PublicProductList() {
             )}
           </div>
         ))}
-      </div>
 
-      {/* Cart */}
-      {showCart && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40"
-          onClick={() => setShowCart(false)}
-        >
+        {/* Cart */}
+        {showCart && (
           <div
-            className="fixed right-0 top-0 w-80 bg-white h-full shadow-lg p-4 z-50"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 bg-black bg-opacity-50 z-40"
+            onClick={() => setShowCart(false)}
           >
-            <button
-              className="absolute top-2 right-2 text-gray-500 hover:text-black"
-              onClick={() => setShowCart(false)}
+            <div
+              className="fixed right-0 top-0 w-80 bg-white h-full shadow-lg p-4 z-50"
+              onClick={(e) => e.stopPropagation()}
             >
-              X
-            </button>
-            <h2 className="text-lg font-bold mb-4 text-black">Carrito</h2>
-            {cart.map((item, index) => (
-              <div
-                key={index}
-                className="flex justify-between items-center mb-2"
-              >
-                <Image
-                  src={item.imageUrl || "/placeholder-image.png"}
-                  alt={item.name}
-                  className="h-12 w-12 object-contain"
-                  width={48}
-                  height={48}
-                />
-                <div className="flex-1 ml-4">
-                  <p className="text-sm font-bold text-black">{item.name}</p>
-                  <p className="text-xs text-black">
-                    S/.{" "}
-                    {(
-                      item.price -
-                      (item.price * (item.discount || 0)) / 100
-                    ).toFixed(2)}{" "}
-                    x {item.quantity}
-                  </p>
-                </div>
-                <button
-                  onClick={() => handleRemoveFromCart(item.id)}
-                  className="text-red-500 text-lg font-bold"
-                >
-                  X
-                </button>
-              </div>
-            ))}
-            <div className="border-t pt-4">
-              <p className="text-lg font-bold text-black">
-                Total: S/. {calculateTotal().toFixed(2)}
-              </p>
+              <h2 className="text-lg font-bold mb-4 text-black">Carrito</h2>
+              {cart.length > 0 ? (
+                cart.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex justify-between items-center mb-2"
+                  >
+                    <Image
+                      src={item.imageUrl}
+                      alt={item.name}
+                      width={48}
+                      height={48}
+                    />
+                    <div>
+                      <p className="text-sm font-bold">{item.name}</p>
+                      <p className="text-sm">Cantidad: {item.quantity}</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-center text-gray-600">
+                  El carrito está vacío.
+                </p>
+              )}
               <Button
-                className="mt-4 bg-yellow-400 text-black px-4 py-2 w-full rounded-full hover:bg-yellow-500"
                 onClick={pagarCompra}
+                className="w-full bg-yellow-400 mt-4"
               >
                 Pagar Carrito
               </Button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
+      <ToastContainer /> {/* Renderiza el contenedor de Toast */}
     </div>
   );
 }
