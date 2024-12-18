@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import formidable from "formidable";
-import { IncomingMessage } from "http";
-import { PassThrough } from "stream";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { v4 as uuidv4 } from "uuid";
-import fs from "fs";
+import formidable from "formidable";
+import { PassThrough } from "stream";
+import { IncomingMessage } from "http";
 import { Readable } from "stream";
 
 const form = formidable({ multiples: false });
@@ -29,19 +28,7 @@ function nextRequestToIncomingMessage(req: NextRequest): IncomingMessage {
   return msg;
 }
 
-// Promisify para form.parse
-async function parseFormAsync(req: IncomingMessage) {
-  return new Promise<{ fields: formidable.Fields; files: formidable.Files }>(
-    (resolve, reject) => {
-      form.parse(req, (err, fields, files) => {
-        if (err) reject(err);
-        else resolve({ fields, files });
-      });
-    }
-  );
-}
-
-// Configuración de AWS S3
+// Configuración del cliente S3
 const s3Client = new S3Client({
   region: process.env.AWS_REGION!,
   credentials: {
@@ -51,49 +38,40 @@ const s3Client = new S3Client({
 });
 
 export async function POST(req: NextRequest) {
-  console.log("🛠️ Iniciando el proceso de subida...");
   try {
-    // Convertir NextRequest a IncomingMessage
-    const incomingMsg = nextRequestToIncomingMessage(req);
-    console.log("✅ NextRequest convertido a IncomingMessage.");
+    // 1. Obtener el archivo del formData
+    const data = await req.formData();
+    const file = data.get("file") as File;
 
-    // Parsear el formulario
-    const { fields, files } = await parseFormAsync(incomingMsg);
-    console.log("✅ Formulario parseado:", files);
-
-    const fileData = files.file;
-    if (!fileData) {
-      console.error("❌ No se recibió ningún archivo.");
+    if (!file) {
       return NextResponse.json(
         { error: "No se seleccionó ningún archivo" },
         { status: 400 }
       );
     }
 
-    // Preparar el archivo para S3
-    const file = Array.isArray(fileData) ? fileData[0] : fileData;
-    const fileStream = fs.createReadStream(file.filepath);
-    const fileKey = `uploads/${uuidv4()}-${file.originalFilename}`;
+    // 2. Convertir el archivo a buffer
+    const fileBuffer = Buffer.from(await file.arrayBuffer());
+    const fileKey = `uploads/${uuidv4()}-${file.name}`;
 
-    console.log("📤 Subiendo archivo a S3 con clave:", fileKey);
-
+    // 3. Subir a S3
     const uploadParams = {
       Bucket: process.env.AWS_BUCKET_NAME!,
       Key: fileKey,
-      Body: fileStream,
-      ContentType: file.mimetype || "application/octet-stream",
+      Body: fileBuffer,
+      ContentType: file.type || "application/octet-stream",
     };
 
     await s3Client.send(new PutObjectCommand(uploadParams));
-    console.log("✅ Archivo subido con éxito a S3.");
 
-    const fileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.amazonaws.com/${fileKey}`;
+    const fileUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileKey}`;
+
     return NextResponse.json(
       { message: "Archivo subido con éxito", fileUrl },
       { status: 200 }
     );
   } catch (error) {
-    console.error("❌ Error al subir archivo:", error);
+    console.error("Error al subir archivo:", error);
     return NextResponse.json(
       { error: "Error interno del servidor" },
       { status: 500 }
@@ -101,5 +79,9 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Configuración de runtime
-export const runtime = "nodejs"; // Opcional: Puedes usar "edge" o "nodejs"
+export const config = {
+  runtime: "nodejs", // Esto asegura que use Node.js runtime y no Edge
+  api: {
+    bodyParser: false, // Necesario para manejar archivos con formData
+  },
+};
