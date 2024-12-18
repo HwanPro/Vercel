@@ -21,10 +21,24 @@ export async function GET() {
 // Crear un nuevo producto
 export async function POST(req: NextRequest) {
   try {
-    const { item_name, item_description, item_price, item_discount, item_stock, item_image_url } = await req.json();
+    const data = await req.formData();
+
+    // Obtener valores y validar que no sean null
+    const item_name = data.get("item_name") as string | null;
+    const item_description = data.get("item_description") as string | null;
+    const item_price = data.get("item_price") as string | null;
+    const item_discount = (data.get("item_discount") as string | null) || "0";
+    const item_stock = data.get("item_stock") as string | null;
+    const item_image_url = data.get("item_image_url") as string | null;
 
     // Validación de campos
-    if (!item_name || !item_description || !item_price || !item_stock || !item_image_url) {
+    if (
+      !item_name ||
+      !item_description ||
+      !item_price ||
+      !item_stock ||
+      !item_image_url
+    ) {
       return NextResponse.json(
         { error: "Todos los campos son requeridos" },
         { status: 400 }
@@ -38,7 +52,7 @@ export async function POST(req: NextRequest) {
         item_name,
         item_description,
         item_price: parseFloat(item_price),
-        item_discount: parseFloat(item_discount) || 0,
+        item_discount: parseFloat(item_discount),
         item_stock: parseInt(item_stock, 10),
         item_image_url,
       },
