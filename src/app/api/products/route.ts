@@ -2,12 +2,11 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import prisma from "@/libs/prisma";
 import { v4 as uuidv4 } from "uuid";
+import prisma from "@/libs/prisma"; // Asegúrate de importar Prisma correctamente
 
-// Configura el cliente de S3
 const s3Client = new S3Client({
-  region: process.env.AWS_REGION,
+  region: process.env.AWS_REGION!,
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -16,39 +15,39 @@ const s3Client = new S3Client({
 
 export async function POST(req: NextRequest) {
   try {
-    const formData = await req.formData(); // Lee el FormData
-    const file = formData.get("image") as File | null;
+    const formData = await req.formData();
+    const file = formData.get("file") as File;
+    const itemName = formData.get("name") as string;
 
     if (!file) {
       return NextResponse.json(
-        { error: "No se proporcionó ninguna imagen" },
+        { error: "Archivo no proporcionado" },
         { status: 400 }
       );
     }
 
-    // Genera un nombre único para la imagen
-    const fileName = `${uuidv4()}-${file.name}`;
-    const bucketName = process.env.AWS_S3_BUCKET_NAME!;
-    const uploadKey = `uploads/${fileName}`;
+    // Leer el buffer del archivo
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const uniqueFileName = `${uuidv4()}-${file.name}`;
 
-    // Sube la imagen a S3
-    const fileBuffer = Buffer.from(await file.arrayBuffer());
+    // Parámetros para subir a S3
     const uploadParams = {
-      Bucket: bucketName,
-      Key: uploadKey,
-      Body: fileBuffer,
+      Bucket: process.env.AWS_BUCKET_NAME!,
+      Key: `uploads/${uniqueFileName}`,
+      Body: buffer,
       ContentType: file.type,
     };
 
     await s3Client.send(new PutObjectCommand(uploadParams));
 
-    const imageUrl = `https://${bucketName}.s3.amazonaws.com/${uploadKey}`;
+    // URL de la imagen subida
+    const imageUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.amazonaws.com/${uploadParams.Key}`;
 
     // Guarda el producto en la base de datos
     const newProduct = await prisma.inventoryItem.create({
       data: {
         item_id: uuidv4(),
-        item_name: formData.get("name") as string,
+        item_name: itemName,
         item_description: formData.get("description") as string,
         item_price: parseFloat(formData.get("price") as string),
         item_discount: parseFloat(formData.get("discount") as string) || 0,
