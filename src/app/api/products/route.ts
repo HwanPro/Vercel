@@ -1,64 +1,66 @@
 // src/app/api/products/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import prisma from "@/libs/prisma";
 import { v4 as uuidv4 } from "uuid";
 
-// Obtener todos los productos
-export async function GET() {
-  try {
-    const products = await prisma.inventoryItem.findMany();
-    return NextResponse.json(products);
-  } catch (error) {
-    console.error("Error al obtener los productos:", error);
-    return NextResponse.json(
-      { error: "Error al obtener los productos" },
-      { status: 500 }
-    );
-  }
-}
+// Configura el cliente de S3
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  },
+});
 
-// Crear un nuevo producto
 export async function POST(req: NextRequest) {
   try {
-    const data = await req.formData();
+    const formData = await req.formData(); // Lee el FormData
+    const file = formData.get("image") as File | null;
 
-    // Obtener valores y validar que no sean null
-    const item_name = data.get("item_name") as string | null;
-    const item_description = data.get("item_description") as string | null;
-    const item_price = data.get("item_price") as string | null;
-    const item_discount = (data.get("item_discount") as string | null) || "0";
-    const item_stock = data.get("item_stock") as string | null;
-    const item_image_url = data.get("item_image_url") as string | null;
-
-    // Validación de campos
-    if (
-      !item_name ||
-      !item_description ||
-      !item_price ||
-      !item_stock ||
-      !item_image_url
-    ) {
+    if (!file) {
       return NextResponse.json(
-        { error: "Todos los campos son requeridos" },
+        { error: "No se proporcionó ninguna imagen" },
         { status: 400 }
       );
     }
 
-    // Crear producto en la base de datos
+    // Genera un nombre único para la imagen
+    const fileName = `${uuidv4()}-${file.name}`;
+    const bucketName = process.env.AWS_S3_BUCKET_NAME!;
+    const uploadKey = `uploads/${fileName}`;
+
+    // Sube la imagen a S3
+    const fileBuffer = Buffer.from(await file.arrayBuffer());
+    const uploadParams = {
+      Bucket: bucketName,
+      Key: uploadKey,
+      Body: fileBuffer,
+      ContentType: file.type,
+    };
+
+    await s3Client.send(new PutObjectCommand(uploadParams));
+
+    const imageUrl = `https://${bucketName}.s3.amazonaws.com/${uploadKey}`;
+
+    // Guarda el producto en la base de datos
     const newProduct = await prisma.inventoryItem.create({
       data: {
         item_id: uuidv4(),
-        item_name,
-        item_description,
-        item_price: parseFloat(item_price),
-        item_discount: parseFloat(item_discount),
-        item_stock: parseInt(item_stock, 10),
-        item_image_url,
+        item_name: formData.get("name") as string,
+        item_description: formData.get("description") as string,
+        item_price: parseFloat(formData.get("price") as string),
+        item_discount: parseFloat(formData.get("discount") as string) || 0,
+        item_stock: parseInt(formData.get("stock") as string, 10),
+        item_image_url: imageUrl,
       },
     });
 
-    return NextResponse.json({ product: newProduct }, { status: 201 });
+    return NextResponse.json(
+      { message: "Producto creado con éxito", product: newProduct },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("Error al crear el producto:", error);
     return NextResponse.json(
