@@ -1,5 +1,3 @@
-// src/app/api/auth/[...nextauth]/route.ts
-
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -16,6 +14,7 @@ const authOptions: NextAuthOptions = {
       clientId: process.env.GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
     }),
+
     // Proveedor de credenciales personalizadas
     CredentialsProvider({
       name: "Credentials",
@@ -24,7 +23,9 @@ const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       authorize: async (credentials) => {
+        console.log("🔐 Iniciando autorización de credenciales...");
         if (!credentials?.email || !credentials?.password) {
+          console.error("❌ Credenciales no proporcionadas");
           throw new Error("Credenciales inválidas");
         }
 
@@ -34,18 +35,34 @@ const authOptions: NextAuthOptions = {
         });
 
         if (!user) {
+          console.error("❌ Usuario no encontrado:", credentials.email);
           throw new Error("Usuario no encontrado");
         }
 
+        console.log("✅ Usuario encontrado:", user);
+
         // Comparar contraseña
-        const isMatch = await bcrypt.compare(credentials.password, user.password!);
-        if (!isMatch) throw new Error("Contraseña incorrecta");
+        const isMatch = await bcrypt.compare(
+          credentials.password,
+          user.password!
+        );
+        if (!isMatch) {
+          console.error("❌ Contraseña incorrecta para:", credentials.email);
+          throw new Error("Contraseña incorrecta");
+        }
 
         // Verificar si el email está confirmado
         if (!user.emailVerified) {
-          throw new Error("Debes verificar tu correo electrónico antes de iniciar sesión");
+          console.error("❌ Correo no verificado:", credentials.email);
+          throw new Error(
+            "Debes verificar tu correo electrónico antes de iniciar sesión"
+          );
         }
 
+        console.log(
+          "✅ Credenciales verificadas para usuario:",
+          credentials.email
+        );
         return user;
       },
     }),
@@ -55,24 +72,37 @@ const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async jwt({ token, user }) {
+      console.log("🔑 Callback JWT iniciado. Token actual:", token);
+      console.log("🛡 Usuario recibido:", user);
       // Agregar propiedades del usuario al token JWT
       if (user) {
+        console.log("🛡 Agregando datos del usuario al token:", user);
         token.id = user.id;
         token.role = user.role;
         token.emailVerified = user.emailVerified as boolean;
       }
+      console.log("✅ Token generado:", token);
       return token;
     },
     async session({ session, token }) {
+      console.log("🛠 Procesando sesión con token:", token);
+      console.log("🛠 Sesión antes de asignar valores:", session);
+
       // Añadir propiedades del token a la sesión
       if (token && session.user) {
+        console.log("🛡 Agregando datos del token a la sesión:", token);
         session.user.id = token.id as string;
         session.user.role = token.role as string;
         session.user.emailVerified = token.emailVerified as boolean;
       }
+      console.log("✅ Sesión generada:", session);
       return session;
     },
     async signIn({ user }) {
+      console.log(
+        "🔑 Iniciando proceso de inicio de sesión para usuario:",
+        user
+      );
       // Crear un perfil de cliente solo si no existe y si el usuario es un cliente
       if (user.role === "client") {
         const existingProfile = await prisma.clientProfile.findUnique({
@@ -80,6 +110,7 @@ const authOptions: NextAuthOptions = {
         });
 
         if (!existingProfile) {
+          console.log("👤 Creando perfil de cliente para usuario:", user.id);
           await prisma.clientProfile.create({
             data: {
               profile_first_name: user.name?.split(" ")[0] || "Sin nombre",
@@ -92,9 +123,15 @@ const authOptions: NextAuthOptions = {
               user_id: user.id,
             },
           });
+          console.log("✅ Perfil de cliente creado.");
+        } else {
+          console.log(
+            "👤 Perfil de cliente ya existente para usuario:",
+            user.id
+          );
         }
       }
-
+      console.log("✅ Inicio de sesión permitido para usuario:", user.id);
       return true; // Permitir inicio de sesión
     },
   },

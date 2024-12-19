@@ -1,25 +1,29 @@
-// src/app/api/admin/clients/route.ts
+import { NextResponse } from "next/server";
+import prisma from "@/libs/prisma";
+import { getToken } from "next-auth/jwt";
+import type { NextRequest } from "next/server";
 
-import { NextResponse } from 'next/server';
-import prisma from '@/libs/prisma';
+export async function GET(request: NextRequest) {
+  console.log("⏳ Iniciando GET /api/clients...");
 
-export async function GET(request: Request) {
+  // Obtener el token
+  const token = await getToken({
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET,
+  });
+
+  console.log("🔑 Token recibido en GET:", token);
+
+  if (!token || token.role !== "admin") {
+    console.log("🚫 Token inválido o usuario no autorizado");
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
   try {
-    const clients = await prisma.clientProfile.findMany(); // Cambia "client" a "clientProfile"
+    const clients = await prisma.clientProfile.findMany();
     return NextResponse.json(clients);
   } catch (error) {
-    console.error('Error fetching clients:', error);
-    return NextResponse.json({ error: 'Error fetching clients' }, { status: 500 });
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    const data = await request.json();
-    const newClient = await prisma.clientProfile.create({ data }); // Cambia "client" a "clientProfile"
-    return NextResponse.json(newClient);
-  } catch (error) {
-    console.error('Error creating client:', error);
-    return NextResponse.json({ error: 'Error creating client' }, { status: 500 });
+    console.error("Error fetching clients:", error);
+    return NextResponse.json({ error: "Error fetching clients" }, { status: 500 });
   }
 }

@@ -46,6 +46,7 @@ function AddProductDialog({
       // 2. Enviar solicitud POST al backend
       const response = await fetch("/api/products", {
         method: "POST",
+        credentials: "include", // Incluye las cookies en la solicitud
         body: formData, // Enviar FormData directamente
       });
 
