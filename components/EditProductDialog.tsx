@@ -17,15 +17,13 @@ function EditProductDialog({
   onClose,
 }: {
   product: Product;
-  onSave: (updatedProduct: Product) => void;
+  onSave: (updatedProduct: Product) => Promise<void>;
   onClose: () => void;
 }) {
   const [name, setName] = useState<string>(product.name);
   const [description, setDescription] = useState<string>(product.description);
   const [price, setPrice] = useState<string>(product.price.toString());
-  const [discount, setDiscount] = useState<string>(
-    product.discount.toString()
-  );
+  const [discount, setDiscount] = useState<string>(product.discount.toString());
   const [stock, setStock] = useState<string>(product.stock.toString());
   const [error, setError] = useState<string | null>(null);
 
@@ -73,8 +71,13 @@ function EditProductDialog({
       stock: parsedStock,
     };
 
-    onSave(updatedProduct);
-    onClose();
+    try {
+      await onSave(updatedProduct);
+      onClose();
+    } catch (err: any) {
+      console.error("Error al guardar los cambios:", err);
+      setError(err.message || "Error al actualizar el producto.");
+    }
   };
 
   return (
@@ -83,7 +86,9 @@ function EditProductDialog({
         <h2 className="text-lg font-bold text-center text-black mb-4">
           Editar Producto
         </h2>
-        {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
+        {error && (
+          <p className="text-red-500 text-sm mb-4 text-center">{error}</p>
+        )}
         <input
           type="text"
           value={name}

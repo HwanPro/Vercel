@@ -3,10 +3,9 @@ import prisma from "@/libs/prisma";
 import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import dotenv from "dotenv";
 
-// Cargar variables de entorno desde .env.local
+// Cargar variables de entorno
 dotenv.config({ path: ".env.local" });
 
-// Configuración de S3
 const s3Client = new S3Client({
   region: process.env.AWS_REGION!,
   credentials: {
@@ -15,7 +14,6 @@ const s3Client = new S3Client({
   },
 });
 
-// Tipo para el contexto de parámetros
 type ContextParams = {
   params: {
     id: string;
@@ -34,22 +32,19 @@ export async function DELETE(req: NextRequest, context: ContextParams) {
       );
     }
 
-    // Buscar el producto en la base de datos
     const product = await prisma.inventoryItem.findUnique({
       where: { item_id: id },
     });
 
     if (!product) {
       return NextResponse.json(
-        { error: "Producto no encontrado" },
+        { error: `Producto con ID ${id} no encontrado` },
         { status: 404 }
       );
     }
 
-    // Eliminar la imagen de S3 si existe
     if (product.item_image_url?.startsWith("https")) {
       const s3Key = product.item_image_url.split("/uploads/")[1];
-
       await s3Client.send(
         new DeleteObjectCommand({
           Bucket: process.env.AWS_BUCKET_NAME!,
@@ -58,7 +53,6 @@ export async function DELETE(req: NextRequest, context: ContextParams) {
       );
     }
 
-    // Eliminar el producto de la base de datos
     await prisma.inventoryItem.delete({ where: { item_id: id } });
 
     return NextResponse.json(
@@ -66,7 +60,7 @@ export async function DELETE(req: NextRequest, context: ContextParams) {
       { status: 200 }
     );
   } catch (error) {
-    console.error("Error al eliminar el producto:", error);
+    console.error(`Error al eliminar el producto con ID ${context.params.id}:`, error);
     return NextResponse.json(
       { error: "Error interno del servidor" },
       { status: 500 }
@@ -74,7 +68,7 @@ export async function DELETE(req: NextRequest, context: ContextParams) {
   }
 }
 
-// Actualizar un producto por ID
+// Actualizar producto por ID
 export async function PUT(req: NextRequest, context: ContextParams) {
   try {
     const { id } = context.params;
@@ -89,7 +83,6 @@ export async function PUT(req: NextRequest, context: ContextParams) {
     const data = await req.json();
     const { item_name, item_description, item_price, item_discount, item_stock } = data;
 
-    // Validar los datos recibidos
     if (
       !item_name ||
       !item_description ||
@@ -102,14 +95,22 @@ export async function PUT(req: NextRequest, context: ContextParams) {
       );
     }
 
-    // Actualizar el producto en la base de datos
+    const product = await prisma.inventoryItem.findUnique({ where: { item_id: id } });
+
+    if (!product) {
+      return NextResponse.json(
+        { error: `Producto con ID ${id} no encontrado` },
+        { status: 404 }
+      );
+    }
+
     const updatedProduct = await prisma.inventoryItem.update({
       where: { item_id: id },
       data: {
         item_name,
         item_description,
         item_price: parseFloat(item_price),
-        item_discount: parseFloat(item_discount) || 0,
+        item_discount: isNaN(parseFloat(item_discount)) ? 0 : parseFloat(item_discount),
         item_stock: parseInt(item_stock),
       },
     });
@@ -119,7 +120,7 @@ export async function PUT(req: NextRequest, context: ContextParams) {
       { status: 200 }
     );
   } catch (error) {
-    console.error("Error al actualizar el producto:", error);
+    console.error(`Error al actualizar el producto con ID ${context.params.id}:`, error);
     return NextResponse.json(
       { error: "Error interno del servidor" },
       { status: 500 }

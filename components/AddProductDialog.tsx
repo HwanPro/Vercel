@@ -33,6 +33,14 @@ function AddProductDialog({
       return;
     }
 
+    if (parseFloat(price) <= 0 || parseInt(stock) < 0) {
+      toast.error(
+        "El precio debe ser mayor a 0 y el stock no puede ser negativo",
+        { position: "top-center" }
+      );
+      return;
+    }
+
     try {
       // 1. Crear FormData con los campos del producto
       const formData = new FormData();
