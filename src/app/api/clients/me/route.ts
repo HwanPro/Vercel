@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/libs/prisma";
 import { getToken, JWT } from "next-auth/jwt";
 
+export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     const token = (await getToken({ req })) as JWT;

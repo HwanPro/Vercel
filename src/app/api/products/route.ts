@@ -1,9 +1,10 @@
+// src/app/api/products/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/libs/prisma"; // Asegúrate de tener tu cliente Prisma configurado
+import prisma from "@/libs/prisma";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { v4 as uuidv4 } from "uuid";
 
-// Configuración de AWS S3
+// AWS S3 configuration
 const s3Client = new S3Client({
   region: process.env.AWS_REGION!,
   credentials: {
@@ -12,27 +13,24 @@ const s3Client = new S3Client({
   },
 });
 
-// GET: Obtener productos
+// GET: Retrieve products
 export async function GET() {
   try {
-    const products = await prisma.inventoryItem.findMany(); // Obtiene productos de la base de datos
+    const products = await prisma.inventoryItem.findMany();
     return NextResponse.json(products, { status: 200 });
   } catch (error) {
-    console.error("Error al obtener productos:", error);
-    return NextResponse.json(
-      { error: "Error al obtener productos" },
-      { status: 500 }
-    );
+    console.error("Error fetching products:", error);
+    return NextResponse.json({ error: "Failed to fetch products" }, { status: 500 });
   }
 }
 
-// POST: Crear un nuevo producto
+// POST: Create a new product
 export async function POST(req: NextRequest) {
-  console.log("Solicitud recibida en /api/products");
+  console.log("Request received at /api/products");
   try {
     const data = await req.formData();
 
-    // Obtener campos
+    // Extract fields
     const item_name = data.get("item_name") as string;
     const item_description = data.get("item_description") as string;
     const item_price = parseFloat(data.get("item_price") as string);
@@ -40,24 +38,24 @@ export async function POST(req: NextRequest) {
     const item_stock = parseInt(data.get("item_stock") as string, 10);
     const file = data.get("file");
 
-    // Validación de campos
+    // Validate fields
     if (!item_name || !item_description || isNaN(item_price) || isNaN(item_stock)) {
       return NextResponse.json(
-        { error: "Campos obligatorios no proporcionados o inválidos" },
+        { error: "Missing or invalid required fields" },
         { status: 400 }
       );
     }
 
-    // Validación del archivo
+    // Validate file
     if (!(file instanceof File)) {
-      return NextResponse.json({ error: "Archivo no válido" }, { status: 400 });
+      return NextResponse.json({ error: "Invalid file" }, { status: 400 });
     }
 
-    // Convertir el archivo a buffer
+    // Convert file to buffer
     const buffer = Buffer.from(await file.arrayBuffer());
     const uniqueFileName = `${uuidv4()}-${file.name}`;
 
-    // Parámetros de subida a S3
+    // S3 Upload parameters
     const uploadParams = {
       Bucket: process.env.AWS_BUCKET_NAME!,
       Key: `uploads/${uniqueFileName}`,
@@ -65,13 +63,13 @@ export async function POST(req: NextRequest) {
       ContentType: file.type,
     };
 
-    // Subir a S3
+    // Upload to S3
     await s3Client.send(new PutObjectCommand(uploadParams));
 
-    // URL pública del archivo
+    // Public URL of the uploaded file
     const imageUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/uploads/${uniqueFileName}`;
 
-    // Guardar el producto en la base de datos
+    // Save product in the database
     const newProduct = await prisma.inventoryItem.create({
       data: {
         item_name,
@@ -84,21 +82,20 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({
-      message: "Producto creado con éxito",
+      message: "Product created successfully",
       product: newProduct,
     });
   } catch (error) {
-    console.error("Error al subir a S3 o guardar en la base de datos:", error);
+    console.error("Error uploading to S3 or saving to DB:", error);
     return NextResponse.json(
-      { error: "Error interno del servidor" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
 }
 
-// Configuración de la API
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
+// Set the runtime if you need Node.js APIs
+export const runtime = "nodejs";
+
+// Remove the `export const config` entirely.
+// No need for bodyParser or other config properties in App Router routes.

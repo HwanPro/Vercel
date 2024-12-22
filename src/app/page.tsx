@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   CardTitle,
   CardDescription,
@@ -9,14 +8,6 @@ import {
   CardContent,
   Card,
 } from "@/components/ui/card";
-import {
-  TableHead,
-  TableRow,
-  TableHeader,
-  TableCell,
-  TableBody,
-  Table,
-} from "@/components/ui/table";
 import { Dumbbell, Users, Calendar, Clock } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -66,9 +57,9 @@ export default function WolfGymLanding() {
       <header className="px-4 lg:px-6 h-14 flex items-center bg-black">
         <Link className="flex items-center justify-center" href="/">
           <Image
-            src="/uploads/images/logo.jpg"
+            src="/uploads/images/logo2.jpg"
             alt="Wolf Gym Logo"
-            width={100}
+            width={90}
             height={50}
             style={{ width: "auto", height: "auto" }}
           />

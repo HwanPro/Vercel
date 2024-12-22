@@ -4,6 +4,7 @@ import "react-phone-number-input/style.css";
 import { Button } from "./ui/button";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import Image from "next/image";
 interface Client {
   id: string;
   firstName: string;
@@ -29,7 +30,9 @@ export default function AddClientDialog({
   const [membershipStart, setMembershipStart] = useState("");
   const [membershipEnd, setMembershipEnd] = useState("");
   const [phone, setPhone] = useState<string | undefined>(undefined);
-  const [emergencyPhone, setEmergencyPhone] = useState<string | undefined>(undefined);
+  const [emergencyPhone, setEmergencyPhone] = useState<string | undefined>(
+    undefined
+  );
   const [paymentMethod, setPaymentMethod] = useState<string>("Efectivo");
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -63,7 +66,9 @@ export default function AddClientDialog({
     const startDate = new Date(membershipStart);
     const endDate = new Date(membershipEnd);
     if (startDate >= endDate) {
-      setErrorMessage("La fecha de inicio debe ser anterior a la fecha de fin.");
+      setErrorMessage(
+        "La fecha de inicio debe ser anterior a la fecha de fin."
+      );
       return;
     }
 
@@ -112,7 +117,10 @@ export default function AddClientDialog({
 
       if (!response.ok) {
         const errorData = await response.json();
-        setErrorMessage(errorData.error || "No se pudo guardar el cliente. Intente nuevamente.");
+        setErrorMessage(
+          errorData.error ||
+            "No se pudo guardar el cliente. Intente nuevamente."
+        );
         setLoading(false);
         return;
       }
@@ -216,7 +224,15 @@ export default function AddClientDialog({
       {paymentMethod === "Tarjeta" && (
         <Button onClick={() => alert("Ir a POS")}>Ir a POS</Button>
       )}
-      {paymentMethod === "Billetera" && <img src={qrImageURL} alt="QR Pago" />}
+      
+      {paymentMethod === "Billetera" && (
+        <Image
+          src={qrImageURL}
+          alt="QR Pago"
+          width={200} // Ajusta el ancho según lo que necesites
+          height={200} // Ajusta la altura según lo que necesites
+        />
+      )}
 
       <Button
         className="bg-yellow-400 text-black hover:bg-yellow-500 w-full"

@@ -79,9 +79,4 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export const config = {
-  runtime: "nodejs", // Esto asegura que use Node.js runtime y no Edge
-  api: {
-    bodyParser: false, // Necesario para manejar archivos con formData
-  },
-};
+export const runtime = "nodejs";

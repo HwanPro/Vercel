@@ -5,6 +5,7 @@ import prisma from '@/libs/prisma';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/libs/authOptions';
 
+export const dynamic = "force-dynamic"; 
 export async function GET(request: Request) {
   try {
     console.log('Iniciando la obtención de la sesión...');
