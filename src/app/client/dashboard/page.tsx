@@ -41,7 +41,12 @@ export default function ClientDashboard() {
         const endDate = new Date(data.profile_end_date);
         const today = new Date();
         setRemainingDays(
-          Math.max(0, Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 3600 * 24)))
+          Math.max(
+            0,
+            Math.ceil(
+              (endDate.getTime() - today.getTime()) / (1000 * 3600 * 24)
+            )
+          )
         );
       }
     };
@@ -59,6 +64,9 @@ export default function ClientDashboard() {
       title: "¡Próximamente!",
       text: "La función para reservar clases estará disponible muy pronto.",
       icon: "info",
+      confirmButtonText: "Entendido",
+      showCancelButton: true,
+      cancelButtonText: "Cerrar",
       confirmButtonColor: "#facc15",
       background: "#000000",
       color: "#ffffff",
@@ -70,7 +78,10 @@ export default function ClientDashboard() {
       {/* Header */}
       <header className="flex justify-between items-center border-b border-yellow-400">
         <h1 className="text-yellow-400 text-2xl font-bold">Mi Panel</h1>
-        <button onClick={() => signOut()} className="text-yellow-400 hover:underline">
+        <button
+          onClick={() => signOut()}
+          className="text-yellow-400 hover:underline"
+        >
           Cerrar Sesión
         </button>
       </header>
@@ -78,25 +89,33 @@ export default function ClientDashboard() {
       {/* Bienvenida */}
       <section className="my-6">
         <h2 className="text-3xl text-yellow-400">
-          Bienvenido, {clientData?.profile_first_name || session?.user?.name || "Cliente"}
+          Bienvenido,{" "}
+          {clientData?.profile_first_name || session?.user?.name || "Cliente"}
         </h2>
       </section>
 
       {/* Suscripción */}
       {clientData?.profile_plan ? (
         <section className="my-6 bg-gray-800 p-4 rounded-lg shadow-lg">
-          <h3 className="text-xl text-yellow-400 font-semibold">Mi Suscripción</h3>
+          <h3 className="text-xl text-yellow-400 font-semibold">
+            Mi Suscripción
+          </h3>
           <p>
             <strong>Plan:</strong> {clientData.profile_plan}
           </p>
           <p>
             <strong>Fecha de inicio:</strong>{" "}
-            {new Date(clientData.profile_start_date!).toLocaleDateString()}
+            {clientData.profile_start_date
+              ? new Date(clientData.profile_start_date).toLocaleDateString()
+              : "N/A"}
           </p>
           <p>
             <strong>Fecha de fin:</strong>{" "}
-            {new Date(clientData.profile_end_date!).toLocaleDateString()}
+            {clientData.profile_end_date
+              ? new Date(clientData.profile_end_date).toLocaleDateString()
+              : "N/A"}
           </p>
+
           <p>
             <strong>Días restantes:</strong> {remainingDays} días
           </p>
@@ -149,7 +168,9 @@ export default function ClientDashboard() {
                 className="mb-4"
               />
               <h4 className="font-bold text-lg">{product.item_name}</h4>
-              <p className="text-sm text-gray-500">{product.item_description}</p>
+              <p className="text-sm text-gray-500">
+                {product.item_description}
+              </p>
               <p className="text-yellow-400 font-bold mt-2">
                 S/. {product.item_price.toFixed(2)}
               </p>

@@ -33,6 +33,7 @@ export default function ProductList() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -67,15 +68,12 @@ export default function ProductList() {
     fetchProducts();
   }, []);
 
-  // **Corrección Aquí: Eliminamos la solicitud POST**
   const handleAddSave = async (newProduct: NewProduct) => {
     try {
-      // Mostrar mensaje de éxito
       toast.success("Producto agregado con éxito", {
         position: "top-right",
         style: { backgroundColor: "#00C853", color: "#FFF" },
       });
-      // Actualizar la lista de productos
       await fetchProducts();
     } catch (error) {
       console.error("Error al agregar el producto:", error);
@@ -87,6 +85,7 @@ export default function ProductList() {
   };
 
   const handleEditSave = async (updatedProduct: Product) => {
+    setActionLoading(updatedProduct.id);
     try {
       const response = await fetch(`/api/products/${updatedProduct.id}`, {
         method: "PUT",
@@ -114,6 +113,8 @@ export default function ProductList() {
         position: "top-center",
         style: { backgroundColor: "#FF0000", color: "#FFF" },
       });
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -123,6 +124,7 @@ export default function ProductList() {
     );
     if (!confirm) return;
 
+    setActionLoading(id);
     try {
       const response = await fetch(`/api/products/${id}`, { method: "DELETE" });
       if (!response.ok) throw new Error("Error al eliminar el producto");
@@ -138,6 +140,8 @@ export default function ProductList() {
         position: "top-center",
         style: { backgroundColor: "#FF0000", color: "#FFF" },
       });
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -148,10 +152,8 @@ export default function ProductList() {
   return (
     <div className="p-6 bg-black min-h-screen">
       <ToastContainer position="top-right" autoClose={3000} />
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold text-yellow-400">
-          Gestión de Productos
-        </h1>
+      <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
+        <h1 className="text-2xl font-bold text-yellow-400">Gestión de Productos</h1>
         <div className="flex items-center gap-4">
           <Dialog>
             <DialogTrigger asChild>
@@ -164,7 +166,7 @@ export default function ProductList() {
                 Agregar Producto
               </DialogTitle>
               <AddProductDialog
-                onSave={handleAddSave} // Ahora solo actualiza la lista
+                onSave={handleAddSave}
                 onClose={() => console.log("Modal cerrado")}
               />
             </DialogContent>
@@ -178,7 +180,7 @@ export default function ProductList() {
           </Link>
         </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {products.map((product) => (
           <div
             key={product.id}
@@ -191,7 +193,6 @@ export default function ProductList() {
               height={96}
               className="h-24 w-24 object-contain mb-4"
             />
-
             <h2 className="text-lg font-bold text-black">
               {product.name || "Sin nombre"}
             </h2>
@@ -207,7 +208,7 @@ export default function ProductList() {
             <p className="text-sm text-gray-500">
               Stock: {product.stock ?? "Sin stock"}
             </p>
-            <div className="flex gap-4 mt-auto">
+            <div className="flex gap-4 mt-4">
               <Dialog>
                 <DialogTrigger asChild>
                   <Button
@@ -232,9 +233,12 @@ export default function ProductList() {
               </Dialog>
               <Button
                 onClick={() => handleDelete(product.id)}
-                className="bg-red-500 text-white hover:bg-red-600"
+                className={`bg-red-500 text-white hover:bg-red-600 ${
+                  actionLoading === product.id ? "opacity-50 cursor-not-allowed" : ""
+                }`}
+                disabled={actionLoading === product.id}
               >
-                Eliminar
+                {actionLoading === product.id ? "Eliminando..." : "Eliminar"}
               </Button>
             </div>
           </div>

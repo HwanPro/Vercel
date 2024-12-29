@@ -42,20 +42,18 @@ function AddProductDialog({
     }
 
     try {
-      // 1. Crear FormData con los campos del producto
       const formData = new FormData();
       formData.append("item_name", name);
       formData.append("item_description", description);
       formData.append("item_price", price);
-      formData.append("item_discount", discount || "0"); // Opcional
+      formData.append("item_discount", discount || "0");
       formData.append("item_stock", stock);
-      formData.append("file", image); // Imagen seleccionada
+      formData.append("file", image);
 
-      // 2. Enviar solicitud POST al backend
       const response = await fetch("/api/products", {
         method: "POST",
-        credentials: "include", // Incluye las cookies en la solicitud
-        body: formData, // Enviar FormData directamente
+        credentials: "include",
+        body: formData,
       });
 
       if (!response.ok) {
@@ -67,7 +65,6 @@ function AddProductDialog({
 
       const data = await response.json();
 
-      // 3. Actualizar estado del producto
       onSave({
         name: data.product.item_name,
         description: data.product.item_description,
@@ -77,7 +74,6 @@ function AddProductDialog({
         imageUrl: data.product.item_image_url,
       });
 
-      // 4. Reiniciar formulario y cerrar modal
       resetForm();
       onClose();
       toast.success("Producto agregado con éxito", { position: "top-right" });
@@ -97,55 +93,53 @@ function AddProductDialog({
   };
 
   return (
-    <div>
-      <div className="p-6 bg-white rounded-lg shadow-lg w-full max-w-md mx-auto">
-        <input
-          type="text"
-          placeholder="Nombre del producto"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="w-full p-2 mb-4 border rounded bg-white text-black"
-        />
-        <textarea
-          placeholder="Descripción"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className="w-full p-2 mb-4 border rounded bg-white text-black"
-        />
-        <input
-          type="number"
-          placeholder="Precio"
-          value={price}
-          onChange={(e) => setPrice(e.target.value)}
-          className="w-full p-2 mb-4 border rounded bg-white text-black"
-        />
-        <input
-          type="number"
-          placeholder="Descuento (%) - Opcional"
-          value={discount}
-          onChange={(e) => setDiscount(e.target.value)}
-          className="w-full p-2 mb-4 border rounded bg-white text-black"
-        />
-        <input
-          type="number"
-          placeholder="Stock"
-          value={stock}
-          onChange={(e) => setStock(e.target.value)}
-          className="w-full p-2 mb-4 border rounded bg-white text-black"
-        />
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => setImage(e.target.files ? e.target.files[0] : null)}
-          className="w-full p-2 mb-4 border rounded bg-white text-black"
-        />
-        <Button
-          className="w-full bg-yellow-400 text-black py-2 rounded hover:bg-yellow-500"
-          onClick={handleAddProduct}
-        >
-          Guardar Producto
-        </Button>
-      </div>
+    <div className="p-4 bg-white rounded-lg shadow-lg w-full max-w-sm mx-auto">
+      <input
+        type="text"
+        placeholder="Nombre del producto"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        className="w-full p-2 mb-2 border rounded text-sm"
+      />
+      <textarea
+        placeholder="Descripción"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        className="w-full p-2 mb-2 border rounded text-sm"
+      />
+      <input
+        type="number"
+        placeholder="Precio"
+        value={price}
+        onChange={(e) => setPrice(e.target.value)}
+        className="w-full p-2 mb-2 border rounded text-sm"
+      />
+      <input
+        type="number"
+        placeholder="Descuento (%) - Opcional"
+        value={discount}
+        onChange={(e) => setDiscount(e.target.value)}
+        className="w-full p-2 mb-2 border rounded text-sm"
+      />
+      <input
+        type="number"
+        placeholder="Stock"
+        value={stock}
+        onChange={(e) => setStock(e.target.value)}
+        className="w-full p-2 mb-2 border rounded text-sm"
+      />
+      <input
+        type="file"
+        accept="image/*"
+        onChange={(e) => setImage(e.target.files ? e.target.files[0] : null)}
+        className="w-full p-2 mb-2 border rounded text-sm"
+      />
+      <Button
+        className="w-full bg-yellow-400 text-black py-2 text-sm rounded hover:bg-yellow-500"
+        onClick={handleAddProduct}
+      >
+        Guardar Producto
+      </Button>
     </div>
   );
 }

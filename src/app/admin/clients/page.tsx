@@ -50,7 +50,9 @@ export default function ClientsPage() {
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        const response = await fetch("/api/clients", { credentials: "include" });
+        const response = await fetch("/api/clients", {
+          credentials: "include",
+        });
         if (!response.ok) throw new Error("Error al obtener los clientes");
 
         const data = await response.json();
@@ -157,29 +159,29 @@ export default function ClientsPage() {
   return (
     <div className="p-6 bg-black min-h-screen text-white">
       <ToastContainer />
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-yellow-400">
+      <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
+        <h1 className="text-2xl md:text-3xl font-bold text-yellow-400">
           Gestión de Clientes
         </h1>
         <Link
           href="/admin/dashboard"
-          className="bg-yellow-400 text-black px-4 py-2 rounded hover:bg-yellow-500"
+          className="bg-yellow-400 text-black px-4 py-2 rounded hover:bg-yellow-500 w-full md:w-auto text-center"
         >
           Volver al Dashboard
         </Link>
       </div>
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col md:flex-row items-center gap-4 mb-6">
         <input
           type="text"
-          className="p-2 rounded border w-full max-w-sm"
+          className="p-2 rounded border w-full md:max-w-sm"
           placeholder="Buscar cliente por nombre o apellido"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
         <Dialog>
           <DialogTrigger asChild>
-            <Button className="ml-4 bg-yellow-400 text-black hover:bg-yellow-500">
+            <Button className="bg-yellow-400 text-black hover:bg-yellow-500 w-full md:w-auto">
               Añadir Cliente
             </Button>
           </DialogTrigger>
@@ -202,45 +204,51 @@ export default function ClientsPage() {
         </Dialog>
       </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="text-yellow-400">Nombre</TableHead>
-            <TableHead className="text-yellow-400">Apellidos</TableHead>
-            <TableHead className="text-yellow-400">Plan</TableHead>
-            <TableHead className="text-yellow-400">Fecha de Inicio</TableHead>
-            <TableHead className="text-yellow-400">Fecha de Fin</TableHead>
-            <TableHead className="text-yellow-400">Acción</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {filteredClients.length > 0 ? (
-            filteredClients.map((client) => (
-              <TableRow key={client.id}>
-                <TableCell>{client.firstName}</TableCell>
-                <TableCell>{client.lastName}</TableCell>
-                <TableCell>{client.plan}</TableCell>
-                <TableCell>{client.membershipStart}</TableCell>
-                <TableCell>{client.membershipEnd}</TableCell>
-                <TableCell>
-                  <Button
-                    className="bg-red-500 text-white hover:bg-red-600"
-                    onClick={() => handleDeleteClick(client.id)}
-                  >
-                    Eliminar
-                  </Button>
+      <div className="overflow-x-auto">
+        <Table className="table-auto w-full border-collapse">
+          <TableHeader>
+            <TableRow>
+              <TableHead className="text-yellow-400 w-1/6">Nombre</TableHead>
+              <TableHead className="text-yellow-400 w-1/6">Apellidos</TableHead>
+              <TableHead className="text-yellow-400 w-1/6">Plan</TableHead>
+              <TableHead className="text-yellow-400 w-1/6">
+                Fecha de Inicio
+              </TableHead>
+              <TableHead className="text-yellow-400 w-1/6">
+                Fecha de Fin
+              </TableHead>
+              <TableHead className="text-yellow-400 w-1/6">Acción</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredClients.length > 0 ? (
+              filteredClients.map((client) => (
+                <TableRow key={client.id} className="hover:bg-gray-700">
+                  <TableCell>{client.firstName}</TableCell>
+                  <TableCell>{client.lastName}</TableCell>
+                  <TableCell>{client.plan}</TableCell>
+                  <TableCell>{client.membershipStart}</TableCell>
+                  <TableCell>{client.membershipEnd}</TableCell>
+                  <TableCell>
+                    <Button
+                      className="bg-red-500 text-white hover:bg-red-600 w-full md:w-auto"
+                      onClick={() => handleDeleteClick(client.id)}
+                    >
+                      Eliminar
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center">
+                  No hay clientes disponibles
                 </TableCell>
               </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={6} className="text-center">
-                No hay clientes disponibles
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
+            )}
+          </TableBody>
+        </Table>
+      </div>
 
       {showConfirm && (
         <ConfirmDialog

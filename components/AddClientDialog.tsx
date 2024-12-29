@@ -5,6 +5,7 @@ import { Button } from "./ui/button";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Image from "next/image";
+
 interface Client {
   id: string;
   firstName: string;
@@ -42,7 +43,6 @@ export default function AddClientDialog({
   const handleSave = async () => {
     setErrorMessage("");
 
-    // Validación de campos vacíos
     if (
       !name ||
       !lastName ||
@@ -56,13 +56,11 @@ export default function AddClientDialog({
       return;
     }
 
-    // Validar formato del email
     if (!/\S+@\S+\.\S+/.test(email)) {
       setErrorMessage("El correo electrónico no es válido.");
       return;
     }
 
-    // Validación de fechas
     const startDate = new Date(membershipStart);
     const endDate = new Date(membershipEnd);
     if (startDate >= endDate) {
@@ -72,7 +70,6 @@ export default function AddClientDialog({
       return;
     }
 
-    // Validar teléfonos
     if (!isValidPhoneNumber(phone || "")) {
       setErrorMessage("El número de teléfono principal no es válido.");
       return;
@@ -83,7 +80,6 @@ export default function AddClientDialog({
       return;
     }
 
-    // Validación del método de pago
     if (paymentMethod === "Tarjeta") {
       alert("Por favor, complete el pago en el POS.");
       return;
@@ -107,11 +103,10 @@ export default function AddClientDialog({
     try {
       setLoading(true);
 
-      // Hacer POST al endpoint /api/clients
       const response = await fetch("/api/clients", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include", // Importante para enviar cookies y mantener sesión
+        credentials: "include",
         body: JSON.stringify(newClientData),
       });
 
@@ -125,7 +120,6 @@ export default function AddClientDialog({
         return;
       }
 
-      // Si todo va bien, notificar éxito y resetear campos
       toast.success("Cliente agregado con éxito.");
       setName("");
       setLastName("");
@@ -145,30 +139,32 @@ export default function AddClientDialog({
   };
 
   return (
-    <div className="relative p-6 bg-white rounded-lg shadow-lg w-96">
-      {errorMessage && <p className="text-red-500 mb-4">{errorMessage}</p>}
+    <div className="relative p-4 bg-white rounded-lg shadow-lg w-full max-w-md mx-auto">
+      {errorMessage && (
+        <p className="text-red-500 mb-2 text-sm">{errorMessage}</p>
+      )}
 
       <input
-        className="w-full p-2 mb-4 border rounded bg-white text-black placeholder-gray-500"
+        className="w-full p-2 mb-2 border rounded bg-white text-black text-sm"
         placeholder="Nombre"
         value={name}
         onChange={(e) => setName(e.target.value)}
       />
       <input
-        className="w-full p-2 mb-4 border rounded bg-white text-black placeholder-gray-500"
+        className="w-full p-2 mb-2 border rounded bg-white text-black text-sm"
         placeholder="Apellidos"
         value={lastName}
         onChange={(e) => setLastName(e.target.value)}
       />
       <input
-        className="w-full p-2 mb-4 border rounded bg-white text-black placeholder-gray-500"
+        className="w-full p-2 mb-2 border rounded bg-white text-black text-sm"
         placeholder="Correo electrónico"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
       />
 
       <select
-        className="w-full p-2 mb-4 border rounded bg-white text-black"
+        className="w-full p-2 mb-2 border rounded bg-white text-black text-sm"
         value={plan}
         onChange={(e) => setPlan(e.target.value)}
       >
@@ -179,63 +175,63 @@ export default function AddClientDialog({
       </select>
 
       <label className="block text-sm font-bold mb-1 text-black">
-        Fecha de inicio de membresía
+        Fecha de inicio
       </label>
       <input
         type="date"
-        className="w-full p-2 mb-4 border rounded bg-white text-black"
+        className="w-full p-2 mb-2 border rounded bg-white text-black text-sm"
         value={membershipStart}
         onChange={(e) => setMembershipStart(e.target.value)}
       />
       <label className="block text-sm font-bold mb-1 text-black">
-        Fecha de fin de membresía
+        Fecha de fin
       </label>
       <input
         type="date"
-        className="w-full p-2 mb-4 border rounded bg-white text-black"
+        className="w-full p-2 mb-2 border rounded bg-white text-black text-sm"
         value={membershipEnd}
         onChange={(e) => setMembershipEnd(e.target.value)}
       />
 
       <PhoneInput
         defaultCountry="PE"
-        placeholder="Número de teléfono principal"
+        placeholder="Teléfono principal"
         value={phone}
         onChange={setPhone}
-        className="w-full p-2 mb-4 border rounded bg-white text-black"
+        className="w-full p-2 mb-2 border rounded bg-white text-black text-sm"
       />
       <PhoneInput
         defaultCountry="PE"
-        placeholder="Número de emergencia"
+        placeholder="Teléfono de emergencia"
         value={emergencyPhone}
         onChange={setEmergencyPhone}
-        className="w-full p-2 mb-4 border rounded bg-white text-black"
+        className="w-full p-2 mb-2 border rounded bg-white text-black text-sm"
       />
 
       <select
         value={paymentMethod}
         onChange={(e) => setPaymentMethod(e.target.value)}
-        className="w-full p-2 mb-4 border rounded"
+        className="w-full p-2 mb-2 border rounded text-sm"
       >
         <option value="Efectivo">Efectivo</option>
         <option value="Tarjeta">Tarjeta</option>
         <option value="Billetera">Billetera Virtual</option>
       </select>
-      {paymentMethod === "Tarjeta" && (
-        <Button onClick={() => alert("Ir a POS")}>Ir a POS</Button>
-      )}
-      
+
       {paymentMethod === "Billetera" && (
-        <Image
-          src={qrImageURL}
-          alt="QR Pago"
-          width={200} // Ajusta el ancho según lo que necesites
-          height={200} // Ajusta la altura según lo que necesites
-        />
+        <div className="flex justify-center mb-2">
+          <Image
+            src={qrImageURL}
+            alt="QR Pago"
+            width={120}
+            height={120}
+            className="mb-2"
+          />
+        </div>
       )}
 
       <Button
-        className="bg-yellow-400 text-black hover:bg-yellow-500 w-full"
+        className="bg-yellow-400 text-black hover:bg-yellow-500 w-full text-sm"
         onClick={handleSave}
         disabled={loading}
       >
