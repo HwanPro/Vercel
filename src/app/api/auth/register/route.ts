@@ -50,7 +50,7 @@ export async function POST(req: Request) {
 
     // Validar contraseña
     if (
-      !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s])[A-Za-z\d@$!%*?&#\-\_\.]{12,}$/.test(
+      !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s])[A-Za-z\d\-\_\.]{12,}$/.test(
         password
       )
     ) {

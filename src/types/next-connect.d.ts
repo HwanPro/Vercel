@@ -12,7 +12,7 @@ declare module "next-auth" {
     email: string | null;
     image: string | null;
     role: string | null;
-    emailVerified: boolean; // Personaliza según tu base de datos
+    emailVerified: boolean?; // Personaliza según tu base de datos
   }
 
   interface Session {

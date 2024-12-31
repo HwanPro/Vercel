@@ -67,7 +67,7 @@ model UserContact {
 
 model ClientProfile {
   profile_first_name      String
-  profile_last_name       String
+  profile_last_name       String?
   profile_plan            String?
   profile_start_date      DateTime?
   profile_end_date        DateTime?

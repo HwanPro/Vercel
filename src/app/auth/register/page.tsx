@@ -156,7 +156,7 @@ function RegisterPage() {
                 message: "La contraseña debe tener al menos 12 caracteres",
               },
               validate: (value) =>
-                /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s])[A-Za-z\d@$!%*?&#\-\_\.]{12,}$/.test(
+                /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s])[A-Za-z\d\-\_\.]{12,}$/.test(
                   value
                 ) ||
                 "La contraseña debe incluir mayúsculas, minúsculas, números y símbolos.",
