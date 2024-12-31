@@ -19,7 +19,7 @@ async function sendVerificationEmail(email: string, token: string) {
     },
   });
 
-  const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/verify-email?token=${token}`;
+  const verificationUrl = `${process.env.NEXTAUTH_URL}/auth/verify-email?token=${token}`;
   const mailOptions = {
     from: `"Wolf Gym" <${process.env.EMAIL_USER}>`,
     to: email,
