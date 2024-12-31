@@ -17,7 +17,7 @@ model User {
   isVerified    Boolean              @default(false)
   twoFASecret   String?
   createdAt     DateTime             @default(now())
-  emailVerified Boolean?              @default(false)
+  emailVerified Boolean              @default(false)
   updatedAt     DateTime             @updatedAt
   accounts      Account[]
   profile       ClientProfile?
@@ -67,7 +67,7 @@ model UserContact {
 
 model ClientProfile {
   profile_first_name      String
-  profile_last_name       String?
+  profile_last_name       String
   profile_plan            String?
   profile_start_date      DateTime?
   profile_end_date        DateTime?
