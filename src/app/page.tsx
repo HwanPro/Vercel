@@ -136,7 +136,7 @@ export default function WolfGymLanding() {
     if (!showSticky) return null;
 
     return (
-      <div className="fixed top-0 left-0 right-0 bg-white p-4 flex justify-end gap-4 container mx-auto px-4 z-50">
+      <div className="fixed top-0 left-0 right-0  p-4 flex justify-end gap-4 container mx-auto px-4 z-50">
         <Button
           className="bg-yellow-400 text-black hover:bg-yellow-500"
           onClick={handleOpenModal}
@@ -145,7 +145,7 @@ export default function WolfGymLanding() {
         </Button>
         <Button
           variant="outline"
-          className="text-yellow-600 border-yellow-400 hover:bg-yellow-400 hover:text-black"
+          className="text-yellow-600 border-yellow-400 hover:bg-yellow-400 hover:text-black bg-white"
           onClick={handleProducts}
         >
           Ver Productos
@@ -154,7 +154,7 @@ export default function WolfGymLanding() {
         {/* Menú mobile */}
         <nav className="ml-auto flex items-center gap-4">
           <button
-            className="lg:hidden block text-yellow-400"
+            className="lg:hidden block  text-yellow-400"
             onClick={handleMobileMenuToggle}
           >
             ☰
@@ -164,7 +164,7 @@ export default function WolfGymLanding() {
           <div
             className={`${
               mobileMenuOpen ? "block" : "hidden"
-            } lg:flex gap-4 bg-black text-white p-4 lg:p-0`}
+            } lg:flex gap-4 text-white p-4 lg:p-0`}
           >
             {session ? (
               // Si hay sesión, mostramos el rol

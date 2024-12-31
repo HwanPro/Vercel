@@ -17,7 +17,7 @@ model User {
   isVerified    Boolean              @default(false)
   twoFASecret   String?
   createdAt     DateTime             @default(now())
-  emailVerified Boolean              @default(false)
+  emailVerified Boolean?              @default(false)
   updatedAt     DateTime             @updatedAt
   accounts      Account[]
   profile       ClientProfile?

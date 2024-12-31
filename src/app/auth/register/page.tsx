@@ -43,7 +43,8 @@ function RegisterPage() {
       });
 
       if (res.ok) {
-        router.push("/auth/login");
+        // Redirigir a login o mostrar un mensaje "Revisa tu correo"
+        router.push("/auth/login?checkEmail=1");
       } else {
         const result = await res.json();
         setError(

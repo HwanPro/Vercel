@@ -21,15 +21,17 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-9 px-4 py-2",
-        sm: "h-8 rounded-md px-3 text-xs",
-        lg: "h-10 rounded-md px-8",
-        icon: "h-9 w-9",
+        default: "h-9 px-4 py-2 text-sm", // Base size
+        sm: "h-8 px-3 text-xs", // Small size
+        lg: "h-10 px-6 text-base", // Large size
+        icon: "h-9 w-9", // Icon size
+        responsive:
+          "sm:h-8 sm:px-3 sm:text-xs md:h-9 md:px-4 md:text-sm lg:h-10 lg:px-6 lg:text-base", // Responsive behavior
       },
     },
     defaultVariants: {
       variant: "default",
-      size: "default",
+      size: "responsive", // Use responsive as the default
     },
   }
 )
