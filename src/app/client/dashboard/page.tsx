@@ -29,6 +29,7 @@ export default function ClientDashboard() {
   const [clientData, setClientData] = useState<ClientData | null>(null);
   const [suggestedProducts, setSuggestedProducts] = useState<Product[]>([]);
   const [remainingDays, setRemainingDays] = useState<number | null>(null);
+  const [showScanner, setShowScanner] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchClientData = async () => {
@@ -79,8 +80,8 @@ export default function ClientDashboard() {
       icon: "info",
       confirmButtonText: "Entendido",
       confirmButtonColor: "#facc15",
-      background: "#000000",
-      color: "#ffffff",
+      background: "#ffffff",
+      color: "#000000",
     });
   };
 
@@ -102,9 +103,11 @@ export default function ClientDashboard() {
         icon: "success",
         confirmButtonText: "Aceptar",
         confirmButtonColor: "#facc15",
-        background: "#000000",
-        color: "#ffffff",
+        background: "#ffffff",
+        color: "#000000",
       });
+
+      setShowScanner(false); // Ocultar el escáner después de registrar asistencia
     } catch (error) {
       console.error("Error registrando asistencia:", error);
       Swal.fire({
@@ -113,14 +116,14 @@ export default function ClientDashboard() {
         icon: "error",
         confirmButtonText: "Intentar de nuevo",
         confirmButtonColor: "#facc15",
-        background: "#000000",
-        color: "#ffffff",
+        background: "#ffffff",
+        color: "#000000",
       });
     }
   };
 
   return (
-    <div className="p-6 bg-black min-h-screen text-white">
+    <div className="p-6 bg-black min-h-screen text-black">
       {/* Header */}
       <header className="flex justify-between items-center border-b border-yellow-400 pb-4">
         <h1 className="text-yellow-400 text-2xl font-bold">Mi Panel</h1>
@@ -132,14 +135,6 @@ export default function ClientDashboard() {
         </button>
       </header>
 
-      {/* Escaneo de QR */}
-      <section className="my-6">
-        <h3 className="text-2xl text-yellow-400">
-          Escanear Código QR para Ingreso
-        </h3>
-        <QRScannerComponent onScan={handleQRScan} />
-      </section>
-
       {/* Bienvenida */}
       <section className="my-6">
         <h2 className="text-3xl text-yellow-400">
@@ -150,7 +145,7 @@ export default function ClientDashboard() {
 
       {/* Suscripción */}
       {clientData?.profile_plan ? (
-        <section className="my-6 bg-gray-800 p-4 rounded-lg shadow-lg">
+        <section className="my-6 bg-gray-800 p-4 rounded-lg shadow-lg text-white">
           <h3 className="text-xl text-yellow-400 font-semibold">
             Mi Suscripción
           </h3>
@@ -172,6 +167,21 @@ export default function ClientDashboard() {
           <p>
             <strong>Días restantes:</strong> {remainingDays} días
           </p>
+
+          {/* Botón para escanear QR */}
+          <button
+            onClick={() => setShowScanner(true)}
+            className="bg-yellow-400 text-black px-4 py-2 rounded hover:bg-yellow-500 mt-4"
+          >
+            Escanear QR
+          </button>
+
+          {/* Mostrar escáner solo si el usuario tiene suscripción */}
+          {showScanner && (
+            <div className="mt-4">
+              <QRScannerComponent onScan={handleQRScan} />
+            </div>
+          )}
         </section>
       ) : (
         <section className="my-6 text-center">
@@ -201,34 +211,6 @@ export default function ClientDashboard() {
           >
             Ver Productos
           </Link>
-        </div>
-      </section>
-
-      {/* Productos sugeridos */}
-      <section className="my-6">
-        <h3 className="text-2xl text-yellow-400 mb-4">Productos Sugeridos</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-          {suggestedProducts.map((product) => (
-            <div
-              key={product.item_id}
-              className="bg-white text-black rounded-lg p-4 shadow-lg flex flex-col items-center"
-            >
-              <Image
-                src={product.item_image_url || "/placeholder.png"}
-                alt={product.item_name}
-                width={80}
-                height={80}
-                className="mb-4"
-              />
-              <h4 className="font-bold text-lg">{product.item_name}</h4>
-              <p className="text-sm text-gray-500">
-                {product.item_description}
-              </p>
-              <p className="text-yellow-400 font-bold mt-2">
-                S/. {product.item_price.toFixed(2)}
-              </p>
-            </div>
-          ))}
         </div>
       </section>
     </div>
