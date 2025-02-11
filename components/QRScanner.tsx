@@ -1,7 +1,7 @@
 "use client";
 
 import { Html5QrcodeScanner } from "html5-qrcode";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 interface QRScannerProps {
   onScan: (data: string) => void;
@@ -9,35 +9,30 @@ interface QRScannerProps {
 
 const QRScannerComponent: React.FC<QRScannerProps> = ({ onScan }) => {
   const scannerRef = useRef<HTMLDivElement | null>(null);
-  const [scanner, setScanner] = useState<Html5QrcodeScanner | null>(null);
 
   useEffect(() => {
-    if (!scannerRef.current || scanner) return;
+    if (!scannerRef.current) return;
 
-    const qrScanner = new Html5QrcodeScanner(
+    const scanner = new Html5QrcodeScanner(
       "qr-reader",
       { fps: 10, qrbox: { width: 250, height: 250 } },
       false
     );
 
-    qrScanner.render(
+    scanner.render(
       (decodedText) => {
         onScan(decodedText);
-        qrScanner.clear().catch((err) => console.error("Error limpiando escáner:", err));
-        setScanner(null);
+        scanner.clear(); // Detener el escáner después de una lectura
       },
       (errorMessage) => {
         console.log("Error escaneando:", errorMessage);
       }
     );
 
-    setScanner(qrScanner);
-
     return () => {
-      qrScanner.clear().catch((err) => console.error("Error limpiando escáner al desmontar:", err));
-      setScanner(null);
+      scanner.clear();
     };
-  }, [onScan, scanner]);
+  }, [onScan]);
 
   return <div id="qr-reader" ref={scannerRef} className="w-full max-w-md" />;
 };
