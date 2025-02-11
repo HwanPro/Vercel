@@ -175,6 +175,12 @@ export default function AdminDashboard() {
           >
             Reportes
           </Link>
+          <Link
+            href="/admin/register"
+            className="block text-sm font-medium text-white hover:text-yellow-400 no-underline"
+          >
+            Registro
+          </Link>
           <button
             onClick={handleSignOut}
             className="block text-sm font-medium text-white hover:text-yellow-400"

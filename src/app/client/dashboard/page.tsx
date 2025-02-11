@@ -1,11 +1,12 @@
 "use client";
 
 import { useSession, signOut } from "next-auth/react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import Swal from "sweetalert2";
 import "sweetalert2/dist/sweetalert2.min.css";
+import QRScannerComponent from "@/components/QRScanner";
 
 interface Product {
   item_id: string;
@@ -31,31 +32,43 @@ export default function ClientDashboard() {
 
   useEffect(() => {
     const fetchClientData = async () => {
-      const response = await fetch("/api/clients/me");
-      if (!response.ok) return;
+      try {
+        const response = await fetch("/api/clients/me");
+        if (!response.ok)
+          throw new Error("Error obteniendo los datos del cliente.");
 
-      const data: ClientData = await response.json();
-      setClientData(data);
+        const data: ClientData = await response.json();
+        setClientData(data);
 
-      if (data.profile_end_date) {
-        const endDate = new Date(data.profile_end_date);
-        const today = new Date();
-        setRemainingDays(
-          Math.max(
-            0,
-            Math.ceil(
-              (endDate.getTime() - today.getTime()) / (1000 * 3600 * 24)
+        if (data.profile_end_date) {
+          const endDate = new Date(data.profile_end_date);
+          const today = new Date();
+          setRemainingDays(
+            Math.max(
+              0,
+              Math.ceil(
+                (endDate.getTime() - today.getTime()) / (1000 * 3600 * 24)
+              )
             )
-          )
-        );
+          );
+        }
+      } catch (error) {
+        console.error("Error cargando los datos del cliente:", error);
       }
     };
-    fetchClientData();
 
     const fetchProducts = async () => {
-      const response = await fetch("/api/products/public");
-      if (response.ok) setSuggestedProducts(await response.json());
+      try {
+        const response = await fetch("/api/products/public");
+        if (!response.ok) throw new Error("Error obteniendo los productos.");
+
+        setSuggestedProducts(await response.json());
+      } catch (error) {
+        console.error("Error cargando los productos sugeridos:", error);
+      }
     };
+
+    fetchClientData();
     fetchProducts();
   }, []);
 
@@ -65,18 +78,51 @@ export default function ClientDashboard() {
       text: "La función para reservar clases estará disponible muy pronto.",
       icon: "info",
       confirmButtonText: "Entendido",
-      showCancelButton: true,
-      cancelButtonText: "Cerrar",
       confirmButtonColor: "#facc15",
       background: "#000000",
       color: "#ffffff",
     });
   };
 
+  const handleQRScan = async (data: string) => {
+    try {
+      const response = await fetch("/api/check-in", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ qrData: data }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Error al registrar la asistencia.");
+      }
+
+      Swal.fire({
+        title: "Asistencia Registrada",
+        text: "Tu ingreso ha sido registrado correctamente.",
+        icon: "success",
+        confirmButtonText: "Aceptar",
+        confirmButtonColor: "#facc15",
+        background: "#000000",
+        color: "#ffffff",
+      });
+    } catch (error) {
+      console.error("Error registrando asistencia:", error);
+      Swal.fire({
+        title: "Error",
+        text: "No se pudo registrar la asistencia. Inténtalo nuevamente.",
+        icon: "error",
+        confirmButtonText: "Intentar de nuevo",
+        confirmButtonColor: "#facc15",
+        background: "#000000",
+        color: "#ffffff",
+      });
+    }
+  };
+
   return (
     <div className="p-6 bg-black min-h-screen text-white">
       {/* Header */}
-      <header className="flex justify-between items-center border-b border-yellow-400">
+      <header className="flex justify-between items-center border-b border-yellow-400 pb-4">
         <h1 className="text-yellow-400 text-2xl font-bold">Mi Panel</h1>
         <button
           onClick={() => signOut()}
@@ -85,6 +131,14 @@ export default function ClientDashboard() {
           Cerrar Sesión
         </button>
       </header>
+
+      {/* Escaneo de QR */}
+      <section className="my-6">
+        <h3 className="text-2xl text-yellow-400">
+          Escanear Código QR para Ingreso
+        </h3>
+        <QRScannerComponent onScan={handleQRScan} />
+      </section>
 
       {/* Bienvenida */}
       <section className="my-6">
@@ -115,7 +169,6 @@ export default function ClientDashboard() {
               ? new Date(clientData.profile_end_date).toLocaleDateString()
               : "N/A"}
           </p>
-
           <p>
             <strong>Días restantes:</strong> {remainingDays} días
           </p>

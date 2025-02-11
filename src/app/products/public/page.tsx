@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { FaShoppingCart, FaSearch } from "react-icons/fa";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { FaShoppingCart, FaSearch } from "react-icons/fa";
 import Image from "next/image";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -34,10 +33,42 @@ export default function PublicProductList() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [showCart, setShowCart] = useState(false);
-  const [culqiErrorShown, setCulqiErrorShown] = useState(false); // Controlar si se mostró el error de Culqi
+  const [culqiErrorShown, setCulqiErrorShown] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+
   const router = useRouter();
 
-  // useEffect para cargar productos desde la API
+  // Cargar el script de Culqi
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.src = "https://checkout.culqi.com/js/v4";
+    script.async = true;
+    script.onload = () => {
+      console.log("Culqi script cargado correctamente");
+    };
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
+
+  // 1. Cargar carrito de localStorage al montar
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const storedCart = localStorage.getItem("cart");
+    if (storedCart) {
+      setCart(JSON.parse(storedCart));
+    }
+  }, []);
+
+  // 2. Guardar carrito en localStorage cada vez que cambie
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("cart", JSON.stringify(cart));
+  }, [cart]);
+
+  // 3. Cargar lista de productos
   useEffect(() => {
     const fetchProducts = async () => {
       try {
@@ -45,95 +76,141 @@ export default function PublicProductList() {
         if (!response.ok) {
           throw new Error("Error al cargar productos");
         }
-
         const data = await response.json();
-        const formattedProducts = data.map((product: any) => ({
-          id: product.item_id,
-          name: product.item_name,
-          description: product.item_description,
-          price: product.item_price,
-          discount: product.item_discount || 0,
-          stock: product.item_stock || 0,
-          imageUrl: product.item_image_url || "/placeholder-image.png",
+        const formatted = data.map((p: any) => ({
+          id: p.item_id,
+          name: p.item_name,
+          description: p.item_description,
+          price: p.item_price,
+          discount: p.item_discount || 0,
+          stock: p.item_stock || 0,
+          imageUrl: p.item_image_url || "/placeholder-image.png",
         }));
-
-        setProducts(formattedProducts);
-        setFilteredProducts(formattedProducts);
+        setProducts(formatted);
+        setFilteredProducts(formatted);
       } catch (error) {
         console.error("Error al cargar productos:", error);
         toast.error("❌ Error al cargar productos. Intenta nuevamente.");
       }
     };
-
     fetchProducts();
   }, []);
 
-  // useEffect para filtrar productos
+  // 4. Filtrar cada vez que cambie searchTerm
   useEffect(() => {
-    const results = products.filter((product) =>
-      product.name?.toLowerCase().includes(searchTerm.toLowerCase())
+    const results = products.filter((prod) =>
+      prod.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
     setFilteredProducts(results);
   }, [searchTerm, products]);
 
+  // 5. Definir callbacks de Culqi (token y close) una sola vez
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (!window.Culqi) {
+      console.log(
+        "Culqi no está definido todavía. Se definirá al cargar el script..."
+      );
+      return;
+    }
+
+    // Callback cuando Culqi devuelve un token
+    window.Culqi.token = async (token: any) => {
+      try {
+        const amount =
+          cart.reduce((acc, it) => acc + it.price * (it.quantity || 1), 0) *
+          100;
+
+        const resp = await axios.post("/api/payments/culqi", {
+          token: token.id,
+          amount,
+          description: "Compra en línea",
+          email: "cliente@example.com",
+        });
+
+        if (resp.status === 200) {
+          toast.success(
+            "✅ Pago realizado con éxito. Recoge tu pedido en el local."
+          );
+          setCart([]); // Vacía el carrito
+          setShowCart(false);
+        } else {
+          throw new Error("Error al procesar el pago en backend");
+        }
+      } catch (err) {
+        console.error("Error en backend Culqi:", err);
+        toast.error("❌ Error al procesar el pago");
+      } finally {
+        setIsProcessingPayment(false); // Restablece el estado
+      }
+    };
+
+    // Callback cuando se cierra el modal de Culqi
+    window.Culqi.close = () => {
+      console.log("Modal Culqi cerrado/cancelado");
+      setIsProcessingPayment(false); // Restablece el estado
+      toast.error("❌ Pago cancelado o cerrado. Intenta nuevamente.");
+    };
+  }, [cart]);
+
+  // Añadir al carrito
   const handleAddToCart = (product: Product) => {
     if (quantity > product.stock) {
       toast.warn("⚠️ No hay suficiente stock disponible.");
       return;
     }
-
-    const existingProduct = cart.find((item) => item.id === product.id);
-    if (existingProduct) {
-      const newQuantity = (existingProduct.quantity || 1) + quantity;
-      if (newQuantity > product.stock) {
-        toast.warn(
-          "⚠️ No puedes agregar más productos de los que hay en stock."
-        );
+    const existing = cart.find((item) => item.id === product.id);
+    if (existing) {
+      const newQty = (existing.quantity || 1) + quantity;
+      if (newQty > product.stock) {
+        toast.warn("⚠️ No puedes agregar más de lo disponible.");
         return;
       }
       setCart((prev) =>
-        prev.map((item) =>
-          item.id === product.id ? { ...item, quantity: newQuantity } : item
+        prev.map((it) =>
+          it.id === product.id ? { ...it, quantity: newQty } : it
         )
       );
     } else {
-      setCart((prev) => [...prev, { ...product, quantity }]);
+      setCart([...cart, { ...product, quantity }]);
     }
-
     setSelectedProduct(null);
     setQuantity(1);
   };
 
+  // Quitar producto del carrito
   const handleRemoveFromCart = (id: string) => {
-    setCart((prev) => prev.filter((product) => product.id !== id));
+    setCart((prev) => prev.filter((it) => it.id !== id));
     toast.info("🗑 Producto eliminado del carrito.");
   };
 
-  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-
-  const pagarCompra = async () => {
+  // Iniciar pago
+  const pagarCompra = () => {
     if (cart.length === 0) {
       toast.error("🛒 El carrito está vacío. Agrega productos antes de pagar.");
       return;
     }
-
-    const amount =
-      cart.reduce((acc, item) => acc + item.price * (item.quantity || 1), 0) *
-      100;
-
-    console.log("Monto total a pagar (en céntimos):", amount);
-
     if (!window.Culqi) {
       if (!culqiErrorShown) {
         setCulqiErrorShown(true);
         toast.error("⚠️ Error al cargar Culqi. Intenta nuevamente.");
-        console.log("Error: Culqi no está definido en el objeto `window`.");
       }
+      return;
+    }
+    if (isProcessingPayment) {
+      console.log("Ya se está procesando el pago...");
       return;
     }
 
     setIsProcessingPayment(true);
 
+    // Calcula el monto en céntimos
+    const amount =
+      cart.reduce((acc, it) => acc + it.price * (it.quantity || 1), 0) * 100;
+    console.log("Monto a pagar (en céntimos):", amount);
+
+    // Configuración Culqi
     window.Culqi.publicKey = process.env.NEXT_PUBLIC_CULQI_PUBLIC_KEY!;
     window.Culqi.settings({
       title: "Tienda Online",
@@ -141,47 +218,16 @@ export default function PublicProductList() {
       description: "Compra en línea",
       amount,
     });
+
+    console.log("Culqi configurado. Abriendo modal...");
     window.Culqi.open();
-    
-
-    console.log("Configuración de Culqi completada.");
-
-    window.Culqi.open();
-
-    window.Culqi.token = async (token: any) => {
-      console.log("Token recibido de Culqi:", token);
-
-      try {
-        const response = await axios.post("/api/payments/culqi", {
-          token: token.id,
-          amount,
-          description: "Compra en línea",
-          email: "cliente@example.com", // Asegúrate de enviar un correo válido
-        });
-
-        console.log("Respuesta de la API Culqi:", response.data);
-
-        if (response.status === 200) {
-          toast.success("✅ Pago realizado con éxito");
-          setCart([]);
-          setShowCart(false);
-        } else {
-          throw new Error("Error al procesar el pago en el backend");
-        }
-      } catch (error) {
-        console.error("Error al procesar el pago en el backend:", error);
-        toast.error("❌ Error al procesar el pago");
-      } finally {
-        setIsProcessingPayment(false);
-      }
-    };
   };
 
   return (
     <div className="bg-white min-h-screen">
-      {/* Header */}
-      <header className="flex flex-wrap items-center justify-between p-4 border-b border-gray-200 bg-white shadow-md">
-        <h1 className="text-xl font-bold text-black flex-1 md:flex-none">
+      {/* HEADER */}
+      <header className="flex flex-wrap items-center justify-between p-4 border-b bg-white shadow-md">
+        <h1 className="text-xl font-bold text-black flex-1">
           Nuestros Productos
         </h1>
         <div className="flex flex-wrap items-center gap-4">
@@ -192,7 +238,7 @@ export default function PublicProductList() {
               placeholder="Buscar productos..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full sm:w-auto pl-10 pr-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-yellow-400"
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-yellow-400"
             />
           </div>
           <button
@@ -205,7 +251,7 @@ export default function PublicProductList() {
           <button
             role="button"
             aria-label="Abrir carrito"
-            className="relative text-2xl text-black cursor-pointer focus:outline-none ml-auto"
+            className="relative text-2xl text-black ml-auto"
             onClick={() => setShowCart(!showCart)}
           >
             <FaShoppingCart />
@@ -218,43 +264,43 @@ export default function PublicProductList() {
         </div>
       </header>
 
-      {/* Products */}
+      {/* LISTADO DE PRODUCTOS */}
       <main className="p-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {filteredProducts.map((product) => (
+          {filteredProducts.map((prod) => (
             <div
-              key={product.id}
-              className="relative bg-white border border-gray-300 rounded-lg shadow-lg p-4 text-center transition-transform transform hover:scale-105"
+              key={prod.id}
+              className="relative bg-white border border-gray-300 rounded-lg shadow-lg p-4 text-center transition-transform hover:scale-105"
             >
-              {product.discount && (
-                <div className="absolute top-2 left-2 bg-yellow-400 text-black text-xs px-2 py-1 font-bold rounded">
-                  {product.discount}% OFF
+              {prod.discount && prod.discount > 0 && (
+                <div className="absolute top-2 left-2 bg-yellow-400 text-black text-xs font-bold px-2 py-1 rounded">
+                  {prod.discount}% OFF
                 </div>
               )}
-              {product.stock === 0 && (
+              {prod.stock === 0 && (
                 <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 font-bold rounded">
                   Agotado
                 </div>
               )}
               <Image
-                src={product.imageUrl || "/placeholder-image.png"}
-                alt={product.name}
+                src={prod.imageUrl}
+                alt={prod.name}
                 className="h-32 w-full object-contain mx-auto mb-4"
                 width={128}
                 height={128}
               />
-              <h2 className="text-lg font-bold text-black">{product.name}</h2>
-              <p className="text-sm text-black">{product.description}</p>
+              <h2 className="text-lg font-bold text-black">{prod.name}</h2>
+              <p className="text-sm text-black">{prod.description}</p>
               <p className="text-yellow-400 font-bold">
                 S/.{" "}
                 {(
-                  product.price -
-                  (product.price * (product.discount || 0)) / 100
+                  prod.price -
+                  (prod.price * (prod.discount || 0)) / 100
                 ).toFixed(2)}
               </p>
-              {product.stock > 0 ? (
+              {prod.stock > 0 ? (
                 <button
-                  onClick={() => setSelectedProduct(product)}
+                  onClick={() => setSelectedProduct(prod)}
                   className="mt-4 bg-yellow-400 text-black px-4 py-2 rounded-full hover:bg-yellow-500"
                 >
                   Seleccionar Opciones
@@ -267,7 +313,7 @@ export default function PublicProductList() {
                   Agotado
                 </button>
               )}
-              {selectedProduct?.id === product.id && (
+              {selectedProduct?.id === prod.id && (
                 <div className="absolute inset-0 bg-white bg-opacity-90 flex flex-col justify-center items-center rounded-lg shadow-lg text-black p-4">
                   <button
                     onClick={() => setSelectedProduct(null)}
@@ -278,25 +324,25 @@ export default function PublicProductList() {
                   <p className="text-sm text-black mb-2">Cantidad:</p>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                       className="px-2 py-1 border rounded"
                     >
                       -
                     </button>
                     <span>{quantity}</span>
                     <button
-                      onClick={() => setQuantity(quantity + 1)}
+                      onClick={() => setQuantity((q) => q + 1)}
                       className="px-2 py-1 border rounded"
                     >
                       +
                     </button>
                   </div>
-                  <Button
+                  <button
                     className="mt-4 bg-yellow-400 text-black px-4 py-2 rounded-full hover:bg-yellow-500"
-                    onClick={() => handleAddToCart(product)}
+                    onClick={() => handleAddToCart(prod)}
                   >
                     Agregar al carrito
-                  </Button>
+                  </button>
                 </div>
               )}
             </div>
@@ -304,23 +350,33 @@ export default function PublicProductList() {
         </div>
       </main>
 
-      {/* Carrito */}
+      {/* CARRITO */}
       {showCart && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-end"
           onClick={() => setShowCart(false)}
         >
           <div
-            className="bg-white w-full sm:w-80 h-full shadow-lg p-4"
+            className="bg-white w-full sm:w-80 h-full shadow-lg p-4 relative"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-lg font-bold mb-4 text-black">Carrito</h2>
+            <button
+              onClick={() => setShowCart(false)}
+              className="absolute top-4 right-4 text-gray-500 hover:text-black font-bold"
+              aria-label="Cerrar carrito"
+            >
+              X
+            </button>
+
+            <h2 className="text-lg font-bold mb-4 text-black text-center">
+              Carrito
+            </h2>
             {cart.length > 0 ? (
               <div>
                 {cart.map((item) => (
                   <div
                     key={item.id}
-                    className="flex justify-between items-center mb-2"
+                    className="flex justify-between items-center mb-4 border-b pb-2"
                   >
                     <div>
                       <p className="text-sm font-bold">{item.name}</p>
@@ -345,20 +401,16 @@ export default function PublicProductList() {
                   <p className="text-lg font-bold">
                     Total a pagar: S/.{" "}
                     {cart
-                      .reduce(
-                        (total, item) =>
-                          total + (item.quantity || 1) * item.price,
-                        0
-                      )
+                      .reduce((acc, i) => acc + (i.quantity || 1) * i.price, 0)
                       .toFixed(2)}
                   </p>
-                  <Button
+                  <button
                     onClick={pagarCompra}
-                    className="w-full bg-yellow-400 mt-4"
+                    className="w-full bg-yellow-400 mt-4 text-black hover:bg-yellow-500 py-2 rounded"
                     disabled={isProcessingPayment}
                   >
                     {isProcessingPayment ? "Procesando..." : "Pagar Carrito"}
-                  </Button>
+                  </button>
                 </div>
               </div>
             ) : (
@@ -369,7 +421,6 @@ export default function PublicProductList() {
           </div>
         </div>
       )}
-
       <ToastContainer />
     </div>
   );
