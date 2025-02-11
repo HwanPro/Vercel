@@ -115,13 +115,13 @@ export default function AuthPage() {
           </a>
         </div>
 
-        <div className="flex items-center justify-center my-4">
+      {/*   <div className="flex items-center justify-center my-4">
           <hr className="w-1/5" />
           <span className="mx-2 text-gray-500">o</span>
           <hr className="w-1/5" />
-        </div>
+        </div> */}
 
-        <button
+       {/*  <button
           type="button"
           className="w-full bg-white border border-gray-300 text-black p-2 flex justify-center items-center"
           onClick={handleGoogleLogin}
@@ -134,7 +134,7 @@ export default function AuthPage() {
             className="w-5 h-5 mr-2"
           />
           Continuar con Google
-        </button>
+        </button> */}
       </form>
     </div>
   );

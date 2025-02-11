@@ -26,6 +26,7 @@ model User {
   sessions      Session[]
   contacts      UserContact[]        @relation("UserContacts")
   memberships   UserMembershipPlan[]
+  attendances   Attendance[]         @relation("UserToAttendance")
 }
 
 model MembershipPlan {
@@ -139,4 +140,11 @@ model Purchase {
   productId         String
   customer          User          @relation(fields: [customerId], references: [id])
   product           InventoryItem @relation(fields: [productId], references: [item_id])
+}
+
+model Attendance {
+  id          String   @id @default(uuid())
+  userId      String
+  checkInTime DateTime @default(now())
+  user        User     @relation(name: "UserToAttendance", fields: [userId], references: [id], onDelete: Cascade)
 }
