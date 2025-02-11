@@ -1,47 +1,74 @@
-import { NextApiRequest, NextApiResponse } from "next";
-import prisma from "@/libs/prisma"; // Conexión a la base de datos
+import { NextResponse } from "next/server";
+import prisma from "@/libs/prisma";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ message: "Método no permitido" });
-  }
-
-  const { qrData } = req.body;
-  if (!qrData) {
-    return res.status(400).json({ message: "QR inválido" });
-  }
-
-  // Verificar que el usuario extraído del QR es válido
-  const userId = qrData.split("user=")[1]; 
-  if (!userId) {
-    return res.status(400).json({ message: "Usuario no válido en el QR" });
-  }
-
+export async function POST(req: Request) {
   try {
-    await prisma.$connect(); // Asegurar conexión con la base de datos
-
-    // Verificar si el usuario existe
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+    const { phone } = await req.json();
+    if (!phone) {
+      return NextResponse.json(
+        { message: "Número de teléfono no proporcionado." },
+        { status: 400 }
+      );
     }
 
-    // Registrar la asistencia en la base de datos
-    const attendance = await prisma.attendance.create({
+    // Buscar el perfil del usuario por teléfono (usando findFirst en vez de findUnique)
+    const profile = await prisma.clientProfile.findFirst({
+      where: { profile_phone: phone },
+      include: { user: true },
+    });
+
+    if (!profile || !profile.user) {
+      return NextResponse.json(
+        { message: "Usuario no encontrado en la BD." },
+        { status: 404 }
+      );
+    }
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    // Verificar si ya registró asistencia hoy
+    const existingAttendance = await prisma.attendance.findFirst({
+      where: {
+        userId: profile.user.id,
+        checkInTime: { gte: todayStart, lte: todayEnd },
+      },
+    });
+
+    if (existingAttendance) {
+      return NextResponse.json(
+        { message: "El usuario ya ha registrado asistencia hoy." },
+        { status: 400 }
+      );
+    }
+
+    // Registrar asistencia
+    const newAttendance = await prisma.attendance.create({
       data: {
-        userId: userId,
+        userId: profile.user.id,
         checkInTime: new Date(),
       },
     });
 
-    return res.status(200).json({ message: "Asistencia registrada", attendance });
+    return NextResponse.json(
+      {
+        message: "Asistencia registrada correctamente.",
+        userId: profile.user.id,
+      },
+      { status: 200 }
+    );
   } catch (error) {
-    console.error("Error en la API de asistencia:", error);
-    return res.status(500).json({ message: "Error al registrar asistencia" });
-  } finally {
-    await prisma.$disconnect(); // Desconectar Prisma después de la operación
+    console.error("❌ Error en la API de asistencia:", error);
+
+    const errorMessage =
+      error instanceof Error ? error.message : "Error desconocido";
+
+    return NextResponse.json(
+      { message: "Error al registrar asistencia", error: errorMessage },
+      { status: 500 }
+    );
   }
 }

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { QRCodeCanvas } from "qrcode.react";
+import { useState, useEffect } from "react";
+import Image from "next/image";
 import { saveAs } from "file-saver";
 import Swal from "sweetalert2";
 import "sweetalert2/dist/sweetalert2.min.css";
@@ -9,14 +9,13 @@ import Link from "next/link";
 
 interface Attendance {
   id: string;
-  userId: string;
+  user: { name: string; email: string };
   checkInTime: string;
 }
 
 export default function AdminDashboard() {
   const [attendees, setAttendees] = useState<Attendance[]>([]);
   const [currentTime, setCurrentTime] = useState<string>("");
-  const qrRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     const fetchAttendance = async () => {
@@ -24,7 +23,6 @@ export default function AdminDashboard() {
         const response = await fetch("/api/attendance");
         if (!response.ok)
           throw new Error("Error obteniendo la lista de asistencia.");
-
         const data: Attendance[] = await response.json();
         setAttendees(data);
       } catch (error) {
@@ -36,30 +34,23 @@ export default function AdminDashboard() {
 
     const timer = setInterval(() => {
       setCurrentTime(new Date().toLocaleString());
-      fetchAttendance(); // Refresca la lista de asistentes en tiempo real
-    }, 5000);
+      fetchAttendance();
+    }, 10000); // Ahora se actualiza cada 10 segundos en lugar de 5
 
     return () => clearInterval(timer);
   }, []);
 
   const handleDownloadQR = () => {
-    if (qrRef.current) {
-      const canvas = qrRef.current as HTMLCanvasElement;
-      canvas.toBlob((blob) => {
-        if (blob) {
-          saveAs(blob, `QR-GYM.png`);
-          Swal.fire({
-            title: "QR Exportado",
-            text: "La imagen del código QR ha sido guardada con éxito.",
-            icon: "success",
-            confirmButtonText: "Aceptar",
-            confirmButtonColor: "#facc15",
-            background: "#000000",
-            color: "#ffffff",
-          });
-        }
-      });
-    }
+    saveAs("/QR-GYM.png", "QR-GYM.png");
+    Swal.fire({
+      title: "QR Exportado",
+      text: "La imagen del código QR ha sido guardada con éxito.",
+      icon: "success",
+      confirmButtonText: "Aceptar",
+      confirmButtonColor: "#facc15",
+      background: "#000000",
+      color: "#ffffff",
+    });
   };
 
   return (
@@ -70,10 +61,10 @@ export default function AdminDashboard() {
           Panel de Administrador
         </h1>
         <Link
-          href="/admin/dashboard"
+          href="/"
           className="bg-yellow-400 text-black px-4 py-2 rounded hover:bg-yellow-500"
         >
-          Volver al Dashboard
+          Volver al Inicio
         </Link>
       </header>
 
@@ -83,17 +74,16 @@ export default function AdminDashboard() {
         <p className="text-2xl text-white mt-2">{currentTime}</p>
       </section>
 
-      {/* QR Único para Todos */}
+      {/* QR Estático */}
       <section className="my-6 text-center">
         <h3 className="text-2xl text-yellow-400">Código QR de Registro</h3>
         <div className="flex flex-col items-center">
-          <QRCodeCanvas
-            value="gym-attendance-2025"
-            size={200}
-            bgColor="#ffffff"
-            fgColor="#000000"
-            level="H"
-            ref={qrRef}
+          <Image
+            src="/uploads/images/QR-GYM.png"
+            alt="Código QR de acceso"
+            width={200}
+            height={200}
+            className="mx-auto border border-yellow-400 p-2 bg-white"
           />
           <button
             onClick={handleDownloadQR}
@@ -122,7 +112,8 @@ export default function AdminDashboard() {
               {attendees.length > 0 ? (
                 attendees.map((attendee) => (
                   <tr key={attendee.id} className="border-b border-gray-600">
-                    <td className="p-2">{attendee.userId}</td>
+                    <td className="p-2">{attendee.user.name}</td>{" "}
+                    {/* ✅ Muestra el nombre del usuario */}
                     <td className="p-2">
                       {new Date(attendee.checkInTime).toLocaleString()}
                     </td>
