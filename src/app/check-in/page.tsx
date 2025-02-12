@@ -8,11 +8,15 @@ export default function CheckInPage() {
   const [loading, setLoading] = useState(false);
 
   const handleCheckIn = async () => {
-    if (!phone) {
+    // Normalizar el número: eliminar caracteres no numéricos
+    const normalizedPhone = phone.replace(/\D/g, "");
+
+    // Validar que el número tenga exactamente 9 dígitos
+    if (normalizedPhone.length !== 9) {
       Swal.fire({
-        title: "Error",
-        text: "Por favor, ingresa tu número de teléfono.",
-        icon: "error",
+        title: "Número inválido",
+        text: "Por favor, ingresa un número de teléfono válido de 9 dígitos.",
+        icon: "warning",
         confirmButtonText: "Aceptar",
       });
       return;
@@ -23,11 +27,24 @@ export default function CheckInPage() {
       const response = await fetch("/api/check-in", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone: normalizedPhone }),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error("Usuario no encontrado o asistencia fallida.");
+        if (data.message.includes("registrado asistencia")) {
+          // Mensaje si ya ha registrado asistencia hoy
+          Swal.fire({
+            title: "Asistencia ya registrada",
+            text: "Este número ya ha registrado asistencia hoy.",
+            icon: "info",
+            confirmButtonText: "Aceptar",
+          });
+        } else {
+          throw new Error(data.message || "Error al registrar asistencia.");
+        }
+        return;
       }
 
       Swal.fire({
@@ -36,10 +53,14 @@ export default function CheckInPage() {
         icon: "success",
         confirmButtonText: "Aceptar",
       });
+
+      // Limpiar el input después del registro exitoso
+      setPhone("");
     } catch (error) {
       Swal.fire({
         title: "Error",
-        text: "No se pudo registrar la asistencia. Verifica tu número o regístrate en recepción.",
+        text:
+          "No se pudo registrar la asistencia. Verifica tu número o regístrate en recepción.",
         icon: "error",
         confirmButtonText: "Aceptar",
       });
@@ -50,15 +71,22 @@ export default function CheckInPage() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-6">
-      <h2 className="text-2xl font-bold text-yellow-400 mb-4">Registro de Asistencia</h2>
-      <p className="text-gray-300 mb-4">Ingresa tu número de teléfono para registrar tu asistencia.</p>
+      <h2 className="text-2xl font-bold text-yellow-400 mb-4">
+        Registro de Asistencia
+      </h2>
+      <p className="text-gray-300 mb-4">
+        Ingresa tu número de teléfono para registrar tu asistencia.
+      </p>
 
       <input
         type="tel"
         className="p-3 border border-yellow-400 rounded-lg text-black w-64 text-center"
         placeholder="Ejemplo: 987654321"
         value={phone}
-        onChange={(e) => setPhone(e.target.value)}
+        onChange={(e) =>
+          setPhone(e.target.value.replace(/\D/g, "").slice(0, 9)) // Solo permite 9 dígitos numéricos
+        }
+        maxLength={9} // Evita que se ingresen más de 9 caracteres
       />
 
       <button

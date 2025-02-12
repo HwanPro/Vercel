@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Buscar un token existente
+    // Revisar si ya existe un token para este email
     const existingToken = await prisma.verificationToken.findFirst({
       where: { identifier: email },
     });
@@ -42,28 +42,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Generar un nuevo token
+    // Generar nuevo token
     const token = crypto.randomBytes(32).toString("hex");
 
-    await prisma.verificationToken.upsert({
-      where: {
-        identifier_token: {
-          identifier: email,
-          token: existingToken?.token || "",
+    if (existingToken) {
+      // Si ya hay un token, actualizarlo
+      await prisma.verificationToken.update({
+        where: { id: existingToken.id }, // Usar `id` en lugar de `identifier`
+        data: {
+          token,
+          expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
         },
-      },
-      update: {
-        token,
-        expires: new Date(Date.now() + 24 * 60 * 60 * 1000), // Expira en 24 horas
-      },
-      create: {
-        identifier: email,
-        token,
-        expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      },
-    });
+      });
+    } else {
+      // Si no hay token, crear uno nuevo
+      await prisma.verificationToken.create({
+        data: {
+          identifier: email,
+          token,
+          expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        },
+      });
+    }
 
-    // Enviar el correo de verificación
+    // Enviar correo de verificación
     await sendVerificationEmail(email, token);
 
     return NextResponse.json({ message: "Correo reenviado con éxito" });

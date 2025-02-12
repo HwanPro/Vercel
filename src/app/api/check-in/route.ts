@@ -12,8 +12,18 @@ export async function POST(req: Request) {
     }
 
     // Buscar el perfil del usuario por teléfono (usando findFirst en vez de findUnique)
+    // Eliminar cualquier carácter no numérico y asegurarse de que solo sean los últimos 9 dígitos
+    const normalizedPhone = phone.replace(/\D/g, "").slice(-9);
+
+    console.log("🔹 Buscando teléfono normalizado:", normalizedPhone);
+
     const profile = await prisma.clientProfile.findFirst({
-      where: { profile_phone: phone },
+      where: {
+        OR: [
+          { profile_phone: normalizedPhone }, // Caso sin código de país
+          { profile_phone: `+51${normalizedPhone}` }, // Caso con código de país
+        ],
+      },
       include: { user: true },
     });
 

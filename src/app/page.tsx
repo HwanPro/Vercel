@@ -24,8 +24,8 @@ import { useState, useEffect } from "react";
 import { useSession, signIn } from "next-auth/react";
 
 type PlanInfo = {
-  amount: number;       // Monto en céntimos (S/60.00 => 6000)
-  description: string;  // Ej: "Plan Mensual - S/60.00"
+  amount: number; // Monto en céntimos (S/60.00 => 6000)
+  description: string; // Ej: "Plan Mensual - S/60.00"
 };
 
 export default function WolfGymLanding() {
@@ -136,61 +136,46 @@ export default function WolfGymLanding() {
     if (!showSticky) return null;
 
     return (
-      <div className="fixed top-0 left-0 right-0  p-4 flex justify-end gap-4 container mx-auto px-4 z-50">
-        <Button
-          className="bg-yellow-400 text-black hover:bg-yellow-500"
-          onClick={handleOpenModal}
-        >
-          Comenzar
-        </Button>
-        <Button
-          variant="outline"
-          className="text-yellow-600 border-yellow-400 bg-white hover:bg-yellow-400 hover:text-black"
-          onClick={handleProducts}
-        >
-          Ver Productos
-        </Button>
+      <div className="fixed top-0 left-0 right-0 bg-black p-3 flex items-center justify-between container mx-auto z-50">
+        <h1 className="text-yellow-400 text-base font-bold">Wolf Gym</h1>
 
-        {/* Menú mobile */}
-        <nav className="ml-auto flex items-center gap-4">
-          <button
-            className="lg:hidden block text-yellow-400"
-            onClick={handleMobileMenuToggle}
+        {/* Contenedor de botones con mejor tamaño */}
+        <div className="flex gap-3">
+          <Button
+            className="bg-yellow-400 text-black hover:bg-yellow-500 text-xs px-3 py-1"
+            onClick={handleOpenModal}
           >
-            ☰
-          </button>
+            Comenzar
+          </Button>
 
-          {/* Panel que se muestra/oculta */}
-          <div
-            className={`${
-              mobileMenuOpen ? "block" : "hidden"
-            } lg:flex gap-4 bg-black text-white p-4 lg:p-0`}
+          <Button
+            variant="outline"
+            className="text-yellow-400 border-yellow-400 bg-black hover:bg-yellow-400 hover:text-black text-xs px-3 py-1"
+            onClick={handleProducts}
           >
-            {session ? (
-              // Si hay sesión, mostramos el rol
-              <Button
-                onClick={() =>
-                  session.user.role === "admin"
-                    ? router.push("/admin/dashboard")
-                    : router.push("/client/dashboard")
-                }
-                className="text-sm font-medium bg-yellow-400 text-black hover:bg-yellow-500"
-              >
-                {session.user.role === "admin"
-                  ? "Ir al Panel Admin"
-                  : "Ir a Mi Perfil"}
-              </Button>
-            ) : (
-              // Si no hay sesión
-              <Button
-                onClick={handleLogin}
-                className="text-sm font-medium hover:text-yellow-400 underline-offset-4"
-              >
-                Inicia sesión
-              </Button>
-            )}
-          </div>
-        </nav>
+            Ver Productos
+          </Button>
+
+          {session ? (
+            <Button
+              onClick={() =>
+                session.user.role === "admin"
+                  ? router.push("/admin/dashboard")
+                  : router.push("/client/dashboard")
+              }
+              className="bg-yellow-400 text-black hover:bg-yellow-500 text-xs px-3 py-1"
+            >
+              {session.user.role === "admin" ? "Panel Admin" : "Mi Perfil"}
+            </Button>
+          ) : (
+            <Button
+              onClick={() => router.push("/admin/login")}
+              className="border border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black text-xs px-3 py-1"
+            >
+              Inicia sesión
+            </Button>
+          )}
+        </div>
       </div>
     );
   }
