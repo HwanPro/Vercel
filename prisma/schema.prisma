@@ -10,7 +10,7 @@ datasource db {
 model User {
   id            String               @id @default(cuid())
   name          String
-  lastName      String  
+  lastName      String               @default("")
   email         String               @unique
   image         String?
   role          String               @default("client")
@@ -21,7 +21,7 @@ model User {
   emailVerified Boolean              @default(false)
   updatedAt     DateTime             @updatedAt
   accounts      Account[]
-  profile       ClientProfile?  @relation(fields: [id], references: [user_id], onDelete: Cascade)
+  profile       ClientProfile?
   payments      PaymentRecord[]      @relation("UserPayments")
   purchases     Purchase[]
   sessions      Session[]
@@ -121,15 +121,13 @@ model Session {
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@unique([identifier, token])
 }
 
 model VerificationToken {
+  id         String   @id @default(cuid())
   identifier String
   token      String   @unique
-  expires    DateTime @default(now() + interval '30 minutes')
-  id         String   @id @default(cuid())
+  expires    DateTime
 
   @@unique([identifier, token])
 }
