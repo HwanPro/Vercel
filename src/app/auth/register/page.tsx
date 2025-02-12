@@ -26,33 +26,39 @@ function RegisterPage() {
 
   const onSubmit = handleSubmit(async (data) => {
     if (data.password !== data.confirmPassword) {
-      return setError("Las contraseñas no coinciden");
+      setError("Las contraseñas no coinciden");
+      return;
     }
 
     try {
+      console.log("📩 Enviando datos de registro:", data);
+
       const res = await fetch("/api/auth/register", {
         method: "POST",
-        body: JSON.stringify({
-          username: data.username,
-          lastname: data.lastname,
-          email: data.email,
-          password: data.password,
-        }),
+        body: JSON.stringify(data),
         headers: {
           "Content-Type": "application/json",
         },
       });
 
-      if (res.ok) {
-        router.push("/auth/login?checkEmail=1");
-      } else {
-        const result = await res.json();
-        setError(
-          result.message || "Error en el registro, por favor inténtalo de nuevo"
-        );
+      const result = await res.json();
+      console.log("📩 Respuesta del servidor:", result, "Status:", res.status);
+
+      if (res.status === 400 && result.message.includes("registrado")) {
+        setError("El correo ya está registrado.");
+        return;
       }
-    } catch {
-      setError("Error en el registro, por favor inténtalo de nuevo");
+
+      if (res.status === 201) {
+        console.log("✅ Registro exitoso, redirigiendo al login...");
+        router.push("/auth/login?checkEmail=1");
+        return;
+      }
+
+      setError(result.message || "Error en el registro. Inténtalo de nuevo.");
+    } catch (error) {
+      console.error("🚨 Error en el registro:", error);
+      setError("Error en el registro, por favor inténtalo de nuevo.");
     }
   });
 
@@ -153,7 +159,7 @@ function RegisterPage() {
                 required: "La contraseña es obligatoria",
                 minLength: {
                   value: 12,
-                  message: "La contraseña debe tener al menos 12 caracteres",
+                  message: "Debe tener al menos 12 caracteres",
                 },
                 validate: (value) =>
                   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s])[A-Za-z\d\-\_\.]{12,}$/.test(
