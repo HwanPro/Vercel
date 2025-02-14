@@ -4,13 +4,11 @@ import { Button } from "@/components/ui/button";
 import { FaFacebook, FaInstagram, FaTwitter } from "react-icons/fa";
 import {
   CardTitle,
-  CardDescription,
   CardHeader,
   CardContent,
   Card,
 } from "@/components/ui/card";
 import { Dumbbell, Users, Calendar, Clock } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {

@@ -64,7 +64,11 @@ export async function POST(req: NextRequest) {
     });
 
     // Enviar el correo de verificación
-    await sendVerificationEmail(email, token);
+    await sendVerificationEmail(
+      user.email,
+      `${user.name} ${user.lastName}`,
+      token
+    );
 
     return NextResponse.json({ message: "Correo reenviado con éxito" });
   } catch (error) {

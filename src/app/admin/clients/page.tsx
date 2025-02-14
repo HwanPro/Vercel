@@ -29,12 +29,14 @@ interface Client {
   id: string;
   firstName: string;
   lastName: string;
+  email: string;
   plan: string;
   membershipStart: string;
   membershipEnd: string;
   phone: string;
   emergencyPhone: string;
   hasPaid: boolean;
+  password?: string; // ⚠️ Opcional porque solo existe al crear
 }
 
 export default function ClientsPage() {

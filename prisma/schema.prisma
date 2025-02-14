@@ -10,7 +10,7 @@ datasource db {
 model User {
   id            String               @id @default(cuid())
   name          String
-  lastName      String?               @default("")
+  lastName      String?              @default("")
   email         String               @unique
   image         String?
   role          String               @default("client")
@@ -28,6 +28,10 @@ model User {
   contacts      UserContact[]        @relation("UserContacts")
   memberships   UserMembershipPlan[]
   attendances   Attendance[]         @relation("UserAttendance")
+
+  passwordResetToken  PasswordResetToken?
+  verificationToken   VerificationToken?  @relation(fields: [verificationTokenId], references: [id])
+  verificationTokenId String?
 }
 
 model MembershipPlan {
@@ -68,17 +72,17 @@ model UserContact {
 }
 
 model ClientProfile {
-  profile_first_name      String
-  profile_last_name       String
+  profile_id              String    @id @default(cuid())
+  user_id                 String    @unique
+  profile_first_name      String    @default("")
+  profile_last_name       String    @default("")
   profile_plan            String?
   profile_start_date      DateTime?
   profile_end_date        DateTime?
   profile_created_at      DateTime  @default(now())
-  profile_emergency_phone String
-  profile_phone           String    @unique
+  profile_emergency_phone String    @default("")
+  profile_phone           String?   @unique
   profile_updated_at      DateTime  @updatedAt
-  user_id                 String    @unique
-  profile_id              String    @id @default(cuid())
   isManual                Boolean   @default(true)
   user                    User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
@@ -128,6 +132,7 @@ model VerificationToken {
   identifier String
   token      String   @unique
   expires    DateTime
+  User       User[]
 
   @@unique([identifier, token])
 }
@@ -148,4 +153,11 @@ model Attendance {
   userId      String
   checkInTime DateTime @default(now())
   user        User     @relation("UserAttendance", fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PasswordResetToken {
+  token   String   @id
+  userId  String   @unique
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expires DateTime
 }

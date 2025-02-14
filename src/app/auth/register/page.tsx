@@ -3,7 +3,7 @@
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Eye, EyeOff, ArrowLeft } from "lucide-react"; // Íconos
+import { Eye, EyeOff, ArrowLeft } from "lucide-react";
 
 type RegisterData = {
   username: string;
@@ -11,6 +11,9 @@ type RegisterData = {
   email: string;
   password: string;
   confirmPassword: string;
+  phone: string;
+  emergencyPhone: string;
+  plan: string;
 };
 
 function RegisterPage() {
@@ -31,8 +34,6 @@ function RegisterPage() {
     }
 
     try {
-      console.log("📩 Enviando datos de registro:", data);
-
       const res = await fetch("/api/auth/register", {
         method: "POST",
         body: JSON.stringify(data),
@@ -42,7 +43,6 @@ function RegisterPage() {
       });
 
       const result = await res.json();
-      console.log("📩 Respuesta del servidor:", result, "Status:", res.status);
 
       if (res.status === 400 && result.message.includes("registrado")) {
         setError("El correo ya está registrado.");
@@ -50,180 +50,119 @@ function RegisterPage() {
       }
 
       if (res.status === 201) {
-        console.log("✅ Registro exitoso, redirigiendo al login...");
         router.push("/auth/login?checkEmail=1");
         return;
       }
 
       setError(result.message || "Error en el registro. Inténtalo de nuevo.");
     } catch (error) {
-      console.error("🚨 Error en el registro:", error);
       setError("Error en el registro, por favor inténtalo de nuevo.");
     }
   });
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="bg-white p-6 rounded shadow-md w-full max-w-md">
-        {/* Botón de volver atrás */}
+    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-md border border-gray-200">
         <button
           onClick={() => router.push("/")}
-          className="flex items-center text-black hover:text-yellow-500 mb-4"
+          className="flex items-center text-gray-700 hover:text-yellow-500 mb-4"
         >
           <ArrowLeft className="w-5 h-5 mr-2" />
           Volver al inicio
         </button>
 
-        <form onSubmit={onSubmit}>
+        <form onSubmit={onSubmit} className="space-y-4">
           {error && (
-            <p className="bg-red-500 text-white p-3 rounded mb-2">{error}</p>
+            <p className="bg-red-500 text-white p-3 rounded">{error}</p>
           )}
 
-          <h1 className="text-black text-2xl font-bold text-center mb-6">
+          <h1 className="text-black text-2xl font-bold text-center mb-4">
             Registro
           </h1>
 
-          {/* Nombre de usuario */}
-          <label
-            htmlFor="username"
-            className="text-slate-500 mb-2 block text-sm"
-          >
-            Nombre de usuario:
-          </label>
           <input
             type="text"
-            {...register("username", {
-              required: "El nombre de usuario es obligatorio",
-            })}
-            className="border p-2 w-full mb-4 text-gray-800"
-            placeholder="Nombre de usuario"
+            placeholder="Nombre"
+            {...register("username", { required: "El nombre es obligatorio" })}
+            className="border rounded-lg p-2 w-full"
           />
           {errors.username && (
-            <span className="text-red-500 text-xs">
-              {errors.username.message}
-            </span>
+            <p className="text-red-500 text-xs">{errors.username.message}</p>
           )}
 
-          {/* Apellido */}
-          <label
-            htmlFor="lastname"
-            className="text-slate-500 mb-2 block text-sm"
-          >
-            Apellido:
-          </label>
           <input
             type="text"
+            placeholder="Apellido"
             {...register("lastname", {
               required: "El apellido es obligatorio",
             })}
-            className="border p-2 w-full mb-4 text-gray-800"
-            placeholder="Apellido"
+            className="border rounded-lg p-2 w-full"
           />
           {errors.lastname && (
-            <span className="text-red-500 text-xs">
-              {errors.lastname.message}
-            </span>
+            <p className="text-red-500 text-xs">{errors.lastname.message}</p>
           )}
 
-          {/* Correo */}
-          <label htmlFor="email" className="text-slate-500 mb-2 block text-sm">
-            Correo electrónico:
-          </label>
           <input
             type="email"
-            {...register("email", {
-              required: "El correo electrónico es obligatorio",
-              pattern: {
-                value: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
-                message: "Introduce un correo electrónico válido",
-              },
-            })}
-            className="border p-2 w-full mb-4 text-gray-800"
-            placeholder="Tu correo"
+            placeholder="Correo electrónico"
+            {...register("email", { required: "Correo obligatorio" })}
+            className="border rounded-lg p-2 w-full"
           />
           {errors.email && (
-            <span className="text-red-500 text-xs">{errors.email.message}</span>
+            <p className="text-red-500 text-xs">{errors.email.message}</p>
           )}
 
-          {/* Contraseña */}
-          <label
-            htmlFor="password"
-            className="text-slate-500 mb-2 block text-sm"
-          >
-            Contraseña:
-          </label>
-          <div className="relative mb-4">
+          <input
+            type="text"
+            placeholder="Teléfono"
+            {...register("phone", { required: "Teléfono obligatorio" })}
+            className="border rounded-lg p-2 w-full"
+          />
+
+          <input
+            type="text"
+            placeholder="Teléfono de emergencia"
+            {...register("emergencyPhone", {
+              required: "Teléfono obligatorio",
+            })}
+            className="border rounded-lg p-2 w-full"
+          />
+
+          <div className="relative">
             <input
               type={showPassword ? "text" : "password"}
-              {...register("password", {
-                required: "La contraseña es obligatoria",
-                minLength: {
-                  value: 12,
-                  message: "Debe tener al menos 12 caracteres",
-                },
-                validate: (value) =>
-                  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s])[A-Za-z\d\-\_\.]{12,}$/.test(
-                    value
-                  ) ||
-                  "Debe incluir mayúsculas, minúsculas, números y símbolos.",
-              })}
-              className="border p-2 w-full text-gray-800"
               placeholder="Contraseña"
+              {...register("password", { required: "Contraseña obligatoria" })}
+              className="border rounded-lg p-2 w-full"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-3 flex items-center text-gray-500"
+              className="absolute inset-y-0 right-3 flex items-center"
             >
-              {showPassword ? (
-                <EyeOff className="w-5 h-5" />
-              ) : (
-                <Eye className="w-5 h-5" />
-              )}
+              {showPassword ? <EyeOff /> : <Eye />}
             </button>
           </div>
-          {errors.password && (
-            <span className="text-red-500 text-xs">
-              {errors.password.message}
-            </span>
-          )}
 
-          {/* Confirmar contraseña */}
-          <label
-            htmlFor="confirmPassword"
-            className="text-slate-500 mb-2 block text-sm"
-          >
-            Confirmar contraseña:
-          </label>
-          <div className="relative mb-4">
+          <div className="relative">
             <input
               type={showConfirmPassword ? "text" : "password"}
-              {...register("confirmPassword", {
-                required: "Es obligatorio confirmar la contraseña",
-              })}
-              className="border p-2 w-full text-gray-800"
               placeholder="Confirmar contraseña"
+              {...register("confirmPassword", {
+                required: "Confirmación obligatoria",
+              })}
+              className="border rounded-lg p-2 w-full"
             />
             <button
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute inset-y-0 right-3 flex items-center text-gray-500"
+              className="absolute inset-y-0 right-3 flex items-center"
             >
-              {showConfirmPassword ? (
-                <EyeOff className="w-5 h-5" />
-              ) : (
-                <Eye className="w-5 h-5" />
-              )}
+              {showConfirmPassword ? <EyeOff /> : <Eye />}
             </button>
           </div>
-          {errors.confirmPassword && (
-            <span className="text-red-500 text-xs">
-              {errors.confirmPassword.message}
-            </span>
-          )}
 
-          {/* Botón de registrar */}
-          <button className="w-full bg-yellow-400 text-black hover:bg-yellow-500 p-2 mb-4">
+          <button className="w-full bg-yellow-400 text-black hover:bg-yellow-500 rounded-lg p-2">
             Registrar
           </button>
         </form>

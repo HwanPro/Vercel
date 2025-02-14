@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
+import { generateEmailTemplate } from "@/libs/emailTemplate";
 
-// Configuración del transporte de correo
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST || "",
   port: parseInt(process.env.EMAIL_PORT || "587"),
@@ -11,16 +11,11 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Verificar configuración SMTP
 transporter.verify((error) => {
-  if (error) {
-    console.error("❌ Error en la configuración SMTP:", error);
-  } else {
-    console.log("✅ Servidor SMTP listo para enviar correos");
-  }
+  if (error) console.error("❌ Error en la configuración SMTP:", error);
+  else console.log("✅ Servidor SMTP listo para enviar correos");
 });
 
-// Función para enviar correos genéricos
 export async function sendEmail(to: string, subject: string, html: string) {
   try {
     await transporter.sendMail({
@@ -35,20 +30,36 @@ export async function sendEmail(to: string, subject: string, html: string) {
   }
 }
 
-// Función para enviar el correo de verificación
-export async function sendVerificationEmail(email: string, token: string) {
+export async function sendVerificationEmail(
+  email: string,
+  firstName: string,
+  token: string
+) {
   const verificationLink = `${process.env.NEXTAUTH_URL}/auth/verify-email?token=${token}`;
-  const html = `
-    <p>Gracias por registrarte en Wolf Gym.</p>
-    <p>Haz clic en el siguiente enlace para verificar tu cuenta:</p>
-    <a href="${verificationLink}" target="_blank">Verificar cuenta</a>
-    <p>Si no solicitaste este correo, puedes ignorarlo.</p>
-  `;
+  const html = generateEmailTemplate({
+    firstName,
+    email,
+    verificationLink,
+  });
 
-  try {
-    await sendEmail(email, "Verifica tu correo electrónico", html);
-  } catch (error) {
-    console.error("❌ Error al enviar el correo de verificación:", error);
-    throw new Error("Error al enviar el correo de verificación");
-  }
+  await sendEmail(email, "Verifica tu cuenta - Wolf Gym", html);
+}
+
+export async function sendManualCredentialsEmail(
+  email: string,
+  firstName: string,
+  password: string,
+  verificationToken: string
+) {
+  const verificationLink = `${process.env.NEXTAUTH_URL}/auth/verify-email?token=${verificationToken}`;
+  const html = generateEmailTemplate({
+    firstName,
+    email,
+    password,
+    verificationLink,
+    showCredentials: true,
+    showPasswordChangeLink: true,
+  });
+
+  await sendEmail(email, "Acceso y verificación - Wolf Gym", html);
 }

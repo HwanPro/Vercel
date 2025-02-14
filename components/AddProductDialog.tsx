@@ -93,53 +93,67 @@ function AddProductDialog({
   };
 
   return (
-    <div className="p-4 bg-white rounded-lg shadow-lg w-full max-w-sm mx-auto">
-      <input
-        type="text"
-        placeholder="Nombre del producto"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        className="w-full p-2 mb-2 border rounded text-sm"
-      />
-      <textarea
-        placeholder="Descripción"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        className="w-full p-2 mb-2 border rounded text-sm"
-      />
-      <input
-        type="number"
-        placeholder="Precio"
-        value={price}
-        onChange={(e) => setPrice(e.target.value)}
-        className="w-full p-2 mb-2 border rounded text-sm"
-      />
-      <input
-        type="number"
-        placeholder="Descuento (%) - Opcional"
-        value={discount}
-        onChange={(e) => setDiscount(e.target.value)}
-        className="w-full p-2 mb-2 border rounded text-sm"
-      />
-      <input
-        type="number"
-        placeholder="Stock"
-        value={stock}
-        onChange={(e) => setStock(e.target.value)}
-        className="w-full p-2 mb-2 border rounded text-sm"
-      />
-      <input
-        type="file"
-        accept="image/*"
-        onChange={(e) => setImage(e.target.files ? e.target.files[0] : null)}
-        className="w-full p-2 mb-2 border rounded text-sm"
-      />
-      <Button
-        className="w-full bg-yellow-400 text-black py-2 text-sm rounded hover:bg-yellow-500"
-        onClick={handleAddProduct}
-      >
-        Guardar Producto
-      </Button>
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+      <div className="bg-white p-6 rounded-2xl shadow-lg w-full max-w-md relative">
+        <h2 className="text-lg font-bold text-center text-black mb-4">
+          Agregar Producto
+        </h2>
+
+        <input
+          type="text"
+          placeholder="Nombre del producto"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="w-full p-2 mb-3 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
+        />
+        <textarea
+          placeholder="Descripción"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          className="w-full p-2 mb-3 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
+        />
+        <input
+          type="number"
+          placeholder="Precio"
+          value={price}
+          onChange={(e) => setPrice(e.target.value)}
+          className="w-full p-2 mb-3 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
+        />
+        <input
+          type="number"
+          placeholder="Descuento (%) - Opcional"
+          value={discount}
+          onChange={(e) => setDiscount(e.target.value)}
+          className="w-full p-2 mb-3 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
+        />
+        <input
+          type="number"
+          placeholder="Stock"
+          value={stock}
+          onChange={(e) => setStock(e.target.value)}
+          className="w-full p-2 mb-3 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
+        />
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => setImage(e.target.files ? e.target.files[0] : null)}
+          className="w-full p-2 mb-4 border rounded text-sm focus:outline-none"
+        />
+
+        <Button
+          className="w-full bg-yellow-400 text-black py-2 text-sm rounded-lg hover:bg-yellow-500"
+          onClick={handleAddProduct}
+        >
+          Guardar Producto
+        </Button>
+
+        <button
+          className="absolute top-2 right-3 text-gray-500 hover:text-black"
+          onClick={onClose}
+        >
+          ✕
+        </button>
+      </div>
     </div>
   );
 }

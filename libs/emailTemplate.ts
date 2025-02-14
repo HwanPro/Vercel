@@ -1,0 +1,58 @@
+export function generateEmailTemplate({
+  firstName,
+  email,
+  password,
+  verificationLink,
+  showCredentials = false,
+  showPasswordChangeLink = false,
+}: {
+  firstName: string;
+  email: string;
+  password?: string;
+  verificationLink: string;
+  showCredentials?: boolean;
+  showPasswordChangeLink?: boolean;
+}) {
+  const passwordChangeLink = `${process.env.NEXTAUTH_URL}/auth/login`;
+
+  const motivationalQuotes = [
+    "El éxito es la suma de pequeños esfuerzos repetidos día tras día. – Robert Collier",
+    "La disciplina es el puente entre metas y logros. – Jim Rohn",
+    "Tu cuerpo puede soportar casi todo. Es tu mente la que debes convencer.",
+    "Cada entrenamiento es un paso más hacia tu mejor versión.",
+  ];
+
+  const randomQuote =
+    motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
+
+  return `
+      <div style="font-family: Arial, sans-serif; color: #333; padding: 20px; background-color: #f8f9fa; border-radius: 10px;">
+        <h2 style="color: #ffca28;">¡Bienvenido a Wolf Gym, ${firstName}!</h2>
+        
+        <p><em>"${randomQuote}"</em></p>
+        
+        ${
+          showCredentials
+            ? `
+          <h4>Tus credenciales:</h4>
+          <p><strong>Correo:</strong> ${email}</p>
+          <p><strong>Contraseña Temporal:</strong> ${password}</p>
+          ${
+            showPasswordChangeLink
+              ? `<p>Puedes iniciar sesión y cambiar tu contraseña desde aquí: <a href="${passwordChangeLink}" target="_blank">Cambiar Contraseña</a></p>`
+              : ""
+          }
+        `
+            : ""
+        }
+  
+        <h3>Verifica tu cuenta</h3>
+        <p>Para completar tu registro, por favor verifica tu cuenta haciendo clic en el siguiente enlace:</p>
+        <p><a href="${verificationLink}" target="_blank" style="color: #ffca28;">Verificar Cuenta</a></p>
+  
+        <p style="margin-top: 20px; font-style: italic;">"Libera tu lobo interior. Únete a la manada y transforma tu cuerpo y mente."</p>
+  
+        <p>¡Te esperamos en Wolf Gym!</p>
+      </div>
+    `;
+}

@@ -17,6 +17,7 @@ interface Client {
   phone: string;
   emergencyPhone: string;
   hasPaid: boolean;
+  password?: string;
 }
 
 export default function AddClientDialog({
@@ -37,8 +38,17 @@ export default function AddClientDialog({
   const [paymentMethod, setPaymentMethod] = useState<string>("Efectivo");
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
-
-  const qrImageURL = "https://example.com/qr"; // URL del QR de ejemplo
+  const qrImageURL = "/uploads/images/QR-PAGO.jpg";
+  const generateRandomPassword = (length = 12) => {
+    const charset =
+      "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
+    let password = "";
+    for (let i = 0; i < length; i++) {
+      const randomIndex = Math.floor(Math.random() * charset.length);
+      password += charset[randomIndex];
+    }
+    return password;
+  };
 
   const handleSave = async () => {
     setErrorMessage("");
@@ -89,15 +99,19 @@ export default function AddClientDialog({
       return;
     }
 
+    const generatedPassword = generateRandomPassword(12); // Generar contraseña aleatoria
+
     const newClientData = {
       firstName: name.trim(),
       lastName: lastName.trim(),
       email: email.trim(),
       plan,
-      startDate: membershipStart,
-      endDate: membershipEnd,
+      membershipStart,
+      membershipEnd,
       phone: phone!,
       emergencyPhone: emergencyPhone!,
+      hasPaid: true,
+      password: generatedPassword,
     };
 
     try {
@@ -121,6 +135,7 @@ export default function AddClientDialog({
       }
 
       toast.success("Cliente agregado con éxito.");
+      onSave(newClientData);
       setName("");
       setLastName("");
       setEmail("");
@@ -130,10 +145,10 @@ export default function AddClientDialog({
       setPhone(undefined);
       setEmergencyPhone(undefined);
       setPaymentMethod("Efectivo");
-      setLoading(false);
     } catch (error) {
       console.error("Error al guardar cliente:", error);
       setErrorMessage("No se pudo guardar el cliente. Intente nuevamente.");
+    } finally {
       setLoading(false);
     }
   };
@@ -143,7 +158,6 @@ export default function AddClientDialog({
       {errorMessage && (
         <p className="text-red-500 mb-2 text-sm">{errorMessage}</p>
       )}
-
       <input
         className="w-full p-2 mb-2 border rounded bg-white text-black text-sm"
         placeholder="Nombre"
