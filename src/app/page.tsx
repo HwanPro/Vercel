@@ -2,12 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { FaFacebook, FaInstagram, FaTwitter } from "react-icons/fa";
-import {
-  CardTitle,
-  CardHeader,
-  CardContent,
-  Card,
-} from "@/components/ui/card";
+import { CardTitle, CardHeader, CardContent, Card } from "@/components/ui/card";
 import { Dumbbell, Users, Calendar, Clock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -20,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
 import { useSession, signIn } from "next-auth/react";
+import StoriesCarousel from "@/components/StoriesCarousel";
 
 type PlanInfo = {
   amount: number; // Monto en céntimos (S/60.00 => 6000)
@@ -177,6 +173,21 @@ export default function WolfGymLanding() {
       </div>
     );
   }
+  // Nueva sección de Noticias (en la parte superior)
+  const [news, setNews] = useState<
+    { id: string; title: string; content: string; imageUrl: string | null }[]
+  >([]);
+
+  useEffect(() => {
+    const fetchNews = async () => {
+      const res = await fetch("/api/news");
+      if (res.ok) {
+        const data = await res.json();
+        setNews(data);
+      }
+    };
+    fetchNews();
+  }, []);
 
   return (
     <div className="bg-black min-h-screen text-white">
@@ -184,12 +195,13 @@ export default function WolfGymLanding() {
       <StickyButtons />
 
       {/* Encabezado con logo */}
-      <header className="flex flex-col items-center justify-center py-12">
+
+      <header className="flex flex-col items-center justify-center py-6">
         <Image
           src="/uploads/images/logo2.jpg"
           alt="Wolf Gym Logo"
-          width={400}
-          height={400}
+          width={500} // Antes 400
+          height={500}
           priority
         />
       </header>
@@ -208,25 +220,13 @@ export default function WolfGymLanding() {
                   cuerpo y mente.
                 </p>
               </div>
-              {/* AQUÍ eliminamos los botones del Hero */}
-              {/* <div className="space-x-4">
-                <Button
-                  className="bg-yellow-400 text-black hover:bg-yellow-500"
-                  onClick={() => alert("Empezar proceso (ejemplo)")}
-                >
-                  Comenzar
-                </Button>
-                <Button
-                  variant="outline"
-                  className="text-yellow-400 border-yellow-400 hover:bg-yellow-400 hover:text-black"
-                  onClick={() => router.push("/products/public")}
-                >
-                  Ver Productos
-                </Button>
-              </div> */}
             </div>
           </div>
         </section>
+
+        {/* Noticias y Promociones */}
+        {/* Promociones y Noticias como Historias/Reels */}
+        <StoriesCarousel />
 
         <section
           id="features"
@@ -308,7 +308,6 @@ export default function WolfGymLanding() {
                   <p className="text-gray-600 mb-4">Por mes</p>
                   <ul className="text-sm text-gray-600 mb-6 space-y-2">
                     <li>Acceso ilimitado al gimnasio</li>
-                    <li>Uso de todas las máquinas</li>
                   </ul>
                 </div>
                 <Button

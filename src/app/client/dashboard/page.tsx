@@ -4,8 +4,8 @@ import { useSession, signOut } from "next-auth/react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import Swal from "sweetalert2";
 import "sweetalert2/dist/sweetalert2.min.css";
+import ProfileModal from "@/components/ProfileModal";
 
 interface Product {
   item_id: string;
@@ -28,6 +28,7 @@ export default function ClientDashboard() {
   const [clientData, setClientData] = useState<ClientData | null>(null);
   const [suggestedProducts, setSuggestedProducts] = useState<Product[]>([]);
   const [remainingDays, setRemainingDays] = useState<number | null>(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   useEffect(() => {
     const fetchClientData = async () => {
@@ -65,10 +66,10 @@ export default function ClientDashboard() {
       <header className="flex justify-between items-center border-b border-yellow-400 pb-4">
         <h1 className="text-yellow-400 text-2xl font-bold">Mi Panel</h1>
         <button
-          onClick={() => signOut()}
-          className="text-yellow-400 hover:underline"
+          onClick={() => setShowProfileModal(true)}
+          className="bg-yellow-400 text-black px-4 py-2 rounded hover:bg-yellow-500"
         >
-          Cerrar Sesión
+          Ver Perfil
         </button>
       </header>
 
@@ -134,6 +135,13 @@ export default function ClientDashboard() {
         </div>
       </section>
 
+      <button
+        onClick={() => setShowProfileModal(true)}
+        className="block text-sm font-medium text-white hover:text-yellow-400"
+      >
+        Mi Perfil
+      </button>
+
       {/* Productos sugeridos */}
       <section className="my-6">
         <h3 className="text-2xl text-yellow-400 mb-4">Productos Sugeridos</h3>
@@ -167,6 +175,15 @@ export default function ClientDashboard() {
           )}
         </div>
       </section>
+      <ProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        userName={`${clientData?.profile_first_name || "Cliente"} ${
+          clientData?.profile_last_name || ""
+        }`}
+        userEmail={session?.user?.email || "Correo no disponible"}
+        profileImage={session?.user?.image || null}
+      />
     </div>
   );
 }

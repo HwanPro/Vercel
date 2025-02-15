@@ -6,12 +6,13 @@ import { sendVerificationEmail } from "@/libs/mail";
 
 export async function POST(req: Request) {
   try {
-    const { username, lastname, email, password } = await req.json();
+    const { username, lastname, email, password, phone } = await req.json();
 
     console.log("📩 Recibida solicitud de registro con:", {
       username,
       lastname,
       email,
+      phone,
     });
 
     if (!username || !lastname || !email || !password) {
@@ -32,6 +33,19 @@ export async function POST(req: Request) {
       );
     }
 
+    if (phone) {
+      const existingPhone = await prisma.clientProfile.findUnique({
+        where: { profile_phone: phone },
+      });
+
+      if (existingPhone) {
+        return NextResponse.json(
+          { message: "El teléfono ya está registrado." },
+          { status: 400 }
+        );
+      }
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const verificationToken = randomBytes(32).toString("hex");
 
@@ -47,7 +61,7 @@ export async function POST(req: Request) {
             profile_first_name: username,
             profile_last_name: lastname,
             profile_emergency_phone: "",
-            profile_phone: "",
+            profile_phone: phone || null,
           },
         },
       },
@@ -74,8 +88,11 @@ export async function POST(req: Request) {
     console.error("🚨 ERROR EN REGISTRO:", error);
 
     if (error.code === "P2002") {
+      const fields = error.meta?.target;
       return NextResponse.json(
-        { message: "El correo ya está registrado." },
+        {
+          message: `El valor del campo ${fields} ya está registrado. Por favor, usa otro.`,
+        },
         { status: 400 }
       );
     }

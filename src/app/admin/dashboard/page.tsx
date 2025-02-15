@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import ProfileModal from "@/components/ProfileModal";
 
 export default function AdminDashboard() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -31,6 +32,7 @@ export default function AdminDashboard() {
   const [recentClients, setRecentClients] = useState<any[]>([]);
   const [loadingClients, setLoadingClients] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   const fetchRecentClients = async () => {
     setLoadingClients(true);
@@ -127,7 +129,7 @@ export default function AdminDashboard() {
         <div className="ml-auto flex items-center gap-4">
           {/* Campanita de notificaciones */}
           <button
-            className="relative text-yellow-400"
+            className="relative text-yellow-400 w-8"
             onClick={() => setNotificationsOpen((prev) => !prev)}
           >
             <Bell className="h-6 w-6" />
@@ -181,11 +183,17 @@ export default function AdminDashboard() {
           >
             Registro
           </Link>
+          <Link
+            href="/admin/Edit"
+            className="block text-sm font-medium text-white hover:text-yellow-400 no-underline"
+          >
+            Editar
+          </Link>
           <button
-            onClick={handleSignOut}
+            onClick={() => setShowProfileModal(true)}
             className="block text-sm font-medium text-white hover:text-yellow-400"
           >
-            Cerrar Sesión
+            Mi Perfil
           </button>
         </nav>
 
@@ -315,6 +323,13 @@ export default function AdminDashboard() {
           )}
         </section>
       </main>
+      <ProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        userName={session?.user?.name || "Administrador"}
+        userEmail={session?.user?.email || "Correo no disponible"}
+        userRole="admin"
+      />
     </div>
   );
 }

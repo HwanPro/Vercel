@@ -12,8 +12,7 @@ type RegisterData = {
   password: string;
   confirmPassword: string;
   phone: string;
-  emergencyPhone: string;
-  plan: string;
+  emergencyPhone?: string;
 };
 
 function RegisterPage() {
@@ -121,10 +120,8 @@ function RegisterPage() {
 
           <input
             type="text"
-            placeholder="Teléfono de emergencia"
-            {...register("emergencyPhone", {
-              required: "Teléfono obligatorio",
-            })}
+            placeholder="Teléfono de emergencia (opcional)"
+            {...register("emergencyPhone")}
             className="border rounded-lg p-2 w-full"
           />
 

@@ -29,40 +29,16 @@ export default function AdminReportes() {
         <nav className="ml-auto flex gap-4 sm:gap-6">
           <Link
             href="/admin/dashboard"
-            className="text-sm font-medium text-white hover:text-yellow-400 no-underline"
+            className="bg-yellow-400 text-black px-4 py-2 rounded hover:bg-yellow-500 w-full md:w-auto text-center"
           >
-            Dashboard
+            Volver al Dashboard
           </Link>
-          <button
-            onClick={() => setProfileOpen((prev) => !prev)}
-            className="text-sm font-medium text-white hover:text-yellow-400"
-          >
-            Mi Perfil
-          </button>
         </nav>
 
         {/* Menú de perfil */}
-        {profileOpen && (
-          <div className="absolute top-14 right-4 bg-white text-black p-4 rounded shadow-lg z-50">
-            <p>
-              <strong>Email:</strong> {session?.user?.email || "N/A"}
-            </p>
-            <p>
-              <strong>Rol:</strong> {session?.user?.role || "N/A"}
-            </p>
-            <button
-              className="mt-4 bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
-              onClick={handleSignOut}
-            >
-              Cerrar Sesión
-            </button>
-          </div>
-        )}
       </header>
 
-      <h1 className="text-3xl font-bold mb-6 text-yellow-400">
-        Reportes
-      </h1>
+      <h1 className="text-3xl font-bold mb-6 text-yellow-400">Reportes</h1>
 
       {/* Aquí puedes agregar el contenido de los reportes */}
       <p>Sección de reportes en construcción.</p>

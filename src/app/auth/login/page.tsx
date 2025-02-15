@@ -128,6 +128,17 @@ export default function AuthPage() {
               <span className="text-yellow-500">Regístrate</span>
             </a>
           </div>
+          {/* Recuperar Contraseña */}
+          <div className="text-center mt-2">
+            <a
+              href="#"
+              className="text-black"
+              onClick={() => router.push("/auth/forgot-password")}
+            >
+              ¿Olvidaste tu contraseña?{" "}
+              <span className="text-yellow-500">Recupérala aquí</span>
+            </a>
+          </div>
         </form>
       </div>
     </div>

@@ -35,7 +35,7 @@ export async function sendVerificationEmail(
   firstName: string,
   token: string
 ) {
-  const verificationLink = `${process.env.NEXTAUTH_URL}/auth/verify-email?token=${token}`;
+  const verificationLink = `${process.env.NEXTAUTH_URL}/verify-email?token=${token}`;
   const html = generateEmailTemplate({
     firstName,
     email,
@@ -51,7 +51,7 @@ export async function sendManualCredentialsEmail(
   password: string,
   verificationToken: string
 ) {
-  const verificationLink = `${process.env.NEXTAUTH_URL}/auth/verify-email?token=${verificationToken}`;
+  const verificationLink = `${process.env.NEXTAUTH_URL}/verify-email?token=${verificationToken}`;
   const html = generateEmailTemplate({
     firstName,
     email,
