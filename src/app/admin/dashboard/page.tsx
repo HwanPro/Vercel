@@ -178,10 +178,10 @@ export default function AdminDashboard() {
             Reportes
           </Link>
           <Link
-            href="/admin/register"
+            href="/admin/attendence"
             className="block text-sm font-medium text-white hover:text-yellow-400 no-underline"
           >
-            Registro
+            Asistencia
           </Link>
           <Link
             href="/admin/Edit"
@@ -327,6 +327,7 @@ export default function AdminDashboard() {
         isOpen={showProfileModal}
         onClose={() => setShowProfileModal(false)}
         userName={session?.user?.name || "Administrador"}
+        userLastName={session?.user?.lastName || "No disponible"}
         userEmail={session?.user?.email || "Correo no disponible"}
         userRole="admin"
       />

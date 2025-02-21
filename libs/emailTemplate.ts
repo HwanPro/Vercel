@@ -56,3 +56,24 @@ export function generateEmailTemplate({
       </div>
     `;
 }
+
+export function generatePasswordResetEmailTemplate(
+  name: string,
+  resetLink: string
+) {
+  return `
+    <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #333;">
+      <h2 style="color: #F59E0B;">Recuperación de contraseña - Wolf Gym</h2>
+      <p>Hola <strong>${name}</strong>,</p>
+      <p>Hemos recibido una solicitud para restablecer tu contraseña.</p>
+      <p>Por favor, haz clic en el siguiente botón para restablecer tu contraseña:</p>
+      <p style="text-align: center; margin: 20px 0;">
+        <a href="${resetLink}" style="background-color: #F59E0B; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Restablecer Contraseña</a>
+      </p>
+      <p>Este enlace expirará en 1 hora.</p>
+      <p>Si no solicitaste este cambio, puedes ignorar este mensaje.</p>
+      <hr />
+      <p style="text-align: center; color: #aaa;">Wolf Gym - Libera tu lobo interior 🐺</p>
+    </div>
+  `;
+}

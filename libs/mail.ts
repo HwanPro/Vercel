@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
-import { generateEmailTemplate } from "@/libs/emailTemplate";
+import { generateEmailTemplate, generatePasswordResetEmailTemplate } from "@/libs/emailTemplate";
+
 
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST || "",
@@ -62,4 +63,15 @@ export async function sendManualCredentialsEmail(
   });
 
   await sendEmail(email, "Acceso y verificación - Wolf Gym", html);
+}
+
+export async function sendPasswordResetEmail(
+  email: string,
+  name: string,
+  token: string
+) {
+  const resetLink = `${process.env.NEXTAUTH_URL}/auth/reset-password?token=${token}`;
+  const html = generatePasswordResetEmailTemplate(name, resetLink);
+
+  await sendEmail(email, "Recuperación de contraseña - Wolf Gym", html);
 }

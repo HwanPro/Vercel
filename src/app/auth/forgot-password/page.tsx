@@ -11,7 +11,7 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
 
     try {
-      const res = await fetch("/api/reset-password", {
+      const res = await fetch("/api/auth/reset-password", {
         method: "POST",
         body: JSON.stringify({ email }),
         headers: { "Content-Type": "application/json" },
@@ -25,7 +25,8 @@ export default function ForgotPasswordPage() {
         setError(data.message);
         setMessage(null);
       }
-    } catch (err) {
+    } catch (err: any) {
+      console.error("Error en solicitud:", err);
       setError("Hubo un error, intenta nuevamente.");
     }
   };

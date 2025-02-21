@@ -90,7 +90,7 @@ export default function VerifyEmail() {
         )}
         <button
           onClick={() => router.push("/")}
-          className="mt-4 bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500"
+          className="mt-4 bg-green-400 text-white px-4 py-2 rounded hover:bg-green-500"
         >
           Volver al inicio
         </button>

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import Link from "next/link";
 import {
   Dialog,
   DialogContent,
@@ -227,9 +228,17 @@ export default function ContentManagement() {
 
   return (
     <div className="min-h-screen bg-black text-white p-6">
-      <h1 className="text-3xl font-bold text-yellow-400 mb-6">
-        Gestión de Contenido
-      </h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold text-yellow-400 mb-6">
+          Gestión de Contenido
+        </h1>
+        <Link
+          href="/admin/dashboard"
+          className="bg-yellow-400 text-black px-4 py-2 rounded hover:bg-yellow-500"
+        >
+          Volver al Dashboard
+        </Link>
+      </div>
 
       <Tabs
         defaultValue="stories"

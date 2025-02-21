@@ -85,6 +85,7 @@ model ClientProfile {
   profile_updated_at      DateTime  @updatedAt
   isManual                Boolean   @default(true)
   user                    User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  gender                  String? // "male" | "female"
 }
 
 model InventoryItem {
