@@ -77,7 +77,8 @@ export default function ProfileModal({
 
       const result = await res.json();
 
-      if (!res.ok) throw new Error(result.error || "Error al actualizar los datos");
+      if (!res.ok)
+        throw new Error(result.error || "Error al actualizar los datos");
 
       toast.success("✅ Datos actualizados correctamente 🎉");
       onClose();
@@ -200,7 +201,7 @@ export default function ProfileModal({
 
           <Button
             className="w-full bg-gray-200 text-black hover:bg-gray-300"
-            onClick={() => router.push("/auth/forgot-password")}
+            onClick={() => router.push("/auth/reset-password")}
           >
             Cambiar contraseña
             <Lock className="ml-2 h-4 w-4" />

@@ -1,4 +1,4 @@
-// /api/auth/change-password/route.ts
+// /api/admin/change-user-password/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/libs/prisma";
 import { getServerSession } from "next-auth";
@@ -8,16 +8,16 @@ import bcrypt from "bcrypt";
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ message: "No autenticado" }, { status: 401 });
+    if (!session || session.user.role !== "admin") {
+      return NextResponse.json({ message: "No autorizado" }, { status: 401 });
     }
 
-    const { currentPassword, newPassword } = await request.json();
+    const { email, newPassword } = await request.json();
+    if (!email || !newPassword) {
+      return NextResponse.json({ message: "Faltan datos" }, { status: 400 });
+    }
 
-    // Buscar usuario
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-    });
+    const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       return NextResponse.json(
         { message: "Usuario no encontrado" },
@@ -25,26 +25,16 @@ export async function POST(request: Request) {
       );
     }
 
-    // Verificar contraseña actual
-    const match = await bcrypt.compare(currentPassword, user.password);
-    if (!match) {
-      return NextResponse.json(
-        { message: "Contraseña actual incorrecta" },
-        { status: 400 }
-      );
-    }
-
-    // Actualizar contraseña
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await prisma.user.update({
-      where: { id: session.user.id },
+      where: { email },
       data: { password: hashedPassword },
     });
 
     // Enviar correo de confirmación
-    // sendPasswordChangedEmail(user.email, ...);
+    // sendPasswordChangedEmail(user.email);
 
-    return NextResponse.json({ message: "Contraseña actualizada" });
+    return NextResponse.json({ message: "Contraseña actualizada por Admin" });
   } catch (error) {
     console.error(error);
     return NextResponse.json({ message: "Error interno" }, { status: 500 });

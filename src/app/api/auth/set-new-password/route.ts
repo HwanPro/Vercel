@@ -5,6 +5,13 @@ import bcrypt from "bcryptjs";
 export async function POST(request: Request) {
   const { token, newPassword } = await request.json();
 
+  if (!token) {
+    return NextResponse.json(
+      { message: "Acceso no permitido" },
+      { status: 403 }
+    );
+  }
+
   const resetToken = await prisma.passwordResetToken.findUnique({
     where: { token },
     include: { user: true },
@@ -24,9 +31,7 @@ export async function POST(request: Request) {
     data: { password: hashedPassword },
   });
 
-  await prisma.passwordResetToken.delete({
-    where: { token },
-  });
+  await prisma.passwordResetToken.delete({ where: { token } });
 
   return NextResponse.json(
     { message: "Contraseña restablecida con éxito" },
