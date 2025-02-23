@@ -1,23 +1,35 @@
 import nodemailer from "nodemailer";
-import { generateEmailTemplate, generatePasswordResetEmailTemplate } from "@/libs/emailTemplate";
-
+import {
+  generateEmailTemplate,
+  generatePasswordResetEmailTemplate,
+} from "@/libs/emailTemplate";
 
 const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST || "",
-  port: parseInt(process.env.EMAIL_PORT || "587"),
-  secure: process.env.EMAIL_PORT === "465",
+  host: process.env.EMAIL_HOST,
+  port: Number(process.env.EMAIL_PORT) || 587,
+  secure: Number(process.env.EMAIL_PORT) === 465, // ✅ Verificación correcta del puerto
   auth: {
-    user: process.env.EMAIL_USER || "",
-    pass: process.env.EMAIL_PASS || "",
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
   },
 });
 
 transporter.verify((error) => {
-  if (error) console.error("❌ Error en la configuración SMTP:", error);
-  else console.log("✅ Servidor SMTP listo para enviar correos");
+  if (error) {
+    console.error("❌ Error en la configuración SMTP:", error);
+  } else {
+    console.log("✅ Servidor SMTP listo para enviar correos");
+  }
 });
 
 export async function sendEmail(to: string, subject: string, html: string) {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.error(
+      "⚠️ No se enviará el correo, credenciales de SMTP faltantes."
+    );
+    return;
+  }
+
   try {
     await transporter.sendMail({
       from: `"Wolf Gym" <${process.env.EMAIL_FROM}>`,
