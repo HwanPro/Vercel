@@ -65,15 +65,19 @@ export default function ClientDashboard() {
   // Carga inicial de datos
   useEffect(() => {
     const fetchData = async () => {
-      const res = await fetch("/api/clients/me");
-      if (res.ok) {
+      try {
+        const res = await fetch("/api/clients/me");
+        if (!res.ok) throw new Error("Error al obtener datos del cliente");
         const data = await res.json();
         setClientData(data);
-      }
-      const resProducts = await fetch("/api/products/public");
-      if (resProducts.ok) {
-        const products = await resProducts.json();
-        setSuggestedProducts(products);
+
+        const resProducts = await fetch("/api/products/public");
+        if (resProducts.ok) {
+          const products = await resProducts.json();
+          setSuggestedProducts(products);
+        }
+      } catch (error) {
+        console.error("❌ Error en la carga de datos:", error);
       }
     };
     fetchData();
@@ -140,9 +144,12 @@ export default function ClientDashboard() {
 
   // Reload data tras editar perfil
   const reloadClientData = async () => {
-    const res = await fetch("/api/clients/me");
-    if (res.ok) {
+    try {
+      const res = await fetch("/api/clients/me");
+      if (!res.ok) throw new Error("Error al recargar datos del cliente");
       setClientData(await res.json());
+    } catch (error) {
+      console.error("❌ Error al recargar datos:", error);
     }
   };
 
@@ -372,6 +379,8 @@ export default function ClientDashboard() {
           </CardContent>
         </Card>
 
+        {/* Productos Recomendados */}
+
         <Card className="md:col-span-2 bg-white border-yellow-400">
           <CardHeader>
             <CardTitle className="text-yellow-400">
@@ -412,8 +421,6 @@ export default function ClientDashboard() {
             </div>
           </section>
         </Card>
-
-        {/* Aquí podrías usar tu componente <Plans /> si lo creas, o la lista de productos */}
       </div>
     </div>
   );

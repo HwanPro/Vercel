@@ -5,9 +5,6 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Eye, EyeOff, ArrowLeft } from "lucide-react"; // Íconos para funcionalidad extra
-import { useEffect } from "react";
-import { useSession } from "next-auth/react";
-import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 type FormData = {
@@ -26,7 +23,6 @@ export default function AuthPage() {
     handleSubmit,
     formState: { errors },
   } = useForm<FormData>();
-
 
   // Función para manejar el inicio de sesión
   const handleLogin: SubmitHandler<FormData> = async (data) => {
