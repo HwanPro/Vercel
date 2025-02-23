@@ -27,15 +27,6 @@ export default function AuthPage() {
     formState: { errors },
   } = useForm<FormData>();
 
-  const { data: session } = useSession();
-
-  useEffect(() => {
-    if (session) {
-      toast.info("Ya tienes una sesión iniciada.");
-      router.push("/dashboard"); // Redirigir a dashboard si ya está logueado
-    }
-  }, [session, router]);
-
   // Función para manejar el inicio de sesión
   const handleLogin: SubmitHandler<FormData> = async (data) => {
     const res = await signIn("credentials", {
