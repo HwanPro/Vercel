@@ -160,7 +160,8 @@ export default function ClientDashboard() {
             <Avatar className="w-24 h-24 border-2 border-yellow-400">
               <AvatarImage src={clientData.image || "/placeholder.svg"} />
               <AvatarFallback className="bg-yellow-400 text-black text-xl">
-                {clientData.name?.charAt(0)}{""}
+                {clientData.name?.charAt(0)}
+                {""}
                 {clientData.lastName?.charAt(0)}
               </AvatarFallback>
             </Avatar>
@@ -370,7 +371,7 @@ export default function ClientDashboard() {
             </Tabs>
           </CardContent>
         </Card>
-        
+
         <Card className="md:col-span-2 bg-white border-yellow-400">
           <CardHeader>
             <CardTitle className="text-yellow-400">
@@ -378,22 +379,24 @@ export default function ClientDashboard() {
             </CardTitle>
           </CardHeader>
           <section className="my-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 w-full">
               {suggestedProducts.length > 0 ? (
                 suggestedProducts.map((product: any) => (
                   <div
                     key={product.item_id}
-                    className="bg-gray-900 text-white rounded-lg p-4 shadow-lg flex flex-col items-center border border-yellow-400"
+                    className="bg-gray-900 text-white rounded-lg p-4 shadow-lg flex flex-col items-center border border-yellow-400 h-full"
                   >
                     <Image
                       src={product.item_image_url || "/placeholder.png"}
                       alt={product.item_name}
                       width={100}
                       height={100}
-                      className="mb-4 rounded-lg"
+                      className="mb-4 rounded-lg object-cover w-full h-32"
                     />
-                    <h4 className="font-bold text-lg">{product.item_name}</h4>
-                    <p className="text-sm text-gray-400">
+                    <h4 className="font-bold text-lg text-center">
+                      {product.item_name}
+                    </h4>
+                    <p className="text-sm text-gray-400 text-center">
                       {product.item_description}
                     </p>
                     <p className="text-yellow-400 font-bold mt-2">
@@ -402,13 +405,14 @@ export default function ClientDashboard() {
                   </div>
                 ))
               ) : (
-                <p className="text-gray-400 m-4">
+                <p className="text-gray-400 m-4 text-center">
                   No hay productos disponibles en este momento.
                 </p>
               )}
             </div>
           </section>
         </Card>
+
         {/* Aquí podrías usar tu componente <Plans /> si lo creas, o la lista de productos */}
       </div>
     </div>
