@@ -372,43 +372,36 @@ export default function ClientDashboard() {
         </Card>
         
         <Card className="md:col-span-2 bg-white border-yellow-400">
-          <CardHeader>
-            <CardTitle className="text-yellow-400">
-              Productos Recomendados
-            </CardTitle>
-          </CardHeader>
-          <section className="my-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-              {suggestedProducts.length > 0 ? (
-                suggestedProducts.map((product: any) => (
-                  <div
-                    key={product.item_id}
-                    className="bg-gray-900 text-white rounded-lg p-4 shadow-lg flex flex-col items-center border border-yellow-400"
-                  >
-                    <Image
-                      src={product.item_image_url || "/placeholder.png"}
-                      alt={product.item_name}
-                      width={100}
-                      height={100}
-                      className="mb-4 rounded-lg"
-                    />
-                    <h4 className="font-bold text-lg">{product.item_name}</h4>
-                    <p className="text-sm text-gray-400">
-                      {product.item_description}
-                    </p>
-                    <p className="text-yellow-400 font-bold mt-2">
-                      S/. {product.item_price.toFixed(2)}
-                    </p>
-                  </div>
-                ))
-              ) : (
-                <p className="text-gray-400 m-4">
-                  No hay productos disponibles en este momento.
-                </p>
-              )}
-            </div>
-          </section>
-        </Card>
+  <CardHeader>
+    <CardTitle className="text-yellow-400">Productos Recomendados</CardTitle>
+  </CardHeader>
+  <section className="my-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 w-full">
+      {suggestedProducts.length > 0 ? (
+        suggestedProducts.map((product: any) => (
+          <div
+            key={product.item_id}
+            className="bg-gray-900 text-white rounded-lg p-4 shadow-lg flex flex-col items-center border border-yellow-400 h-full"
+          >
+            <Image
+              src={product.item_image_url || "/placeholder.png"}
+              alt={product.item_name}
+              width={100}
+              height={100}
+              className="mb-4 rounded-lg object-cover w-full h-32"
+            />
+            <h4 className="font-bold text-lg text-center">{product.item_name}</h4>
+            <p className="text-sm text-gray-400 text-center">{product.item_description}</p>
+            <p className="text-yellow-400 font-bold mt-2">S/. {product.item_price.toFixed(2)}</p>
+          </div>
+        ))
+      ) : (
+        <p className="text-gray-400 m-4 text-center">No hay productos disponibles en este momento.</p>
+      )}
+    </div>
+  </section>
+</Card>
+
         {/* Aquí podrías usar tu componente <Plans /> si lo creas, o la lista de productos */}
       </div>
     </div>
