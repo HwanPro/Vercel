@@ -1,14 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState<number>(0);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (cooldown > 0) {
+      timer = setInterval(() => {
+        setCooldown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [cooldown]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (cooldown > 0) return; // Evita nuevos envíos mientras esté en cooldown
 
     try {
       const res = await fetch("/api/auth/reset-password", {
@@ -21,6 +39,8 @@ export default function ForgotPasswordPage() {
       if (res.ok) {
         setMessage(data.message);
         setError(null);
+        // Inicia el cooldown, por ejemplo, 60 segundos
+        setCooldown(60);
       } else {
         setError(data.message);
         setMessage(null);
@@ -50,9 +70,10 @@ export default function ForgotPasswordPage() {
         />
         <button
           type="submit"
+          disabled={cooldown > 0}
           className="bg-yellow-400 text-black p-2 w-full rounded hover:bg-yellow-500"
         >
-          Enviar Enlace
+          {cooldown > 0 ? `Espera ${cooldown} segundos` : "Enviar Enlace"}
         </button>
       </form>
     </div>

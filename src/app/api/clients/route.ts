@@ -15,8 +15,22 @@ const clientSchema = z.object({
     "Promoción Premium",
     "Promoción VIP",
   ]),
-  membershipStart: z.string().refine((date) => !isNaN(Date.parse(date))),
-  membershipEnd: z.string().refine((date) => !isNaN(Date.parse(date))),
+  membershipStart: z
+    .string()
+    .optional()
+    .or(z.literal("")) // Permitir campo vacío
+    .refine((val) => !val || /^\d{4}-\d{2}-\d{2}$/.test(val), {
+      message: "Fecha de inicio inválida (debe ser yyyy-mm-dd)",
+    }),
+
+  membershipEnd: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .refine((val) => !val || /^\d{4}-\d{2}-\d{2}$/.test(val), {
+      message: "Fecha de fin inválida (debe ser yyyy-mm-dd)",
+    }),
+
   phone: z.string().min(9),
   emergencyPhone: z.string().min(9),
   email: z.string().email(),
@@ -93,8 +107,15 @@ export async function POST(request: NextRequest) {
         profile_first_name: validatedData.firstName,
         profile_last_name: validatedData.lastName,
         profile_plan: validatedData.plan,
-        profile_start_date: new Date(validatedData.membershipStart),
-        profile_end_date: new Date(validatedData.membershipEnd),
+        profile_start_date:
+          validatedData.membershipStart && validatedData.membershipStart !== ""
+            ? new Date(validatedData.membershipStart)
+            : null,
+
+        profile_end_date:
+          validatedData.membershipEnd && validatedData.membershipEnd !== ""
+            ? new Date(validatedData.membershipEnd)
+            : null,
         profile_phone: validatedData.phone,
         profile_emergency_phone: validatedData.emergencyPhone,
         user: { connect: { id: user.id } },

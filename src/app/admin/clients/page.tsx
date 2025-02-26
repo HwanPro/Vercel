@@ -23,6 +23,7 @@ import AddClientDialog from "@/components/AddClientDialog";
 import Link from "next/link";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import EditClientDialog from "@/components/EditClientDialog";
 
 // Define el tipo para los datos del cliente
 interface Client {
@@ -76,13 +77,16 @@ export default function ClientsPage() {
             id: client.profile_id,
             firstName: client.profile_first_name || "Sin nombre",
             lastName: client.profile_last_name || "Sin apellido",
+            email: client.user.email || "", // Nuevo campo
             plan: client.profile_plan || "Sin plan",
             membershipStart: membershipStart
-              ? membershipStart.toLocaleDateString("es-ES")
-              : "Sin fecha",
+              ? membershipStart.toISOString().split("T")[0]
+              : "",
             membershipEnd: membershipEnd
-              ? membershipEnd.toLocaleDateString("es-ES")
-              : "Sin fecha",
+              ? membershipEnd.toISOString().split("T")[0]
+              : "",
+            phone: client.profile_phone || "", // Nuevo campo
+            emergencyPhone: client.profile_emergency_phone || "", // Nuevo campo
           };
         });
 
@@ -231,12 +235,29 @@ export default function ClientsPage() {
                   <TableCell>{client.membershipStart}</TableCell>
                   <TableCell>{client.membershipEnd}</TableCell>
                   <TableCell>
-                    <Button
-                      className="bg-red-500 text-white hover:bg-red-600 w-full md:w-auto"
-                      onClick={() => handleDeleteClick(client.id)}
-                    >
-                      Eliminar
-                    </Button>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <EditClientDialog
+                          client={client}
+                          onUpdate={(updatedClient) => {
+                            setClients((prev) =>
+                              prev.map((c) =>
+                                c.id === updatedClient.id
+                                  ? { ...c, ...updatedClient } // Mantiene todas las propiedades anteriores
+                                  : c
+                              )
+                            );
+                            toast.success("Cliente actualizado!");
+                          }}
+                        />
+                        <Button
+                          className="bg-red-500 text-white hover:bg-red-600 w-full md:w-auto"
+                          onClick={() => handleDeleteClick(client.id)}
+                        >
+                          Eliminar
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableCell>
                 </TableRow>
               ))

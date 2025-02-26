@@ -6,17 +6,28 @@ import { toast } from "react-toastify";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import "react-toastify/dist/ReactToastify.css";
+import { useSession } from "next-auth/react";
 
 export default function ChangePasswordPage({
-  isLoggedIn = false,
   isAdmin = false,
 }: {
-  isLoggedIn?: boolean;
   isAdmin?: boolean;
 }) {
+  const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
+
+  // Considera al usuario logueado si el estado es "authenticated"
+  const isLoggedIn = status === "authenticated";
+
+  useEffect(() => {
+    if (!token && !isLoggedIn && !isAdmin) {
+      toast.error("Acceso no permitido.");
+      router.push("/");
+    }
+  }, [token, isLoggedIn, isAdmin, router]);
+  <ChangePasswordPage isAdmin={true} />;
 
   // Campos del formulario
   const [currentPassword, setCurrentPassword] = useState("");
@@ -24,7 +35,7 @@ export default function ChangePasswordPage({
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  // Manejo de Redirección en Accesos no Permitidos
+  // En caso de acceso desde token, si no hay token y el usuario no está logueado (ni es admin), redirige a inicio
   useEffect(() => {
     if (!token && !isLoggedIn && !isAdmin) {
       toast.error("Acceso no permitido.");
@@ -32,7 +43,7 @@ export default function ChangePasswordPage({
     }
   }, [token, isLoggedIn, isAdmin, router]);
 
-  // Validación de Campos
+  // Validación de campos
   const validatePasswords = () => {
     if (newPassword.length < 6) {
       toast.error("La contraseña debe tener al menos 6 caracteres.");
@@ -45,11 +56,9 @@ export default function ChangePasswordPage({
     return true;
   };
 
-  // 🛠 Función para cambiar contraseña en diferentes casos
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validar las contraseñas antes de enviar
     if (!validatePasswords()) return;
 
     let endpoint = "";
@@ -57,11 +66,11 @@ export default function ChangePasswordPage({
 
     try {
       if (token) {
-        // 🟢 Caso 1: Olvido de contraseña (Recuperación con Token)
+        // Caso 1: Olvido de contraseña (con token)
         endpoint = "/api/auth/set-new-password";
         bodyData = { token, newPassword };
       } else if (isLoggedIn && !isAdmin) {
-        // 🟢 Caso 2: Usuario Logueado Cambia Su Propia Contraseña
+        // Caso 2: Usuario logueado cambia su contraseña (desde perfil)
         if (!currentPassword) {
           toast.error("Debes ingresar tu contraseña actual.");
           return;
@@ -69,7 +78,7 @@ export default function ChangePasswordPage({
         endpoint = "/api/auth/change-password";
         bodyData = { currentPassword, newPassword };
       } else if (isAdmin) {
-        // 🟢 Caso 3: Admin cambia la contraseña de otro usuario
+        // Caso 3: Admin cambia la contraseña de otro usuario
         if (!userEmail) {
           toast.error("Debes ingresar el correo del usuario.");
           return;
@@ -78,7 +87,6 @@ export default function ChangePasswordPage({
         bodyData = { email: userEmail, newPassword };
       }
 
-      // Llamada a la API
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -86,10 +94,10 @@ export default function ChangePasswordPage({
       });
 
       const data = await res.json();
-      if (!res.ok)
+      if (!res.ok) {
         throw new Error(data.message || "Error al cambiar la contraseña");
+      }
 
-      // Mostrar éxito y redirigir según el caso
       toast.success(
         token
           ? "✅ Tu contraseña ha sido restablecida correctamente."
@@ -98,10 +106,15 @@ export default function ChangePasswordPage({
             : "✅ Tu contraseña ha sido cambiada correctamente."
       );
 
+      // Redirección según el caso:
       setTimeout(() => {
-        router.push(
-          token ? "/auth/login" : isAdmin ? "/auth/reset-password" : "/dashboard"
-        );
+        if (token) {
+          router.push("/auth/login");
+        } else if (isAdmin) {
+          router.push("/auth/reset-password");
+        } else if (isLoggedIn) {
+          router.push("/dashboard"); // O la ruta deseada, por ejemplo "/profile"
+        }
       }, 3000);
     } catch (err: any) {
       toast.error(err.message);
@@ -122,7 +135,7 @@ export default function ChangePasswordPage({
               : "Cambiar Contraseña"}
         </h1>
 
-        {/* Campos para cada caso */}
+        {/* Mostrar campo de contraseña actual sólo si es cambio desde perfil */}
         {!token && isLoggedIn && !isAdmin && (
           <div>
             <label className="text-sm text-gray-600">Contraseña Actual:</label>
@@ -137,6 +150,7 @@ export default function ChangePasswordPage({
           </div>
         )}
 
+        {/* Si es Admin, solicitar correo del usuario */}
         {isAdmin && (
           <div>
             <label className="text-sm text-gray-600">Correo del Usuario:</label>
@@ -151,7 +165,7 @@ export default function ChangePasswordPage({
           </div>
         )}
 
-        {/* Nueva contraseña */}
+        {/* Siempre se solicitan los campos de nueva contraseña y confirmación */}
         <div>
           <label className="text-sm text-gray-600">Nueva Contraseña:</label>
           <Input

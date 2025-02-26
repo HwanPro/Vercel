@@ -1,10 +1,12 @@
+"use client";
+
 import { useState } from "react";
 import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 import { Button } from "./ui/button";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import Image from "next/image";
+import MembershipSelection from "@/components/MembershipSelection"; // Importamos el componente
 
 interface Client {
   id: string;
@@ -28,9 +30,10 @@ export default function AddClientDialog({
   const [name, setName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [plan, setPlan] = useState("Mensual");
-  const [membershipStart, setMembershipStart] = useState("");
-  const [membershipEnd, setMembershipEnd] = useState("");
+  const [plan, setPlan] = useState<string | null>(null);
+  const [membershipStart, setMembershipStart] = useState<string>("");
+  const [membershipEnd, setMembershipEnd] = useState<string>("");
+  const [manualDates, setManualDates] = useState<boolean>(false);
   const [phone, setPhone] = useState<string | undefined>(undefined);
   const [emergencyPhone, setEmergencyPhone] = useState<string | undefined>(
     undefined
@@ -38,7 +41,7 @@ export default function AddClientDialog({
   const [paymentMethod, setPaymentMethod] = useState<string>("Efectivo");
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const qrImageURL = "/uploads/images/QR-PAGO.jpg";
+
   const generateRandomPassword = (length = 12) => {
     const charset =
       "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
@@ -52,6 +55,7 @@ export default function AddClientDialog({
 
   const handleSave = async () => {
     setErrorMessage("");
+    
 
     if (
       !name ||
@@ -59,10 +63,9 @@ export default function AddClientDialog({
       !email ||
       !membershipStart ||
       !membershipEnd ||
-      !phone ||
-      !emergencyPhone
+      !phone
     ) {
-      setErrorMessage("Por favor, complete todos los campos.");
+      setErrorMessage("Por favor, complete todos los campos obligatorios.");
       return;
     }
 
@@ -71,21 +74,22 @@ export default function AddClientDialog({
       return;
     }
 
-    const startDate = new Date(membershipStart);
-    const endDate = new Date(membershipEnd);
-    if (startDate >= endDate) {
+    const startDateObj = new Date(membershipStart);
+    const endDateObj = new Date(membershipEnd);
+    if (startDateObj >= endDateObj) {
       setErrorMessage(
         "La fecha de inicio debe ser anterior a la fecha de fin."
       );
       return;
     }
 
-    if (!isValidPhoneNumber(phone || "")) {
+    if (!isValidPhoneNumber(phone)) {
       setErrorMessage("El número de teléfono principal no es válido.");
       return;
     }
 
-    if (!isValidPhoneNumber(emergencyPhone || "")) {
+    // Validar el teléfono de emergencia solo si se ingresa algún valor
+    if (emergencyPhone && !isValidPhoneNumber(emergencyPhone)) {
       setErrorMessage("El número de emergencia no es válido.");
       return;
     }
@@ -99,17 +103,17 @@ export default function AddClientDialog({
       return;
     }
 
-    const generatedPassword = generateRandomPassword(12); // Generar contraseña aleatoria
+    const generatedPassword = generateRandomPassword(12);
 
     const newClientData = {
       firstName: name.trim(),
       lastName: lastName.trim(),
       email: email.trim(),
-      plan,
+      plan: plan || "",
       membershipStart,
       membershipEnd,
       phone: phone!,
-      emergencyPhone: emergencyPhone!,
+      emergencyPhone: emergencyPhone !,
       hasPaid: true,
       password: generatedPassword,
     };
@@ -139,7 +143,7 @@ export default function AddClientDialog({
       setName("");
       setLastName("");
       setEmail("");
-      setPlan("Mensual");
+      setPlan(null);
       setMembershipStart("");
       setMembershipEnd("");
       setPhone(undefined);
@@ -158,6 +162,7 @@ export default function AddClientDialog({
       {errorMessage && (
         <p className="text-red-500 mb-2 text-sm">{errorMessage}</p>
       )}
+
       <input
         className="w-full p-2 mb-2 border rounded bg-white text-black text-sm"
         placeholder="Nombre"
@@ -177,35 +182,45 @@ export default function AddClientDialog({
         onChange={(e) => setEmail(e.target.value)}
       />
 
-      <select
-        className="w-full p-2 mb-2 border rounded bg-white text-black text-sm"
-        value={plan}
-        onChange={(e) => setPlan(e.target.value)}
-      >
-        <option value="Mensual">Mensual</option>
-        <option value="Promoción Básica">Promoción Básica</option>
-        <option value="Promoción Premium">Promoción Premium</option>
-        <option value="Promoción VIP">Promoción VIP</option>
-      </select>
+      <MembershipSelection
+        onPlanSelect={(selectedPlan, start, end) => {
+          setPlan(selectedPlan);
+          setMembershipStart(start);
+          setMembershipEnd(end);
+        }}
+      />
 
-      <label className="block text-sm font-bold mb-1 text-black">
-        Fecha de inicio
+      <label className="flex items-center gap-2 text-black text-sm mt-4">
+        <input
+          type="checkbox"
+          checked={manualDates}
+          onChange={() => setManualDates(!manualDates)}
+        />
+        Ingresar fechas manualmente
       </label>
-      <input
-        type="date"
-        className="w-full p-2 mb-2 border rounded bg-white text-black text-sm"
-        value={membershipStart}
-        onChange={(e) => setMembershipStart(e.target.value)}
-      />
-      <label className="block text-sm font-bold mb-1 text-black">
-        Fecha de fin
-      </label>
-      <input
-        type="date"
-        className="w-full p-2 mb-2 border rounded bg-white text-black text-sm"
-        value={membershipEnd}
-        onChange={(e) => setMembershipEnd(e.target.value)}
-      />
+
+      {manualDates && (
+        <>
+          <label className="block text-sm font-bold mb-1 text-black">
+            Fecha de inicio
+          </label>
+          <input
+            type="date"
+            className="w-full p-2 mb-2 border rounded bg-white text-black text-sm"
+            value={membershipStart}
+            onChange={(e) => setMembershipStart(e.target.value)}
+          />
+          <label className="block text-sm font-bold mb-1 text-black">
+            Fecha de fin
+          </label>
+          <input
+            type="date"
+            className="w-full p-2 mb-2 border rounded bg-white text-black text-sm"
+            value={membershipEnd}
+            onChange={(e) => setMembershipEnd(e.target.value)}
+          />
+        </>
+      )}
 
       <PhoneInput
         defaultCountry="PE"
@@ -221,28 +236,6 @@ export default function AddClientDialog({
         onChange={setEmergencyPhone}
         className="w-full p-2 mb-2 border rounded bg-white text-black text-sm"
       />
-
-      <select
-        value={paymentMethod}
-        onChange={(e) => setPaymentMethod(e.target.value)}
-        className="w-full p-2 mb-2 border rounded text-sm"
-      >
-        <option value="Efectivo">Efectivo</option>
-        <option value="Tarjeta">Tarjeta</option>
-        <option value="Billetera">Billetera Virtual</option>
-      </select>
-
-      {paymentMethod === "Billetera" && (
-        <div className="flex justify-center mb-2">
-          <Image
-            src={qrImageURL}
-            alt="QR Pago"
-            width={120}
-            height={120}
-            className="mb-2"
-          />
-        </div>
-      )}
 
       <Button
         className="bg-yellow-400 text-black hover:bg-yellow-500 w-full text-sm"

@@ -18,14 +18,16 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useState } from "react";
 import "react-toastify/dist/ReactToastify.css";
 
+// Agregar la nueva propiedad en la interfaz
 export interface ProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess?: () => Promise<void>; // ✅ onSuccess es opcional
+  onSuccess?: () => Promise<void>;
   userName: string;
   userLastName: string;
   userEmail: string;
   userPhone?: string;
+  userEmergencyPhone?: string; // Nueva propiedad
   userRole?: string;
   profileImage?: string | null;
 }
@@ -37,20 +39,23 @@ export default function ProfileModal({
   userName,
   userLastName,
   userEmail,
-  userPhone = "", // Valor por defecto si es undefined
+  userPhone = "",
+  userEmergencyPhone = "", // Valor por defecto
   userRole,
   profileImage,
 }: ProfileModalProps) {
   const router = useRouter();
 
-  // ✅ Corregido: Ahora usa los valores pasados en los props
+  // Estados iniciales, incluyendo emergencyPhone
   const [firstName, setFirstName] = useState(userName);
   const [lastName, setLastName] = useState(userLastName);
   const [email, setEmail] = useState(userEmail);
   const [phone, setPhone] = useState(userPhone);
+  const [emergencyPhone, setEmergencyPhone] = useState(userEmergencyPhone);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEmailEditable, setIsEmailEditable] = useState(false);
 
+  // Función para validar campos (puedes ampliar si lo deseas)
   const validateFields = () => {
     if (!firstName.trim() || !lastName.trim() || !email.trim()) {
       toast.error("❌ Todos los campos son obligatorios.");
@@ -60,6 +65,7 @@ export default function ProfileModal({
   };
 
   const handleSubmit = async () => {
+    if (!validateFields()) return;
     setIsSubmitting(true);
     try {
       const res = await fetch("/api/profile/update", {
@@ -72,6 +78,7 @@ export default function ProfileModal({
           lastName,
           email,
           phone,
+          emergencyPhone, // Se incluye el teléfono de emergencia
         }),
       });
 
@@ -130,6 +137,7 @@ export default function ProfileModal({
         </div>
 
         <div className="space-y-4 mt-4">
+          {/* Nombre */}
           <div className="space-y-2">
             <Label htmlFor="firstName">Nombre</Label>
             <Input
@@ -140,6 +148,7 @@ export default function ProfileModal({
             />
           </div>
 
+          {/* Apellidos */}
           <div className="space-y-2">
             <Label htmlFor="lastName">Apellidos</Label>
             <Input
@@ -150,6 +159,7 @@ export default function ProfileModal({
             />
           </div>
 
+          {/* Correo */}
           <div className="space-y-2">
             <Label htmlFor="email">Correo electrónico</Label>
             <div className="flex gap-2">
@@ -176,6 +186,7 @@ export default function ProfileModal({
             )}
           </div>
 
+          {/* Teléfono principal */}
           <div className="space-y-2">
             <Label htmlFor="phone">Teléfono</Label>
             <div className="flex gap-2">
@@ -183,6 +194,22 @@ export default function ProfileModal({
                 id="phone"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
+                className="bg-white"
+              />
+              <Button size="icon" variant="outline" className="shrink-0">
+                <Phone className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Teléfono de emergencia */}
+          <div className="space-y-2">
+            <Label htmlFor="emergencyPhone">Teléfono de emergencia</Label>
+            <div className="flex gap-2">
+              <Input
+                id="emergencyPhone"
+                value={emergencyPhone}
+                onChange={(e) => setEmergencyPhone(e.target.value)}
                 className="bg-white"
               />
               <Button size="icon" variant="outline" className="shrink-0">
