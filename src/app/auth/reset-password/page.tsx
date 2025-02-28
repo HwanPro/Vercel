@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import "react-toastify/dist/ReactToastify.css";
 import { useSession } from "next-auth/react";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function ChangePasswordPage({
   isAdmin = false,
@@ -17,17 +18,18 @@ export default function ChangePasswordPage({
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
-
-  // Considera al usuario logueado si el estado es "authenticated"
   const isLoggedIn = status === "authenticated";
 
   useEffect(() => {
     if (!token && !isLoggedIn && !isAdmin) {
       toast.error("Acceso no permitido.");
-      router.push("/");
+      router.push("/auth/login");
     }
   }, [token, isLoggedIn, isAdmin, router]);
-  <ChangePasswordPage isAdmin={true} />;
+
+  // Estados de visibilidad de contraseñas
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Campos del formulario
   const [currentPassword, setCurrentPassword] = useState("");
@@ -35,15 +37,6 @@ export default function ChangePasswordPage({
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  // En caso de acceso desde token, si no hay token y el usuario no está logueado (ni es admin), redirige a inicio
-  useEffect(() => {
-    if (!token && !isLoggedIn && !isAdmin) {
-      toast.error("Acceso no permitido.");
-      router.push("/");
-    }
-  }, [token, isLoggedIn, isAdmin, router]);
-
-  // Validación de campos
   const validatePasswords = () => {
     if (newPassword.length < 6) {
       toast.error("La contraseña debe tener al menos 6 caracteres.");
@@ -58,7 +51,6 @@ export default function ChangePasswordPage({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!validatePasswords()) return;
 
     let endpoint = "";
@@ -66,11 +58,10 @@ export default function ChangePasswordPage({
 
     try {
       if (token) {
-        // Caso 1: Olvido de contraseña (con token)
+        // Recuperación de contraseña con token
         endpoint = "/api/auth/set-new-password";
         bodyData = { token, newPassword };
       } else if (isLoggedIn && !isAdmin) {
-        // Caso 2: Usuario logueado cambia su contraseña (desde perfil)
         if (!currentPassword) {
           toast.error("Debes ingresar tu contraseña actual.");
           return;
@@ -78,7 +69,6 @@ export default function ChangePasswordPage({
         endpoint = "/api/auth/change-password";
         bodyData = { currentPassword, newPassword };
       } else if (isAdmin) {
-        // Caso 3: Admin cambia la contraseña de otro usuario
         if (!userEmail) {
           toast.error("Debes ingresar el correo del usuario.");
           return;
@@ -94,9 +84,8 @@ export default function ChangePasswordPage({
       });
 
       const data = await res.json();
-      if (!res.ok) {
+      if (!res.ok)
         throw new Error(data.message || "Error al cambiar la contraseña");
-      }
 
       toast.success(
         token
@@ -106,14 +95,13 @@ export default function ChangePasswordPage({
             : "✅ Tu contraseña ha sido cambiada correctamente."
       );
 
-      // Redirección según el caso:
       setTimeout(() => {
         if (token) {
           router.push("/auth/login");
         } else if (isAdmin) {
-          router.push("/auth/reset-password");
+          router.push("/admin/dashboard");
         } else if (isLoggedIn) {
-          router.push("/dashboard"); // O la ruta deseada, por ejemplo "/profile"
+          router.push("/client/dashboard");
         }
       }, 3000);
     } catch (err: any) {
@@ -135,7 +123,7 @@ export default function ChangePasswordPage({
               : "Cambiar Contraseña"}
         </h1>
 
-        {/* Mostrar campo de contraseña actual sólo si es cambio desde perfil */}
+        {/* Campo de contraseña actual para usuarios logueados */}
         {!token && isLoggedIn && !isAdmin && (
           <div>
             <label className="text-sm text-gray-600">Contraseña Actual:</label>
@@ -150,7 +138,7 @@ export default function ChangePasswordPage({
           </div>
         )}
 
-        {/* Si es Admin, solicitar correo del usuario */}
+        {/* Campo para admin: Correo del usuario */}
         {isAdmin && (
           <div>
             <label className="text-sm text-gray-600">Correo del Usuario:</label>
@@ -165,31 +153,58 @@ export default function ChangePasswordPage({
           </div>
         )}
 
-        {/* Siempre se solicitan los campos de nueva contraseña y confirmación */}
+        {/* Nueva contraseña */}
         <div>
           <label className="text-sm text-gray-600">Nueva Contraseña:</label>
-          <Input
-            type="password"
-            placeholder="Nueva Contraseña"
-            className="border p-2 w-full mb-4"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            required
-          />
+          <div className="relative">
+            <Input
+              type={showNewPassword ? "text" : "password"}
+              placeholder="Nueva Contraseña"
+              className="border p-2 w-full mb-4"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
+            />
+            <button
+              type="button"
+              className="absolute inset-y-0 right-3 flex items-center text-gray-500"
+              onClick={() => setShowNewPassword((prev) => !prev)}
+            >
+              {showNewPassword ? (
+                <EyeOff className="w-5 h-5" />
+              ) : (
+                <Eye className="w-5 h-5" />
+              )}
+            </button>
+          </div>
         </div>
 
+        {/* Confirmar nueva contraseña */}
         <div>
           <label className="text-sm text-gray-600">
             Confirmar Nueva Contraseña:
           </label>
-          <Input
-            type="password"
-            placeholder="Confirmar Nueva Contraseña"
-            className="border p-2 w-full mb-4"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-          />
+          <div className="relative">
+            <Input
+              type={showConfirmPassword ? "text" : "password"}
+              placeholder="Confirmar Nueva Contraseña"
+              className="border p-2 w-full mb-4"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
+            <button
+              type="button"
+              className="absolute inset-y-0 right-3 flex items-center text-gray-500"
+              onClick={() => setShowConfirmPassword((prev) => !prev)}
+            >
+              {showConfirmPassword ? (
+                <EyeOff className="w-5 h-5" />
+              ) : (
+                <Eye className="w-5 h-5" />
+              )}
+            </button>
+          </div>
         </div>
 
         <Button

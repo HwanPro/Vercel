@@ -197,7 +197,7 @@ export default function ClientDashboard() {
             </Button>
             <Button
               variant="outline"
-              className="text-yellow-400 border-yellow-400"
+              className="text-black border-yellow-400"
               onClick={() => signOut()}
             >
               Cerrar sesión

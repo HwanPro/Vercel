@@ -113,7 +113,7 @@ export default function AddClientDialog({
       membershipStart,
       membershipEnd,
       phone: phone!,
-      emergencyPhone: emergencyPhone !,
+      emergencyPhone: emergencyPhone || null!,
       hasPaid: true,
       password: generatedPassword,
     };

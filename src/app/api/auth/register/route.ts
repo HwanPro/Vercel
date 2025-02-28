@@ -7,6 +7,7 @@ import { sendVerificationEmail } from "@/libs/mail";
 export async function POST(req: Request) {
   try {
     const { username, lastname, email, password, phone } = await req.json();
+    const normalizedEmail = email.toLowerCase().trim();
 
     console.log("📩 Recibida solicitud de registro con:", {
       username,
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
     }
 
     const existingUser = await prisma.user.findFirst({
-      where: { email: { equals: email, mode: "insensitive" } },
+      where: { email: { equals: normalizedEmail, mode: "insensitive" } },
     });
 
     if (existingUser) {
