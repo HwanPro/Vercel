@@ -30,11 +30,6 @@ export default function WolfGymLanding() {
   const { data: session } = useSession();
   const router = useRouter();
 
-  // Botón menú mobile
-  const handleMobileMenuToggle = () => {
-    setMobileMenuOpen((prev) => !prev);
-  };
-
   // Abrir modal de planes
   const handleOpenModal = () => {
     setModalAbierto(true);
@@ -163,7 +158,7 @@ export default function WolfGymLanding() {
             </Button>
           ) : (
             <Button
-              onClick={() => router.push("/admin/login")}
+              onClick={handleLogin}
               className="border border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black text-xs px-3 py-1"
             >
               Inicia sesión

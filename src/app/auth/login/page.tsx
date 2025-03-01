@@ -18,11 +18,11 @@ export default function AuthPage() {
   const { data: session, status } = useSession();
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [failedAttempts] = useState(0);
 
   // Si ya hay sesión, redirigir al dashboard correspondiente
   useEffect(() => {
     if (status === "authenticated") {
-      // Asumiendo que session.user.role existe:
       if (session?.user.role === "admin") {
         router.push("/admin/dashboard");
       } else {
@@ -37,15 +37,38 @@ export default function AuthPage() {
     formState: { errors },
   } = useForm<FormData>();
 
+  // Ejemplo en AuthPage:
+  const [emailError, setEmailError] = useState(false);
+  const [passwordError, setPasswordError] = useState(false);
+
   const handleLogin: SubmitHandler<FormData> = async (data) => {
+    setEmailError(false);
+    setPasswordError(false);
+    setError(null);
+
     const res = await signIn("credentials", {
       redirect: false,
       email: data.email,
       password: data.password,
       callbackUrl: "/client/dashboard",
     });
+    if (res?.error) {
+      setError(res.error);
+    } else {
+      router.push(res?.url || "/client/dashboard");
+    }
 
     if (res?.error) {
+      // Dependiendo del contenido del error, resalta el input adecuado.
+      if (res.error.toLowerCase().includes("contraseña")) {
+        setPasswordError(true);
+      }
+      if (
+        res.error.toLowerCase().includes("correo") ||
+        res.error.toLowerCase().includes("usuario")
+      ) {
+        setEmailError(true);
+      }
       setError(res.error);
     } else {
       router.push(res?.url || "/client/dashboard");
@@ -67,6 +90,18 @@ export default function AuthPage() {
           {error && (
             <p className="bg-red-500 text-white p-3 rounded mb-2">{error}</p>
           )}
+          {failedAttempts >= 3 && (
+            <p className="text-red-600 text-center mb-2">
+              ¿Has olvidado tu contraseña? <br />
+              <button
+                type="button"
+                onClick={() => router.push("/auth/forgot-password")}
+                className="text-yellow-500 underline"
+              >
+                Recupérala aquí
+              </button>
+            </p>
+          )}
 
           <h2 className="text-black text-2xl font-bold text-center mb-6">
             Te damos la bienvenida de nuevo
@@ -76,13 +111,15 @@ export default function AuthPage() {
             Email:
           </label>
           <input
+            id="email"
             type="email"
             {...register("email", {
               required: { value: true, message: "Email es obligatorio" },
             })}
-            className="border p-2 w-full mb-4 text-gray-800"
-            placeholder="user@email.com"
+            className={`border p-2 w-full mb-4 text-gray-800 ${emailError ? "border-red-500" : ""}`}
+            placeholder="tucorreo@email.com"
           />
+
           {errors.email && (
             <span className="text-red-500 text-xs">
               {errors.email.message as string}
@@ -97,23 +134,22 @@ export default function AuthPage() {
           </label>
           <div className="relative">
             <input
+              id="password"
               type={showPassword ? "text" : "password"}
               {...register("password", {
                 required: { value: true, message: "Contraseña es obligatoria" },
               })}
-              className="border p-2 w-full mb-4 text-gray-800"
-              placeholder="******"
+              className={`border p-2 w-full mb-4 text-gray-800 ${passwordError ? "border-red-500" : ""}`}
+              placeholder="*********"
+              autoComplete="current-password"
             />
+
             <button
               type="button"
               className="absolute inset-y-0 right-3 flex items-center text-gray-500"
               onClick={() => setShowPassword((prev) => !prev)}
             >
-              {showPassword ? (
-                <EyeOff className="w-5 h-5" />
-              ) : (
-                <Eye className="w-5 h-5" />
-              )}
+              {showPassword ? <EyeOff /> : <Eye />}
             </button>
           </div>
           {errors.password && (
