@@ -18,14 +18,18 @@ export default function AuthPage() {
   const { data: session, status } = useSession();
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState<boolean>(false);
-  const [failedAttempts] = useState(0);
+  const [failedAttempts, setFailedAttempts] = useState(0);
 
   // Si ya hay sesión, redirigir al dashboard correspondiente
   useEffect(() => {
+    console.log("🛠 Estado de la sesión:", status);
+    console.log("🛡 Sesión actual:", session);
     if (status === "authenticated") {
       if (session?.user.role === "admin") {
+        console.log("🔄 Redirigiendo a /admin/dashboard");
         router.push("/admin/dashboard");
       } else {
+        console.log("🔄 Redirigiendo a /client/dashboard");
         router.push("/client/dashboard");
       }
     }
@@ -37,11 +41,11 @@ export default function AuthPage() {
     formState: { errors },
   } = useForm<FormData>();
 
-  // Ejemplo en AuthPage:
   const [emailError, setEmailError] = useState(false);
   const [passwordError, setPasswordError] = useState(false);
 
   const handleLogin: SubmitHandler<FormData> = async (data) => {
+    console.log("🔄 Intentando iniciar sesión...");
     setEmailError(false);
     setPasswordError(false);
     setError(null);
@@ -52,14 +56,12 @@ export default function AuthPage() {
       password: data.password,
       callbackUrl: "/client/dashboard",
     });
-    if (res?.error) {
-      setError(res.error);
-    } else {
-      router.push(res?.url || "/client/dashboard");
-    }
+
+    console.log("🔑 Respuesta de signIn:", res);
 
     if (res?.error) {
-      // Dependiendo del contenido del error, resalta el input adecuado.
+      console.error("❌ Error en el login:", res.error);
+      setError(res.error);
       if (res.error.toLowerCase().includes("contraseña")) {
         setPasswordError(true);
       }
@@ -69,8 +71,8 @@ export default function AuthPage() {
       ) {
         setEmailError(true);
       }
-      setError(res.error);
     } else {
+      console.log("✅ Inicio de sesión exitoso, redirigiendo a:", res?.url);
       router.push(res?.url || "/client/dashboard");
     }
   };
@@ -88,10 +90,10 @@ export default function AuthPage() {
 
         <form onSubmit={handleSubmit(handleLogin)}>
           {error && (
-            <p className="bg-red-500 text-white p-3 rounded mb-2">{error}</p>
+            <p className="bg-red-500 text-white p-3 rounded mb-4">{error}</p>
           )}
           {failedAttempts >= 3 && (
-            <p className="text-red-600 text-center mb-2">
+            <p className="text-red-600 text-center mb-4">
               ¿Has olvidado tu contraseña? <br />
               <button
                 type="button"
@@ -113,15 +115,18 @@ export default function AuthPage() {
           <input
             id="email"
             type="email"
+            autoComplete="username"
             {...register("email", {
               required: { value: true, message: "Email es obligatorio" },
             })}
-            className={`border p-2 w-full mb-4 text-gray-800 ${emailError ? "border-red-500" : ""}`}
-            placeholder="tucorreo@email.com"
+            className={`border rounded-lg p-2 w-full mb-4 text-gray-800 ${
+              emailError ? "border-red-500" : ""
+            }`}
+            placeholder="user@email.com"
           />
 
           {errors.email && (
-            <span className="text-red-500 text-xs">
+            <span className="text-red-500 text-xs mb-2 block">
               {errors.email.message as string}
             </span>
           )}
@@ -132,16 +137,18 @@ export default function AuthPage() {
           >
             Contraseña:
           </label>
-          <div className="relative">
+          <div className="relative mb-4">
             <input
               id="password"
               type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
               {...register("password", {
                 required: { value: true, message: "Contraseña es obligatoria" },
               })}
-              className={`border p-2 w-full mb-4 text-gray-800 ${passwordError ? "border-red-500" : ""}`}
+              className={`border rounded-lg p-2 w-full text-gray-800 ${
+                passwordError ? "border-red-500" : ""
+              }`}
               placeholder="*********"
-              autoComplete="current-password"
             />
 
             <button
@@ -152,17 +159,21 @@ export default function AuthPage() {
               {showPassword ? <EyeOff /> : <Eye />}
             </button>
           </div>
+
           {errors.password && (
-            <span className="text-red-500 text-xs">
+            <span className="text-red-500 text-xs mb-4 block">
               {errors.password.message as string}
             </span>
           )}
 
-          <button className="w-full bg-yellow-400 text-black hover:bg-yellow-500 p-2 mb-4">
+          <button
+            type="submit"
+            className="w-full bg-yellow-400 text-black hover:bg-yellow-500 p-2 mb-6"
+          >
             Iniciar sesión
           </button>
 
-          <div className="text-center">
+          <div className="text-center mb-2">
             <button
               onClick={() => router.push("/auth/register")}
               className="text-black"
@@ -172,7 +183,7 @@ export default function AuthPage() {
               <span className="text-yellow-500">Regístrate</span>
             </button>
           </div>
-          <div className="text-center mt-2">
+          <div className="text-center">
             <button
               onClick={() => router.push("/auth/forgot-password")}
               className="text-black"

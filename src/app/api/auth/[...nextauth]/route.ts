@@ -9,18 +9,15 @@ import { NextAuthOptions } from "next-auth";
 const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
-    // Proveedor Google
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
     }),
-
-    // Proveedor de credenciales personalizadas
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        email: { label: "Email", type: "text" },
-        password: { label: "Password", type: "password" },
+        email: { id: "Email", label: "Email", type: "text" },
+        password: { id: "Password", label: "Password", type: "password" },
       },
       authorize: async (credentials) => {
         console.log("🔐 Iniciando autorización de credenciales...");
@@ -29,7 +26,6 @@ const authOptions: NextAuthOptions = {
           throw new Error("Credenciales inválidas");
         }
 
-        // Buscar usuario
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
         });
@@ -41,7 +37,6 @@ const authOptions: NextAuthOptions = {
 
         console.log("✅ Usuario encontrado:", user);
 
-        // Comparar contraseña
         const isMatch = await bcrypt.compare(
           credentials.password,
           user.password!
@@ -51,7 +46,6 @@ const authOptions: NextAuthOptions = {
           throw new Error("Contraseña incorrecta");
         }
 
-        // Verificar si el email está confirmado
         if (!user.emailVerified) {
           console.error("❌ Correo no verificado:", credentials.email);
           throw new Error(
@@ -68,15 +62,13 @@ const authOptions: NextAuthOptions = {
     }),
   ],
   session: {
-    strategy: "jwt", // Utiliza JWT en lugar de sesiones de base de datos
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 días
   },
   callbacks: {
     async jwt({ token, user }) {
       console.log("🔑 Callback JWT iniciado. Token actual:", token);
-      console.log("🛡 Usuario recibido:", user);
-      // Agregar propiedades del usuario al token JWT
       if (user) {
-        console.log("🛡 Agregando datos del usuario al token:", user);
         token.id = user.id;
         token.role = user.role;
         token.emailVerified = user.emailVerified as boolean;
@@ -86,11 +78,7 @@ const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       console.log("🛠 Procesando sesión con token:", token);
-      console.log("🛠 Sesión antes de asignar valores:", session);
-
-      // Añadir propiedades del token a la sesión
       if (token && session.user) {
-        console.log("🛡 Agregando datos del token a la sesión:", token);
         session.user.id = token.id as string;
         session.user.role = token.role as string;
         session.user.emailVerified = token.emailVerified as boolean;
@@ -103,14 +91,12 @@ const authOptions: NextAuthOptions = {
         "🔑 Iniciando proceso de inicio de sesión para usuario:",
         user
       );
-      // Crear un perfil de cliente solo si no existe y si el usuario es un cliente
       if (user.role === "client") {
         const existingProfile = await prisma.clientProfile.findUnique({
           where: { user_id: user.id },
         });
 
         if (!existingProfile) {
-          console.log("👤 Creando perfil de cliente para usuario:", user.id);
           await prisma.clientProfile.create({
             data: {
               profile_first_name: user.name?.split(" ")[0] || "Sin nombre",
@@ -123,23 +109,16 @@ const authOptions: NextAuthOptions = {
               user_id: user.id,
             },
           });
-          console.log("✅ Perfil de cliente creado.");
-        } else {
-          console.log(
-            "👤 Perfil de cliente ya existente para usuario:",
-            user.id
-          );
         }
       }
-      console.log("✅ Inicio de sesión permitido para usuario:", user.id);
-      return true; // Permitir inicio de sesión
+      return true;
     },
   },
   pages: {
-    signIn: "/auth/login", // Ruta personalizada de login
+    signIn: "/auth/login",
   },
   secret: process.env.NEXTAUTH_SECRET || "supersecret",
-  useSecureCookies: process.env.NODE_ENV === "production",
+  useSecureCookies: false, // Forzamos a false para pruebas locales
 };
 
 const handler = NextAuth(authOptions);

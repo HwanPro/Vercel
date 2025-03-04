@@ -214,6 +214,10 @@ export default function WolfGymLanding() {
                   Libera tu lobo interior. Únete a la manada y transforma tu
                   cuerpo y mente.
                 </p>
+                <p className="mx-auto max-w-[700px] text-white md:text-xl">
+                  {" "}
+                  Prohibido Rendirse
+                </p>
               </div>
             </div>
           </div>
@@ -432,10 +436,6 @@ export default function WolfGymLanding() {
 
       <footer className="bg-black text-white py-8">
         <div className="container mx-auto px-4">
-          {/* 
-          Usamos 'flex' + 'flex-wrap' y en desktop 'justify-between'. 
-          En mobile/tablet podemos centrar todo con 'justify-center'. 
-        */}
           <div className="flex flex-wrap items-center justify-center md:justify-between">
             {/* Sección izquierda */}
             <div className="w-full md:w-1/3 mb-6 md:mb-0 text-center md:text-left">
@@ -472,6 +472,9 @@ export default function WolfGymLanding() {
                 Ver en Google Maps
               </a>
             </div>
+            <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl text-yellow-400 mx-auto">
+              PROHIBIDO RENDIRSE
+            </h1>
           </div>
 
           {/* Línea y copyright */}

@@ -7,7 +7,6 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import ProfileModal from "@/components/ProfileModal";
 import { Home, Crown, Edit2, LogOut, Trophy } from "lucide-react";
@@ -61,6 +60,7 @@ export default function ClientDashboard() {
   const [suggestedProducts, setSuggestedProducts] = useState<any[]>([]);
   const [fitnessGoal, setFitnessGoal] = useState<string>("strength");
   const [bodyFocus, setBodyFocus] = useState<string>("full");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Carga inicial de datos
   useEffect(() => {
@@ -76,18 +76,19 @@ export default function ClientDashboard() {
           const products = await resProducts.json();
           setSuggestedProducts(products);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("❌ Error en la carga de datos:", error);
+        setErrorMessage(error.message || "Error al cargar datos");
       }
     };
     fetchData();
   }, []);
 
   if (!clientData) return <p>Cargando datos...</p>;
+  if (errorMessage) return <p className="text-red-500">{errorMessage}</p>;
 
   // Lógica de suscripción (memberships o profile_plan)
   const subscription = (() => {
-    // Si hay memberships
     if (clientData.memberships && clientData.memberships.length > 0) {
       const membership = clientData.memberships[0];
       const startDate = new Date(membership.assignedAt);
@@ -102,8 +103,6 @@ export default function ClientDashboard() {
         endDate,
       };
     }
-
-    // Si no hay memberships, usar profile_plan
     if (
       clientData.profile?.profile_plan &&
       clientData.profile.profile_end_date
@@ -118,8 +117,6 @@ export default function ClientDashboard() {
         endDate,
       };
     }
-
-    // Sin suscripción
     return { active: false, plan: "", startDate: null, endDate: null };
   })();
 
@@ -142,18 +139,16 @@ export default function ClientDashboard() {
     }).length;
   };
 
-  // Reload data tras editar perfil
   const reloadClientData = async () => {
     try {
       const res = await fetch("/api/clients/me");
       if (!res.ok) throw new Error("Error al recargar datos del cliente");
       setClientData(await res.json());
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ Error al recargar datos:", error);
     }
   };
 
-  // Datos a mostrar
   const displayName = clientData.profile?.profile_first_name || clientData.name;
   const displayLastName =
     clientData.profile?.profile_last_name || clientData.lastName;
@@ -168,7 +163,6 @@ export default function ClientDashboard() {
               <AvatarImage src={clientData.image || "/placeholder.svg"} />
               <AvatarFallback className="bg-yellow-400 text-black text-xl">
                 {clientData.name?.charAt(0)}
-                {""}
                 {clientData.lastName?.charAt(0)}
               </AvatarFallback>
             </Avatar>
@@ -200,8 +194,7 @@ export default function ClientDashboard() {
               className="text-black border-yellow-400"
               onClick={() => signOut()}
             >
-              Cerrar sesión
-              <LogOut className="ml-2 h-4 w-4" />
+              Cerrar sesión <LogOut className="ml-2 h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -254,10 +247,6 @@ export default function ClientDashboard() {
                       {getCurrentWeekProgress()}/{weeklyGoal} sesiones
                     </span>
                   </div>
-                  <Progress
-                    value={(getCurrentWeekProgress() / weeklyGoal) * 100}
-                    className="bg-white"
-                  />
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {getCurrentWeekProgress() >= weeklyGoal ? (
@@ -380,7 +369,6 @@ export default function ClientDashboard() {
         </Card>
 
         {/* Productos Recomendados */}
-
         <Card className="md:col-span-2 bg-white border-yellow-400">
           <CardHeader>
             <CardTitle className="text-yellow-400">

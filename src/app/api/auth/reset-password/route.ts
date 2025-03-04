@@ -13,8 +13,14 @@ export async function POST(request: Request) {
 
     if (!user) {
       return NextResponse.json(
-        { message: "Si el correo es válido, recibirás un enlace" },
+        { message: "Tu correo es válido, recibirás un enlace" },
         { status: 200 }
+      );
+    }
+    if (!user) {
+      return NextResponse.json(
+        { message: "Correo no registrado" },
+        { status: 404 }
       );
     }
 
@@ -33,7 +39,7 @@ export async function POST(request: Request) {
     await sendPasswordResetEmail(user.email, user.name, token);
 
     return NextResponse.json(
-      { message: "Si el correo es válido, recibirás un enlace" },
+      { message: "Tu correo es válido, recibirás un enlace" },
       { status: 200 }
     );
   } catch (error) {
