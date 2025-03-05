@@ -66,7 +66,9 @@ export default function ClientDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch("/api/clients/me");
+        const res = await fetch("/api/clients/me", {
+          credentials: "include", // Importante para que se envíen las cookies
+        });        
         if (!res.ok) throw new Error("Error al obtener datos del cliente");
         const data = await res.json();
         setClientData(data);
@@ -141,9 +143,7 @@ export default function ClientDashboard() {
 
   const reloadClientData = async () => {
     try {
-      const res = await fetch("/api/clients/me", {
-        credentials: "include",
-      });
+      const res = await fetch("/api/clients/me");
       if (!res.ok) throw new Error("Error al recargar datos del cliente");
       setClientData(await res.json());
     } catch (error: any) {
