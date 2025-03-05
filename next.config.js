@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: false, // Cambiado para pruebas
+  reactStrictMode: false, // Para pruebas o si prefieres desactivarlo en producción
   async headers() {
     return [
       {
@@ -42,12 +42,13 @@ const nextConfig = {
     AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
   },
   experimental: {
+    // Si no necesitas scrollRestoration, lo dejamos sin definir o en false
     scrollRestoration: false,
   },
   webpack: (config) => {
     config.output = {
       ...config.output,
-      publicPath: '/_next/',
+      publicPath: "/_next/",
     };
     return config;
   },

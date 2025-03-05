@@ -118,7 +118,7 @@ const authOptions: NextAuthOptions = {
     signIn: "/auth/login",
   },
   secret: process.env.NEXTAUTH_SECRET || "supersecret",
-  useSecureCookies: false, // Forzamos a false para pruebas locales
+  useSecureCookies: process.env.NODE_ENV === "production",
 };
 
 const handler = NextAuth(authOptions);
