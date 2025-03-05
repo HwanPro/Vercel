@@ -114,11 +114,11 @@ const authOptions: NextAuthOptions = {
       return true;
     },
   },
-  secret: process.env.NEXTAUTH_SECRET || "supersecret",
-  useSecureCookies: process.env.NODE_ENV === "production",
   pages: {
     signIn: "/auth/login",
   },
+  secret: process.env.NEXTAUTH_SECRET || "supersecret",
+  useSecureCookies: false, // Forzamos a false para pruebas locales
 };
 
 const handler = NextAuth(authOptions);
