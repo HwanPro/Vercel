@@ -95,8 +95,8 @@ const authOptions: NextAuthOptions = {
         const existingProfile = await prisma.clientProfile.findUnique({
           where: { user_id: user.id },
         });
-
         if (!existingProfile) {
+          console.log("👤 Creando perfil de cliente para usuario:", user.id);
           await prisma.clientProfile.create({
             data: {
               profile_first_name: user.name?.split(" ")[0] || "Sin nombre",
@@ -109,6 +109,12 @@ const authOptions: NextAuthOptions = {
               user_id: user.id,
             },
           });
+          console.log("✅ Perfil de cliente creado.");
+        } else {
+          console.log(
+            "👤 Perfil de cliente ya existente para usuario:",
+            user.id
+          );
         }
       }
       return true;
@@ -118,7 +124,20 @@ const authOptions: NextAuthOptions = {
     signIn: "/auth/login",
   },
   secret: process.env.NEXTAUTH_SECRET || "supersecret",
+  // Para producción, asegúrate de usar HTTPS (NEXTAUTH_URL debe estar configurado correctamente)
   useSecureCookies: process.env.NODE_ENV === "production",
+  // Configuración manual de cookies (opcional, pero útil para asegurar comportamiento consistente)
+  cookies: {
+    sessionToken: {
+      name: "next-auth.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+  },
 };
 
 const handler = NextAuth(authOptions);
