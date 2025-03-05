@@ -4,12 +4,12 @@ import type { NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
   console.log("🚀 Middleware ejecutándose...");
-  
+
   const token = await getToken({
     req: request,
     secret: process.env.NEXTAUTH_SECRET,
-    secureCookie: process.env.NODE_ENV === "production",  // Asegúrate que esté bien configurado
-    cookieName: "next-auth.session-token"
+    secureCookie: process.env.NODE_ENV === "production", // Asegúrate que esté bien configurado
+    cookieName: "next-auth.session-token",
   });
 
   console.log("🍪 Cookies en el middleware:", request.headers.get("cookie"));
@@ -28,12 +28,9 @@ export async function middleware(request: NextRequest) {
   }
 
   if (pathname.startsWith("/admin") && token.role !== "admin") {
-    console.log("🚫 Acceso denegado a /admin. Redirigiendo a /client/dashboard");
     return NextResponse.redirect(new URL("/client/dashboard", request.url));
   }
-
   if (pathname.startsWith("/client") && token.role !== "client") {
-    console.log("🚫 Acceso denegado a /client. Redirigiendo a /admin/dashboard");
     return NextResponse.redirect(new URL("/admin/dashboard", request.url));
   }
 
