@@ -9,10 +9,12 @@ import { NextAuthOptions } from "next-auth";
 const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
+    // Proveedor Google
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
     }),
+    // Proveedor de credenciales personalizadas
     CredentialsProvider({
       name: "Credentials",
       credentials: {
@@ -25,18 +27,14 @@ const authOptions: NextAuthOptions = {
           console.error("❌ Credenciales no proporcionadas");
           throw new Error("Credenciales inválidas");
         }
-
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
         });
-
         if (!user) {
           console.error("❌ Usuario no encontrado:", credentials.email);
           throw new Error("Usuario no encontrado");
         }
-
         console.log("✅ Usuario encontrado:", user);
-
         const isMatch = await bcrypt.compare(
           credentials.password,
           user.password!
@@ -45,14 +43,12 @@ const authOptions: NextAuthOptions = {
           console.error("❌ Contraseña incorrecta para:", credentials.email);
           throw new Error("Contraseña incorrecta");
         }
-
         if (!user.emailVerified) {
           console.error("❌ Correo no verificado:", credentials.email);
           throw new Error(
             "Debes verificar tu correo electrónico antes de iniciar sesión"
           );
         }
-
         console.log(
           "✅ Credenciales verificadas para usuario:",
           credentials.email
@@ -124,9 +120,8 @@ const authOptions: NextAuthOptions = {
     signIn: "/auth/login",
   },
   secret: process.env.NEXTAUTH_SECRET || "supersecret",
-  // Para producción, asegúrate de usar HTTPS (NEXTAUTH_URL debe estar configurado correctamente)
+  // Configuración de cookies para asegurar envío correcto en producción
   useSecureCookies: process.env.NODE_ENV === "production",
-  // Configuración manual de cookies (opcional, pero útil para asegurar comportamiento consistente)
   cookies: {
     sessionToken: {
       name: "next-auth.session-token",
@@ -135,6 +130,8 @@ const authOptions: NextAuthOptions = {
         sameSite: "lax",
         path: "/",
         secure: process.env.NODE_ENV === "production",
+        domain:
+          process.env.NODE_ENV === "production" ? ".wolf-gym.com" : undefined,
       },
     },
   },
