@@ -6,11 +6,19 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
+    // Definimos el nombre de la cookie según el entorno:
+    const cookieName =
+      process.env.NODE_ENV === "production"
+        ? "__Secure-next-auth.session-token"
+        : "next-auth.session-token";
+
     // Obtenemos el token de NextAuth
     const token = (await getToken({
       req,
       secret: process.env.NEXTAUTH_SECRET,
+      cookieName,
     })) as JWT;
+
     if (!token?.id) {
       console.error("🔴 Token inválido o expirado.");
       return NextResponse.json(
@@ -42,7 +50,6 @@ export async function GET(req: NextRequest) {
     }
 
     console.log("🟢 Usuario encontrado:", user);
-
     // Devolvemos todo el objeto user
     return NextResponse.json(user);
   } catch (error) {
