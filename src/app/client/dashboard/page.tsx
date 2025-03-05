@@ -67,8 +67,8 @@ export default function ClientDashboard() {
     const fetchData = async () => {
       try {
         const res = await fetch("/api/clients/me", {
-          credentials: "include", // Importante para que se envíen las cookies
-        });        
+          credentials: "include",
+        });
         if (!res.ok) throw new Error("Error al obtener datos del cliente");
         const data = await res.json();
         setClientData(data);
