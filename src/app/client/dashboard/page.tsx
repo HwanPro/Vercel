@@ -66,16 +66,13 @@ export default function ClientDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch("/api/clients/me", {});
+        const res = await fetch("/api/clients/me", {
+          credentials: "include",
+        });
         if (!res.ok) throw new Error("Error al obtener datos del cliente");
         const data = await res.json();
         setClientData(data);
-
-        const resProducts = await fetch("/api/products/public");
-        if (resProducts.ok) {
-          const products = await resProducts.json();
-          setSuggestedProducts(products);
-        }
+        // ... cargar otros datos, etc.
       } catch (error: any) {
         console.error("❌ Error en la carga de datos:", error);
         setErrorMessage(error.message || "Error al cargar datos");

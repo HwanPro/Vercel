@@ -9,12 +9,10 @@ import { NextAuthOptions } from "next-auth";
 const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
-    // Proveedor Google
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
     }),
-    // Proveedor de credenciales personalizadas
     CredentialsProvider({
       name: "Credentials",
       credentials: {
@@ -27,6 +25,7 @@ const authOptions: NextAuthOptions = {
           console.error("❌ Credenciales no proporcionadas");
           throw new Error("Credenciales inválidas");
         }
+
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
         });
@@ -120,7 +119,6 @@ const authOptions: NextAuthOptions = {
     signIn: "/auth/login",
   },
   secret: process.env.NEXTAUTH_SECRET || "supersecret",
-  // Configuración de cookies para asegurar envío correcto en producción
   useSecureCookies: process.env.NODE_ENV === "production",
   cookies: {
     sessionToken: {
