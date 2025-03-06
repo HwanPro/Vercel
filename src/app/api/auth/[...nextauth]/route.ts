@@ -63,23 +63,56 @@ const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async jwt({ token, user }) {
+      console.log("🔑 Callback JWT iniciado. Token actual:", token);
       if (user) {
         token.id = user.id;
         token.role = user.role;
-        token.emailVerified = user.emailVerified;
+        token.emailVerified = user.emailVerified as boolean;
       }
+      console.log("✅ Token generado:", token);
       return token;
     },
     async session({ session, token }) {
+      console.log("🛠 Procesando sesión con token:", token);
       if (token && session.user) {
-        session.user.id = token.id;
-        session.user.role = token.role;
-        session.user.emailVerified = token.emailVerified;
+        session.user.id = token.id as string;
+        session.user.role = token.role as string;
+        session.user.emailVerified = token.emailVerified as boolean;
       }
+      console.log("✅ Sesión generada:", session);
       return session;
     },
     async signIn({ user }) {
-      // ...
+      console.log(
+        "🔑 Iniciando proceso de inicio de sesión para usuario:",
+        user
+      );
+      if (user.role === "client") {
+        const existingProfile = await prisma.clientProfile.findUnique({
+          where: { user_id: user.id },
+        });
+        if (!existingProfile) {
+          console.log("👤 Creando perfil de cliente para usuario:", user.id);
+          await prisma.clientProfile.create({
+            data: {
+              profile_first_name: user.name?.split(" ")[0] || "Sin nombre",
+              profile_last_name: user.name?.split(" ")[1] || "Sin apellido",
+              profile_plan: "Básico",
+              profile_start_date: new Date(),
+              profile_end_date: new Date(),
+              profile_phone: "",
+              profile_emergency_phone: "",
+              user_id: user.id,
+            },
+          });
+          console.log("✅ Perfil de cliente creado.");
+        } else {
+          console.log(
+            "👤 Perfil de cliente ya existente para usuario:",
+            user.id
+          );
+        }
+      }
       return true;
     },
   },
@@ -111,4 +144,5 @@ const authOptions: NextAuthOptions = {
 };
 
 const handler = NextAuth(authOptions);
+
 export { handler as GET, handler as POST };
