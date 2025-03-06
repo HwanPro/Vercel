@@ -120,9 +120,23 @@ const authOptions: NextAuthOptions = {
     signIn: "/auth/login",
   },
   secret: process.env.NEXTAUTH_SECRET || "supersecret",
-  // Para que use cookies seguras en producción (HTTPS)
+  // Configuración de cookies para asegurar envío correcto en producción
   useSecureCookies: process.env.NODE_ENV === "production",
+  cookies: {
+    sessionToken: {
+      name: "next-auth.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        domain:
+          process.env.NODE_ENV === "production" ? ".wolf-gym.com" : undefined,
+      },
+    },
+  },
 };
+
 const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };
