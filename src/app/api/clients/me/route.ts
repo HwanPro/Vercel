@@ -6,13 +6,15 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
-    // NO especifiques cookieName, deja que getToken decida:
+    // ¡No definas cookieName manualmente!
     const token = (await getToken({
       req,
       secret: process.env.NEXTAUTH_SECRET,
+      // No pongas cookieName aquí: next-auth detecta en producción
+      // si debe usar __Secure-next-auth.session-token o next-auth.session-token
     })) as JWT | null;
 
-    if (!token || !token.id) {
+    if (!token?.id) {
       console.error("🔴 Token inválido o expirado.");
       return NextResponse.json(
         { error: "No autorizado, token inválido o expirado" },
@@ -20,9 +22,11 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // userId es el ID del usuario logueado
     const userId = token.id as string;
     console.log("🟢 userId:", userId);
 
+    // Busca el usuario y sus relaciones
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -41,7 +45,7 @@ export async function GET(req: NextRequest) {
     }
 
     console.log("🟢 Usuario encontrado:", user);
-    return NextResponse.json(user);
+    return NextResponse.json(user, { status: 200 });
   } catch (error) {
     console.error("❌ Error al obtener el perfil del cliente:", error);
     return NextResponse.json(
