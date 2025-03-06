@@ -9,43 +9,50 @@ import { NextAuthOptions } from "next-auth";
 const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
+    // Proveedor Google
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
     }),
+    // Proveedor de credenciales personalizadas
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        email: { label: "Email", type: "text" },
-        password: { label: "Password", type: "password" },
+        email: { id: "Email", label: "Email", type: "text" },
+        password: { id: "Password", label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      authorize: async (credentials) => {
+        console.log("🔐 Iniciando autorización de credenciales...");
         if (!credentials?.email || !credentials?.password) {
+          console.error("❌ Credenciales no proporcionadas");
           throw new Error("Credenciales inválidas");
         }
-
-        // 1) Buscar usuario en la base de datos
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
         });
         if (!user) {
+          console.error("❌ Usuario no encontrado:", credentials.email);
           throw new Error("Usuario no encontrado");
         }
-
-        // 2) Verificar contraseña
+        console.log("✅ Usuario encontrado:", user);
         const isMatch = await bcrypt.compare(
           credentials.password,
           user.password!
         );
         if (!isMatch) {
+          console.error("❌ Contraseña incorrecta para:", credentials.email);
           throw new Error("Contraseña incorrecta");
         }
-
-        // 3) Verificar si está verificado
         if (!user.emailVerified) {
-          throw new Error("Debes verificar tu correo antes de iniciar sesión");
+          console.error("❌ Correo no verificado:", credentials.email);
+          throw new Error(
+            "Debes verificar tu correo electrónico antes de iniciar sesión"
+          );
         }
-
+        console.log(
+          "✅ Credenciales verificadas para usuario:",
+          credentials.email
+        );
         return user;
       },
     }),
@@ -55,31 +62,37 @@ const authOptions: NextAuthOptions = {
     maxAge: 30 * 24 * 60 * 60, // 30 días
   },
   callbacks: {
-    // Se llama cada vez que se crea o actualiza el JWT
     async jwt({ token, user }) {
+      console.log("🔑 Callback JWT iniciado. Token actual:", token);
       if (user) {
         token.id = user.id;
         token.role = user.role;
-        token.emailVerified = user.emailVerified;
+        token.emailVerified = user.emailVerified as boolean;
       }
+      console.log("✅ Token generado:", token);
       return token;
     },
-    // Se llama cada vez que se crea o actualiza la sesión (cliente)
     async session({ session, token }) {
+      console.log("🛠 Procesando sesión con token:", token);
       if (token && session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
         session.user.emailVerified = token.emailVerified as boolean;
       }
+      console.log("✅ Sesión generada:", session);
       return session;
     },
-    // Para crear un perfil de client si no existe
     async signIn({ user }) {
+      console.log(
+        "🔑 Iniciando proceso de inicio de sesión para usuario:",
+        user
+      );
       if (user.role === "client") {
         const existingProfile = await prisma.clientProfile.findUnique({
           where: { user_id: user.id },
         });
         if (!existingProfile) {
+          console.log("👤 Creando perfil de cliente para usuario:", user.id);
           await prisma.clientProfile.create({
             data: {
               profile_first_name: user.name?.split(" ")[0] || "Sin nombre",
@@ -87,9 +100,17 @@ const authOptions: NextAuthOptions = {
               profile_plan: "Básico",
               profile_start_date: new Date(),
               profile_end_date: new Date(),
+              profile_phone: "",
+              profile_emergency_phone: "",
               user_id: user.id,
             },
           });
+          console.log("✅ Perfil de cliente creado.");
+        } else {
+          console.log(
+            "👤 Perfil de cliente ya existente para usuario:",
+            user.id
+          );
         }
       }
       return true;
@@ -99,8 +120,21 @@ const authOptions: NextAuthOptions = {
     signIn: "/auth/login",
   },
   secret: process.env.NEXTAUTH_SECRET || "supersecret",
-  // Para que use cookies seguras en producción (HTTPS)
+  // Configuración de cookies para asegurar envío correcto en producción
   useSecureCookies: process.env.NODE_ENV === "production",
+  cookies: {
+    sessionToken: {
+      name: "next-auth.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        domain:
+          process.env.NODE_ENV === "production" ? ".wolf-gym.com" : undefined,
+      },
+    },
+  },
 };
 
 const handler = NextAuth(authOptions);
