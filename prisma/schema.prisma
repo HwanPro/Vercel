@@ -8,30 +8,29 @@ datasource db {
 }
 
 model User {
-  id            String               @id @default(cuid())
-  name          String
-  lastName      String?              @default("")
-  email         String               @unique
-  image         String?
-  role          String               @default("client")
-  password      String
-  isVerified    Boolean              @default(false)
-  twoFASecret   String?
-  createdAt     DateTime             @default(now())
-  emailVerified Boolean              @default(false)
-  updatedAt     DateTime             @updatedAt
-  accounts      Account[]
-  profile       ClientProfile?
-  payments      PaymentRecord[]      @relation("UserPayments")
-  purchases     Purchase[]
-  sessions      Session[]
-  contacts      UserContact[]        @relation("UserContacts")
-  memberships   UserMembershipPlan[]
-  attendances   Attendance[]         @relation("UserAttendance")
-
-  passwordResetToken  PasswordResetToken?
-  verificationToken   VerificationToken?  @relation(fields: [verificationTokenId], references: [id])
+  id                  String               @id @default(cuid())
+  name                String
+  email               String               @unique
+  image               String?
+  role                String               @default("client")
+  password            String
+  isVerified          Boolean              @default(false)
+  twoFASecret         String?
+  createdAt           DateTime             @default(now())
+  emailVerified       Boolean              @default(false)
+  updatedAt           DateTime             @updatedAt
+  lastName            String?              @default("")
   verificationTokenId String?
+  accounts            Account[]
+  attendances         Attendance[]         @relation("UserAttendance")
+  profile             ClientProfile?
+  passwordResetToken  PasswordResetToken?
+  payments            PaymentRecord[]      @relation("UserPayments")
+  purchases           Purchase[]
+  sessions            Session[]
+  verificationToken   VerificationToken?   @relation(fields: [verificationTokenId], references: [id])
+  contacts            UserContact[]        @relation("UserContacts")
+  memberships         UserMembershipPlan[]
 }
 
 model MembershipPlan {
@@ -72,8 +71,6 @@ model UserContact {
 }
 
 model ClientProfile {
-  profile_id              String    @id @default(cuid())
-  user_id                 String    @unique
   profile_first_name      String    @default("")
   profile_last_name       String    @default("")
   profile_plan            String?
@@ -83,9 +80,11 @@ model ClientProfile {
   profile_emergency_phone String?   @default("")
   profile_phone           String?   @unique
   profile_updated_at      DateTime  @updatedAt
+  user_id                 String    @unique
+  profile_id              String    @id @default(cuid())
   isManual                Boolean   @default(true)
+  gender                  String?
   user                    User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  gender                  String? // "male" | "female"
 }
 
 model InventoryItem {
@@ -129,10 +128,10 @@ model Session {
 }
 
 model VerificationToken {
-  id         String   @id @default(cuid())
   identifier String
   token      String   @unique
   expires    DateTime
+  id         String   @id @default(cuid())
   User       User[]
 
   @@unique([identifier, token])
@@ -159,8 +158,8 @@ model Attendance {
 model PasswordResetToken {
   token   String   @id
   userId  String   @unique
-  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expires DateTime
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Story {
