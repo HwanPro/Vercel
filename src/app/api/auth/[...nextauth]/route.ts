@@ -119,18 +119,12 @@ const authOptions: NextAuthOptions = {
   pages: {
     signIn: "/auth/login",
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET || "supersecret",
+  // Configuración de cookies para asegurar envío correcto en producción
   useSecureCookies: process.env.NODE_ENV === "production",
-  /**
-   * Ajuste de cookies: si tu dominio es EXACTAMENTE wolf-gym.com (sin www),
-   * puedes usar domain: ".wolf-gym.com" para abarcar subdominios también.
-   */
   cookies: {
     sessionToken: {
-      name:
-        process.env.NODE_ENV === "production"
-          ? "__Secure-next-auth.session-token"
-          : "next-auth.session-token",
+      name: "next-auth.session-token",
       options: {
         httpOnly: true,
         sameSite: "lax",
