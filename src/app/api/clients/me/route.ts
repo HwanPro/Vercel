@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/libs/prisma";
-import { getToken } from "next-auth/jwt";
+import { getToken, JWT } from "next-auth/jwt";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
-    // Obtiene el token sin forzar el nombre de cookie
-    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    // NO especifiques cookieName, deja que getToken decida:
+    const token = (await getToken({
+      req,
+      secret: process.env.NEXTAUTH_SECRET,
+    })) as JWT | null;
+
     if (!token || !token.id) {
       console.error("🔴 Token inválido o expirado.");
       return NextResponse.json(
@@ -15,10 +19,10 @@ export async function GET(req: NextRequest) {
         { status: 401 }
       );
     }
+
     const userId = token.id as string;
     console.log("🟢 userId:", userId);
 
-    // Busca el usuario y sus relaciones
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
