@@ -1,0 +1,182 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  username    String   @unique
+  firstName   String   @default("Sin nombre") // Nombre real
+  lastName    String   @default("")
+  phoneNumber String   @unique // Para autenticación por teléfono
+  image       String?
+  role        String   @default("client")
+  password    String?
+  otpCode     String? // Código OTP para autenticación sin contraseña
+  twoFASecret String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relación con ClientProfile (1 usuario = 1 perfil de cliente)
+  profile ClientProfile?
+
+  // Relaciones con otras entidades
+  accounts    Account[]
+  attendances Attendance[]         @relation("UserAttendance")
+  payments    PaymentRecord[]      @relation("UserPayments")
+  purchases   Purchase[]
+  sessions    Session[]
+  contacts    UserContact[]        @relation("UserContacts")
+  memberships UserMembershipPlan[]
+
+  @@map("users") // Cambia el nombre en la base de datos si es necesario
+}
+
+model MembershipPlan {
+  membership_id       Int                  @id @default(autoincrement())
+  membership_type     String
+  membership_cost     Float
+  membership_features String[]
+  membership_created  DateTime             @default(now())
+  membership_duration Int
+  membership_users    UserMembershipPlan[]
+}
+
+model UserMembershipPlan {
+  userId       String
+  membershipId Int
+  assignedAt   DateTime       @default(now())
+  membership   MembershipPlan @relation(fields: [membershipId], references: [membership_id])
+  user         User           @relation(fields: [userId], references: [id])
+
+  @@id([userId, membershipId])
+}
+
+model PaymentRecord {
+  payment_id     Int      @id @default(autoincrement())
+  payer_user_id  String
+  payment_amount Float
+  payment_method String
+  payment_date   DateTime @default(now())
+  payer_user     User     @relation("UserPayments", fields: [payer_user_id], references: [id])
+}
+
+model UserContact {
+  contact_id      Int      @id @default(autoincrement())
+  contact_user_id String
+  contact_message String
+  contact_created DateTime @default(now())
+  contact_user    User     @relation("UserContacts", fields: [contact_user_id], references: [id])
+}
+
+model ClientProfile {
+  profile_id              String    @id @default(cuid())
+  user_id                 String    @unique
+  profile_first_name      String?
+  profile_last_name       String?
+  profile_plan            String?
+  profile_start_date      DateTime?
+  profile_end_date        DateTime?
+  profile_phone           String?
+  profile_emergency_phone String?
+  profile_address         String?   @default("")
+  profile_social          String?   @default("")
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model InventoryItem {
+  item_id          String     @id @default(uuid())
+  item_name        String
+  item_description String
+  item_price       Float
+  item_discount    Float?
+  item_stock       Int
+  item_image_url   String
+  item_created_at  DateTime   @default(now())
+  item_updated_at  DateTime   @updatedAt
+  purchases        Purchase[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  role              String  @default("client")
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Purchase {
+  id                String        @id @default(cuid())
+  purchase_quantity Int
+  purchase_total    Float
+  purchase_date     DateTime      @default(now())
+  customerId        String
+  productId         String
+  customer          User          @relation(fields: [customerId], references: [id])
+  product           InventoryItem @relation(fields: [productId], references: [item_id])
+}
+
+model Attendance {
+  id          String   @id @default(uuid())
+  userId      String
+  checkInTime DateTime @default(now())
+  user        User     @relation("UserAttendance", fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Story {
+  id        String   @id @default(cuid())
+  title     String
+  content   String   @default("")
+  imageUrl  String
+  link      String?
+  createdAt DateTime @default(now())
+}
+
+model News {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  imageUrl  String?
+  createdAt DateTime @default(now())
+}
+
+
+model Plan {
+  id          String   @id @default(cuid())
+  name        String
+  price       Float
+  description String
+  createdAt   DateTime @default(now())
+}
+
+
+model Gallery {
+  id        String   @id @default(cuid())
+  imageUrl  String
+  createdAt DateTime @default(now())
+}
+
