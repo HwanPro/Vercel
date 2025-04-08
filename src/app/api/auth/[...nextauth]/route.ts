@@ -1,14 +1,11 @@
-// src/app/api/auth/[...nextauth]/route.ts
-
-import NextAuth from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
+import NextAuth, { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import prisma from "@/infrastructure/prisma/prisma";
 import bcrypt from "bcrypt";
-import { NextAuthOptions } from "next-auth";
 
-export const authOptions: NextAuthOptions = {
+export const authOptions: AuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
     GoogleProvider({
@@ -22,14 +19,11 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        console.log("🔐 Iniciando autorización de credenciales...");
-
-        if (!credentials?.username || !credentials?.password) {
-          throw new Error("Credenciales inválidas");
+        if (!credentials?.username || !credentials.password) {
+          throw new Error("Faltan credenciales");
         }
 
-        // Asegúrate de seleccionar las columnas que te interesen (firstName, lastName, etc.).
-        // En user devuelves EXACTAMENTE lo que quieras tener más adelante en session.
+        // Buscar al usuario
         const user = await prisma.user.findFirst({
           where: {
             OR: [
@@ -37,36 +31,20 @@ export const authOptions: NextAuthOptions = {
               { phoneNumber: credentials.username },
             ],
           },
-          select: {
-            id: true,
-            username: true,
-            phoneNumber: true,
-            role: true,
-            password: true,
-            firstName: true, // <-- añade
-            lastName: true, // <-- añade
-            // si tienes un campo image en la db, etc. agrégalo
-          },
         });
 
         if (!user) {
-          console.error("❌ Usuario no encontrado:", credentials.username);
           throw new Error("Usuario no encontrado");
         }
-
-        console.log("✅ Usuario encontrado:", user);
 
         // Comparar contraseña
         const isMatch = await bcrypt.compare(
           credentials.password,
-          user.password || ""
+          user.password!
         );
         if (!isMatch) {
-          console.error("❌ Contraseña incorrecta para:", credentials.username);
           throw new Error("Contraseña incorrecta");
         }
-
-        console.log("✅ Credenciales verificadas:", user.username);
 
         // Regresamos un objeto "limpio" sin user.password
         return {
