@@ -35,11 +35,17 @@ export default function AdminDashboard() {
 
   async function fetchDashboard() {
     try {
-      const resp = await fetch("/api/dashboard");
-      if (!resp.ok) {
-        throw new Error("No se pudo obtener los datos del dashboard");
-      }
-      const data = await resp.json();
+      const res = await fetch("/api/admin/summary", {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        if (res.status === 401) {
+          toast.error("No autorizado. Redirigiendo a login...");
+          window.location.href = "/auth/login";
+          return;
+        } 
+      }      
+      const data = await res.json();
       setDashboardData(data);
     } catch (error) {
       console.error("Error fetchDashboard:", error);

@@ -68,6 +68,8 @@ export default function ClientDashboard() {
     const fetchData = async () => {
       try {
         const res = await fetch("/api/user/me", { credentials: "include" });
+        const data = await res.json();
+        console.log("👤 Cliente cargado:", data);
         if (!res.ok) {
           if (res.status === 401) {
             // Sesión expirada o no logueado
@@ -75,8 +77,7 @@ export default function ClientDashboard() {
             return;
           }
           throw new Error("Error al obtener datos del cliente");
-        }
-        const data = await res.json();
+        }      
         setClientData(data);
       } catch (error) {
         console.error("❌ Error en la carga de datos:", error);

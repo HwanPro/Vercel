@@ -141,7 +141,9 @@ export const authOptions: AuthOptions = {
         httpOnly: true,
         sameSite: "lax",
         path: "/",
-        secure: process.env.NODE_ENV === "production",
+        secure:
+          process.env.NODE_ENV === "production" &&
+          process.env.NEXTAUTH_SECURE_COOKIE === "true",
         domain:
           process.env.NODE_ENV === "production" ? ".wolf-gym.com" : undefined,
       },

@@ -20,10 +20,13 @@ export default function AuthPage() {
 
   // Redirigir si ya hay sesión activa
   useEffect(() => {
-    if (session?.user?.role === "admin") {
-      router.push("/admin/dashboard");
-    } else {
-      router.push("/client/dashboard");
+    if (status === "authenticated") {
+      const role = (session?.user as { role?: string })?.role;
+      if (role === "admin") {
+        router.push("/admin/dashboard");
+      } else {
+        router.push("/client/dashboard");
+      }
     }
   }, [session, status, router]);
 
@@ -40,13 +43,14 @@ export default function AuthPage() {
       redirect: false,
       username: data.username,
       password: data.password,
-      callbackUrl: "/client/dashboard",
+      callbackUrl: "/", // Redirecciona para que useSession detecte la sesión
     });
 
     if (res?.error) {
       setError(res.error);
-    } else {
-      router.push(res?.url || "/client/dashboard");
+    } else if (res?.ok) {
+      // Esperar a que la sesión esté disponible
+      router.refresh(); // Actualiza la ruta actual para cargar la sesión
     }
   };
 
@@ -140,7 +144,6 @@ export default function AuthPage() {
               <span className="text-yellow-500">Regístrate</span>
             </button>
           </div>
-          {/* Se ha eliminado el enlace y la lógica de "olvidaste tu contraseña" */}
         </form>
       </div>
     </div>

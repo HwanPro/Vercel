@@ -6,7 +6,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/authOptions';
 
 export const dynamic = "force-dynamic"; 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     console.log('Iniciando la obtención de la sesión...');
     const session = await getServerSession(authOptions);

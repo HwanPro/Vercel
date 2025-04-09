@@ -1,43 +1,47 @@
-// middleware.ts
 import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import type { NextRequest } from "next/server";
 
-// Ajusta si tu SECRET se llama NEXTAUTH_SECRET o AUTH_SECRET
-const SECRET = process.env.NEXTAUTH_SECRET;
-
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  // Obtenemos el token para saber si hay sesión
+  console.log("🚀 Middleware ejecutándose...");
+
+  // Aseguramos nombre de cookie correcto
+  const cookieName =
+    process.env.NODE_ENV === "production"
+      ? "__Secure-next-auth.session-token"
+      : "next-auth.session-token";
+
+  // Aseguramos secureCookie correcto (solo true en producción)
   const token = await getToken({
     req: request,
-    secret: SECRET,
+    secret: process.env.NEXTAUTH_SECRET,
+    cookieName,
+    secureCookie: process.env.NEXTAUTH_SECURE_COOKIE === "true",
   });
 
-  // Rutas que requieren autenticación: /admin y /client
-  const isAdminRoute = pathname.startsWith("/admin");
-  const isClientRoute = pathname.startsWith("/client");
+  console.log("🔑 Token en middleware:", token);
 
-  // 1. Si NO hay token y la ruta es /admin o /client => redirigir a /auth/login
-  if (!token && (isAdminRoute || isClientRoute)) {
+  const { pathname } = request.nextUrl;
+
+  if (!token) {
+    console.log("🚫 Usuario no autenticado. Redirigiendo a /auth/login");
     return NextResponse.redirect(new URL("/auth/login", request.url));
   }
 
-  // 2. Si es /admin y token.role !== "admin" => redirigir a /client/dashboard
-  if (isAdminRoute && token?.role !== "admin") {
+  if (pathname.startsWith("/admin") && token.role !== "admin") {
+    console.log("🔁 Redirigiendo a dashboard cliente");
     return NextResponse.redirect(new URL("/client/dashboard", request.url));
   }
 
-  // 3. Si es /client y token.role === "admin" => redirigir a /admin/dashboard
-  if (isClientRoute && token?.role === "admin") {
+  if (pathname.startsWith("/client") && token.role !== "client") {
+    console.log("🔁 Redirigiendo a dashboard admin");
     return NextResponse.redirect(new URL("/admin/dashboard", request.url));
   }
 
-  // 4. Caso contrario, permitir acceso
+  console.log("✅ Middleware permite el acceso");
   return NextResponse.next();
 }
 
 export const config = {
-  // Ajusta según tus rutas protegidas
-  matcher: ["/client/:path*", "/admin/:path*"],
+  matcher: ["/client/:path*", "/admin/:path*", "/api/private/:path*"],
 };
