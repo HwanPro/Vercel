@@ -15,13 +15,13 @@ interface RoutinesTabProps {
   gender: "male" | "female";
 }
 interface RoutinesTabProps {
-    gender: "male" | "female";
-    fitnessGoal: string;
-    setFitnessGoal: (value: string) => void;
-    bodyFocus: string;
-    setBodyFocus: (value: string) => void;
-  }
-  
+  gender: "male" | "female";
+  fitnessGoal: string;
+  setFitnessGoal: (value: string) => void;
+  bodyFocus: string;
+  setBodyFocus: (value: string) => void;
+}
+
 export default function RoutinesTab({ gender }: RoutinesTabProps) {
   const [fitnessGoal, setFitnessGoal] = useState<string>(
     gender === "female" ? "glutes" : "strength"
@@ -34,30 +34,65 @@ export default function RoutinesTab({ gender }: RoutinesTabProps) {
     const workouts = {
       female: {
         glutes: [
-          "Sentadillas con peso",
           "Hip Thrust",
+          "Sentadillas con peso",
           "Peso muerto rumano",
           "Elevaciones de cadera",
+          "Patadas de glúteo",
+          "Abducciones con banda",
         ],
         strength: [
           "Press de banca",
-          "Dominadas asistidas",
-          "Press militar",
-          "Remo con barra",
+          "Press militar con mancuernas",
+          "Remo en máquina",
+          "Peso muerto con barra",
+          "Sentadilla frontal",
+        ],
+        core: [
+          "Plancha abdominal",
+          "Crunches",
+          "Elevaciones de piernas",
+          "Mountain Climbers",
+        ],
+        "glutes+core": [
+          "Hip Thrust",
+          "Plancha abdominal",
+          "Peso muerto rumano",
+          "Crunches",
+          "Abducciones con banda",
         ],
       },
       male: {
         strength: [
           "Press de banca",
-          "Sentadillas",
           "Peso muerto",
           "Press militar",
+          "Remo con barra",
+          "Dominadas",
+          "Sentadillas profundas",
         ],
         mass: [
-          "Press de banca inclinado",
-          "Remo con mancuernas",
-          "Curl de bíceps",
-          "Extensiones de tríceps",
+          "Press inclinado con barra",
+          "Press declinado con mancuernas",
+          "Curl de bíceps con barra Z",
+          "Curl inclinado con mancuernas",
+          "Extensiones de tríceps en polea",
+          "Elevaciones laterales",
+        ],
+        "chest+arms": [
+          "Press de banca plano",
+          "Press inclinado",
+          "Aperturas en banca",
+          "Curl predicador",
+          "Curl martillo",
+          "Extensión de tríceps en polea",
+        ],
+        "legs+back": [
+          "Sentadilla con barra",
+          "Peso muerto rumano",
+          "Remo con barra T",
+          "Curl femoral",
+          "Extensión de piernas",
         ],
       },
     };
@@ -80,12 +115,16 @@ export default function RoutinesTab({ gender }: RoutinesTabProps) {
               {gender === "female" ? (
                 <>
                   <SelectItem value="glutes">Aumento de Glúteos</SelectItem>
+                  <SelectItem value="core">Zona Media</SelectItem>
+                  <SelectItem value="glutes+core">Glúteos + Core</SelectItem>
                   <SelectItem value="strength">Fuerza General</SelectItem>
                 </>
               ) : (
                 <>
                   <SelectItem value="strength">Fuerza</SelectItem>
                   <SelectItem value="mass">Masa Muscular</SelectItem>
+                  <SelectItem value="chest+arms">Pecho + Brazos</SelectItem>
+                  <SelectItem value="legs+back">Piernas + Espalda</SelectItem>
                 </>
               )}
             </SelectContent>
