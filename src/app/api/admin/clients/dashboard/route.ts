@@ -3,7 +3,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/infrastructure/prisma/prisma';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/authOptions';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export const dynamic = "force-dynamic"; 
 export async function GET() {

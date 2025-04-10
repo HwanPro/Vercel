@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/infrastructure/prisma/prisma";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { z, ZodError } from "zod";
 
 // Definimos un esquema Zod para validar los datos que llegan en el body

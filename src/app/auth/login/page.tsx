@@ -20,15 +20,14 @@ export default function AuthPage() {
 
   // Redirigir si ya hay sesión activa
   useEffect(() => {
+    // Si ya hay sesión, decidimos adónde redirigir según rol
     if (status === "authenticated") {
-      const role = (session?.user as { role?: string })?.role;
-      if (role === "admin") {
-        router.push("/admin/dashboard");
-      } else {
-        router.push("/client/dashboard");
-      }
+      const role = (session.user as { role?: string })?.role
+      if (role === "admin") router.push("/admin/dashboard")
+      else router.push("/client/dashboard")
     }
-  }, [session, status, router]);
+  }, [session, status, router])
+
 
   const {
     register,

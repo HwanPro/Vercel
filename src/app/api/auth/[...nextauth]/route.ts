@@ -1,6 +1,5 @@
 import NextAuth, { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import prisma from "@/infrastructure/prisma/prisma";
 import bcrypt from "bcrypt";
@@ -8,10 +7,7 @@ import bcrypt from "bcrypt";
 export const authOptions: AuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
-    }),
+  
     CredentialsProvider({
       name: "Credentials",
       credentials: {
@@ -136,16 +132,15 @@ export const authOptions: AuthOptions = {
   secret: process.env.NEXTAUTH_SECRET || "supersecret",
   cookies: {
     sessionToken: {
-      name: "next-auth.session-token",
+      name:
+        process.env.NODE_ENV === "production"
+          ? "__Secure-next-auth.session-token"
+          : "next-auth.session-token",
       options: {
         httpOnly: true,
         sameSite: "lax",
         path: "/",
-        secure:
-          process.env.NODE_ENV === "production" &&
-          process.env.NEXTAUTH_SECURE_COOKIE === "true",
-        domain:
-          process.env.NODE_ENV === "production" ? ".wolf-gym.com" : undefined,
+        secure: process.env.NODE_ENV === "production",
       },
     },
   },
