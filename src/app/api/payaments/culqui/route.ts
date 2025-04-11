@@ -26,10 +26,10 @@ export async function POST(req: NextRequest) {
 
     // 3. Retorna la respuesta al cliente
     return NextResponse.json(response.data);
-  } catch (error: any) {
-    console.error("Error en el pago:", error.response?.data || error.message);
+  } catch (error: Error | unknown) {
+    console.error("Error en el pago:", (error instanceof axios.AxiosError) ? error.response?.data : (error instanceof Error ? error.message : String(error)));
     return NextResponse.json(
-      { error: "Error al procesar el pago", details: error.response?.data },
+      { error: "Error al procesar el pago", details: (error instanceof axios.AxiosError) ? error.response?.data : undefined },
       { status: 500 }
     );
   }

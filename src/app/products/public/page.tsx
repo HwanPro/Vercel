@@ -10,7 +10,18 @@ import axios from "axios";
 
 declare global {
   interface Window {
-    Culqi?: any;
+    Culqi?: {
+      publicKey: string;
+      settings: (config: {
+        title: string;
+        currency: string;
+        description: string;
+        amount: number;
+      }) => void;
+      open: () => void;
+      close: () => void;
+      token: (token: { id: string }) => void;
+    };
   }
 }
 
@@ -77,7 +88,15 @@ export default function PublicProductList() {
           throw new Error("Error al cargar productos");
         }
         const data = await response.json();
-        const formatted = data.map((p: any) => ({
+        const formatted = data.map((p: { 
+          item_id: string;
+          item_name: string;
+          item_description: string;
+          item_price: number;
+          item_discount?: number;
+          item_stock?: number;
+          item_image_url?: string;
+        }) => ({
           id: p.item_id,
           name: p.item_name,
           description: p.item_description,
@@ -105,54 +124,7 @@ export default function PublicProductList() {
   }, [searchTerm, products]);
 
   // 5. Definir callbacks de Culqi (token y close) una sola vez
-  useEffect(() => {
-    if (typeof window === "undefined") return;
 
-    if (!window.Culqi) {
-      console.log(
-        "Culqi no está definido todavía. Se definirá al cargar el script..."
-      );
-      return;
-    }
-
-    // Callback cuando Culqi devuelve un token
-    window.Culqi.token = async (token: any) => {
-      try {
-        const amount =
-          cart.reduce((acc, it) => acc + it.price * (it.quantity || 1), 0) *
-          100;
-
-        const resp = await axios.post("/api/payments/culqi", {
-          token: token.id,
-          amount,
-          description: "Compra en línea",
-          email: "cliente@example.com",
-        });
-
-        if (resp.status === 200) {
-          toast.success(
-            "✅ Pago realizado con éxito. Recoge tu pedido en el local."
-          );
-          setCart([]); // Vacía el carrito
-          setShowCart(false);
-        } else {
-          throw new Error("Error al procesar el pago en backend");
-        }
-      } catch (err) {
-        console.error("Error en backend Culqi:", err);
-        toast.error("❌ Error al procesar el pago");
-      } finally {
-        setIsProcessingPayment(false); // Restablece el estado
-      }
-    };
-
-    // Callback cuando se cierra el modal de Culqi
-    window.Culqi.close = () => {
-      console.log("Modal Culqi cerrado/cancelado");
-      setIsProcessingPayment(false); // Restablece el estado
-      toast.error("❌ Pago cancelado o cerrado. Intenta nuevamente.");
-    };
-  }, [cart]);
 
   // Añadir al carrito
   const handleAddToCart = (product: Product) => {
@@ -186,6 +158,9 @@ export default function PublicProductList() {
   };
 
   // Iniciar pago
+  // Quita el useEffect(() => { ... }, [cart]) por completo
+  // y mueve la lógica dentro de pagarCompra:
+
   const pagarCompra = () => {
     if (cart.length === 0) {
       toast.error("🛒 El carrito está vacío. Agrega productos antes de pagar.");
@@ -205,10 +180,43 @@ export default function PublicProductList() {
 
     setIsProcessingPayment(true);
 
-    // Calcula el monto en céntimos
+    // Calcula el monto en céntimos:
     const amount =
       cart.reduce((acc, it) => acc + it.price * (it.quantity || 1), 0) * 100;
-    console.log("Monto a pagar (en céntimos):", amount);
+
+    // Aquí mismo definimos callback de token
+    window.Culqi.token = async (token: { id: string }) => {
+      try {
+        const resp = await axios.post("/api/payments/culqi", {
+          token: token.id,
+          amount,
+          description: "Compra en línea",
+          email: "cliente@example.com",
+        });
+
+        if (resp.status === 200) {
+          toast.success(
+            "✅ Pago realizado con éxito. Recoge tu pedido en el local."
+          );
+          setCart([]);
+          setShowCart(false);
+        } else {
+          throw new Error("Error al procesar el pago en backend");
+        }
+      } catch (err) {
+        console.error("Error en backend Culqi:", err);
+        toast.error("❌ Error al procesar el pago");
+      } finally {
+        setIsProcessingPayment(false);
+      }
+    };
+
+    // Y definimos callback de close
+    window.Culqi.close = () => {
+      console.log("Modal Culqi cerrado/cancelado");
+      setIsProcessingPayment(false);
+      toast.error("❌ Pago cancelado o cerrado. Intenta nuevamente.");
+    };
 
     // Configuración Culqi
     window.Culqi.publicKey = process.env.NEXT_PUBLIC_CULQI_PUBLIC_KEY!;

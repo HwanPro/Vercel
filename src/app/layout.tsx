@@ -1,5 +1,4 @@
 "use client";
-
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
 import Script from "next/script";
@@ -11,7 +10,6 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Forzamos el scroll hacia arriba en cada navegación para evitar problemas visuales
   const pathname = usePathname();
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -27,7 +25,7 @@ export default function RootLayout({
             content="width=device-width, initial-scale=1.0"
           />
           <link rel="icon" href="/favicon.ico" />
-          {/* Agregamos el script de Culqi */}
+          {/* Carga de Culqi con Next/Script */}
           <Script
             src="https://checkout.culqi.com/js/v4"
             strategy="beforeInteractive"
