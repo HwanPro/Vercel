@@ -141,10 +141,12 @@ model Purchase {
 }
 
 model Attendance {
-  id          String   @id @default(uuid())
-  userId      String
-  checkInTime DateTime @default(now())
-  user        User     @relation("UserAttendance", fields: [userId], references: [id], onDelete: Cascade)
+  id            String   @id @default(uuid())
+  userId        String
+  checkInTime   DateTime @default(now())
+  checkOutTime  DateTime?
+  durationMins  Int?     // Tiempo de permanencia en minutos
+  user          User     @relation("UserAttendance", fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Story {
@@ -155,28 +157,16 @@ model Story {
   link      String?
   createdAt DateTime @default(now())
 }
-
-model News {
-  id        String   @id @default(cuid())
-  title     String
-  content   String
-  imageUrl  String?
-  createdAt DateTime @default(now())
-}
-
-
 model Plan {
   id          String   @id @default(cuid())
+  slug        String   @unique
   name        String
   price       Float
   description String
   createdAt   DateTime @default(now())
 }
-
-
 model Gallery {
   id        String   @id @default(cuid())
   imageUrl  String
   createdAt DateTime @default(now())
 }
-

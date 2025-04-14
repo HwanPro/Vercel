@@ -8,18 +8,15 @@ export default function CheckInPage() {
   const [loading, setLoading] = useState(false);
 
   const handleCheckIn = async () => {
-    // Normalizar el número: eliminar caracteres no numéricos
     const normalizedPhone = phone.replace(/\D/g, "");
 
-    // Validar que el número tenga exactamente 9 dígitos
     if (normalizedPhone.length !== 9) {
-      Swal.fire({
+      return Swal.fire({
         title: "Número inválido",
-        text: "Por favor, ingresa un número de teléfono válido de 9 dígitos.",
+        text: "Debe tener exactamente 9 dígitos.",
         icon: "warning",
         confirmButtonText: "Aceptar",
       });
-      return;
     }
 
     setLoading(true);
@@ -33,34 +30,52 @@ export default function CheckInPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        if (data.message.includes("registrado asistencia")) {
-          // Mensaje si ya ha registrado asistencia hoy
-          Swal.fire({
-            title: "Asistencia ya registrada",
-            text: "Este número ya ha registrado asistencia hoy.",
+        if (data.reason === "already_checked_in") {
+          localStorage.setItem("checkedIn", normalizedPhone);
+
+          return Swal.fire({
+            title: "Entrada ya registrada",
+            text: "¿Deseas marcar tu salida ahora?",
             icon: "info",
+            showCancelButton: true,
+            confirmButtonText: "Marcar salida",
+            cancelButtonText: "Cancelar",
+            preConfirm: async () => {
+              const outResp = await fetch("/api/check-in", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ phone: normalizedPhone }),
+              });
+              const outData = await outResp.json();
+              if (!outResp.ok)
+                throw new Error(outData.message || "Error al registrar salida");
+
+              localStorage.removeItem("checkedIn");
+
+              Swal.fire("Salida registrada", "Gracias por tu visita.", "success");
+            },
+          });
+        }
+
+        if (data.reason === "not_found") {
+          return Swal.fire({
+            title: "Número no registrado",
+            text: "Tu número no está registrado. Solicita ayuda en recepción.",
+            icon: "error",
             confirmButtonText: "Aceptar",
           });
-        } else {
-          throw new Error(data.message || "Error al registrar asistencia.");
         }
-        return;
+
+        throw new Error(data.message || "Error desconocido.");
       }
 
-      Swal.fire({
-        title: "Asistencia Registrada",
-        text: "Tu ingreso ha sido registrado correctamente.",
-        icon: "success",
-        confirmButtonText: "Aceptar",
-      });
-
-      // Limpiar el input después del registro exitoso
+      localStorage.setItem("checkedIn", normalizedPhone);
+      Swal.fire("Asistencia registrada", "¡Bienvenido!", "success");
       setPhone("");
     } catch (error) {
       Swal.fire({
         title: "Error",
-        text:
-          "No se pudo registrar la asistencia. Verifica tu número o regístrate en recepción.",
+        text: "Hubo un problema al registrar tu asistencia.",
         icon: "error",
         confirmButtonText: "Aceptar",
       });
@@ -84,9 +99,9 @@ export default function CheckInPage() {
         placeholder="Ejemplo: 987654321"
         value={phone}
         onChange={(e) =>
-          setPhone(e.target.value.replace(/\D/g, "").slice(0, 9)) // Solo permite 9 dígitos numéricos
+          setPhone(e.target.value.replace(/\D/g, "").slice(0, 9))
         }
-        maxLength={9} // Evita que se ingresen más de 9 caracteres
+        maxLength={9}
       />
 
       <button

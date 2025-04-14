@@ -44,42 +44,77 @@ export default function PublicProductList() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [showCart, setShowCart] = useState(false);
-  const [culqiErrorShown, setCulqiErrorShown] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   const router = useRouter();
 
-  // Cargar el script de Culqi
+  /**
+   * 1. Cargar el script de Culqi y asignar los callbacks SOLO UNA VEZ.
+   */
   useEffect(() => {
     const script = document.createElement("script");
     script.src = "https://checkout.culqi.com/js/v4";
     script.async = true;
+
     script.onload = () => {
-      console.log("Culqi script cargado correctamente");
+      console.log("✅ Culqi script cargado correctamente");
+
+      if (typeof window !== "undefined" && window.Culqi) {
+        // Callback que se ejecuta al cerrar/abortar el modal
+        window.Culqi.close = () => {
+          console.log("Modal Culqi cerrado/cancelado");
+          setIsProcessingPayment(false);
+          toast.info("Pago cancelado o cerrado.");
+        };
+
+        // Callback que se ejecuta al obtener el token
+        window.Culqi.token = async (tokenObject: { id: string }) => {
+          console.log("Token de Culqi:", tokenObject);
+
+          try {
+            // Calcula el total en céntimos desde el estado 'cart'
+            const totalCents =
+              cart.reduce((acc, it) => acc + it.price * (it.quantity || 1), 0) *
+              100;
+
+            const resp = await axios.post("/api/payments/culqi", {
+              token: tokenObject.id,
+              amount: totalCents,
+              description: "Compra en línea",
+              email: "cliente@example.com", // Si tienes un email real, úsalo
+            });
+
+            if (resp.status === 200) {
+              toast.success("✅ Pago realizado con éxito.");
+              // Limpiamos carrito y cerramos
+              setCart([]);
+              setShowCart(false);
+            } else {
+              throw new Error("Error en el backend de pago");
+            }
+          } catch (err) {
+            console.error("Error en backend Culqi:", err);
+            toast.error("❌ Error al procesar el pago");
+          } finally {
+            // Liberamos estado
+            setIsProcessingPayment(false);
+          }
+        };
+      }
     };
+
+    script.onerror = () => {
+      toast.error("❌ Error al cargar script de Culqi");
+    };
+
     document.body.appendChild(script);
 
     return () => {
       document.body.removeChild(script);
     };
-  }, []);
+  }, []); // <- Array vacío: SOLO UNA VEZ
 
-  // 1. Cargar carrito de localStorage al montar
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const storedCart = localStorage.getItem("cart");
-    if (storedCart) {
-      setCart(JSON.parse(storedCart));
-    }
-  }, []);
-
-  // 2. Guardar carrito en localStorage cada vez que cambie
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    localStorage.setItem("cart", JSON.stringify(cart));
-  }, [cart]);
-
-  // 3. Cargar lista de productos
+  // 2. Cargar lista de productos
   useEffect(() => {
     const fetchProducts = async () => {
       try {
@@ -88,23 +123,25 @@ export default function PublicProductList() {
           throw new Error("Error al cargar productos");
         }
         const data = await response.json();
-        const formatted = data.map((p: { 
-          item_id: string;
-          item_name: string;
-          item_description: string;
-          item_price: number;
-          item_discount?: number;
-          item_stock?: number;
-          item_image_url?: string;
-        }) => ({
-          id: p.item_id,
-          name: p.item_name,
-          description: p.item_description,
-          price: p.item_price,
-          discount: p.item_discount || 0,
-          stock: p.item_stock || 0,
-          imageUrl: p.item_image_url || "/placeholder-image.png",
-        }));
+        const formatted = data.map(
+          (p: {
+            item_id: string;
+            item_name: string;
+            item_description: string;
+            item_price: number;
+            item_discount?: number;
+            item_stock?: number;
+            item_image_url?: string;
+          }) => ({
+            id: p.item_id,
+            name: p.item_name,
+            description: p.item_description,
+            price: p.item_price,
+            discount: p.item_discount || 0,
+            stock: p.item_stock || 0,
+            imageUrl: p.item_image_url || "/placeholder-image.png",
+          })
+        );
         setProducts(formatted);
         setFilteredProducts(formatted);
       } catch (error) {
@@ -115,16 +152,13 @@ export default function PublicProductList() {
     fetchProducts();
   }, []);
 
-  // 4. Filtrar cada vez que cambie searchTerm
+  // 3. Filtro
   useEffect(() => {
     const results = products.filter((prod) =>
       prod.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
     setFilteredProducts(results);
   }, [searchTerm, products]);
-
-  // 5. Definir callbacks de Culqi (token y close) una sola vez
-
 
   // Añadir al carrito
   const handleAddToCart = (product: Product) => {
@@ -151,28 +185,25 @@ export default function PublicProductList() {
     setQuantity(1);
   };
 
-  // Quitar producto del carrito
   const handleRemoveFromCart = (id: string) => {
     setCart((prev) => prev.filter((it) => it.id !== id));
     toast.info("🗑 Producto eliminado del carrito.");
   };
 
-  // Iniciar pago
-  // Quita el useEffect(() => { ... }, [cart]) por completo
-  // y mueve la lógica dentro de pagarCompra:
-
+  /**
+   * 4. Función que abre el modal => Llamar a window.Culqi.open().
+   */
   const pagarCompra = () => {
     if (cart.length === 0) {
       toast.error("🛒 El carrito está vacío. Agrega productos antes de pagar.");
       return;
     }
-    if (!window.Culqi) {
-      if (!culqiErrorShown) {
-        setCulqiErrorShown(true);
-        toast.error("⚠️ Error al cargar Culqi. Intenta nuevamente.");
-      }
+
+    if (typeof window === "undefined" || !window.Culqi || !window.Culqi.open) {
+      toast.error("❌ Culqi no está disponible todavía.");
       return;
     }
+
     if (isProcessingPayment) {
       console.log("Ya se está procesando el pago...");
       return;
@@ -181,59 +212,25 @@ export default function PublicProductList() {
     setIsProcessingPayment(true);
 
     // Calcula el monto en céntimos:
-    const amount =
+    const totalCents =
       cart.reduce((acc, it) => acc + it.price * (it.quantity || 1), 0) * 100;
 
-    // Aquí mismo definimos callback de token
-    window.Culqi.token = async (token: { id: string }) => {
-      try {
-        const resp = await axios.post("/api/payments/culqi", {
-          token: token.id,
-          amount,
-          description: "Compra en línea",
-          email: "cliente@example.com",
-        });
-
-        if (resp.status === 200) {
-          toast.success(
-            "✅ Pago realizado con éxito. Recoge tu pedido en el local."
-          );
-          setCart([]);
-          setShowCart(false);
-        } else {
-          throw new Error("Error al procesar el pago en backend");
-        }
-      } catch (err) {
-        console.error("Error en backend Culqi:", err);
-        toast.error("❌ Error al procesar el pago");
-      } finally {
-        setIsProcessingPayment(false);
-      }
-    };
-
-    // Y definimos callback de close
-    window.Culqi.close = () => {
-      console.log("Modal Culqi cerrado/cancelado");
-      setIsProcessingPayment(false);
-      toast.error("❌ Pago cancelado o cerrado. Intenta nuevamente.");
-    };
-
-    // Configuración Culqi
+    // Configurar la ventana de pago (no reasignes callbacks)
     window.Culqi.publicKey = process.env.NEXT_PUBLIC_CULQI_PUBLIC_KEY!;
     window.Culqi.settings({
       title: "Tienda Online",
       currency: "PEN",
       description: "Compra en línea",
-      amount,
+      amount: totalCents,
     });
 
     console.log("Culqi configurado. Abriendo modal...");
+    // Abre la ventana de Culqi
     window.Culqi.open();
   };
 
   return (
     <div className="bg-white min-h-screen">
-      {/* HEADER */}
       <header className="flex flex-wrap items-center justify-between p-4 border-b bg-white shadow-md">
         <h1 className="text-xl font-bold text-black flex-1">
           Nuestros Productos
@@ -255,7 +252,6 @@ export default function PublicProductList() {
           >
             Volver al Inicio
           </button>
-
           <button
             role="button"
             aria-label="Abrir carrito"

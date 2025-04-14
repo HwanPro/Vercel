@@ -51,13 +51,32 @@ export default function AddClientDialog({
   );
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
-
+  // Estados persistentes para evitar regeneración al re-renderizar
+  const [generatedUsername, setGeneratedUsername] = useState<string>("");
+  const [generatedPassword, setGeneratedPassword] = useState<string>("");
   // Estado para mostrar las credenciales generadas en el modal
   const [credentials, setCredentials] = useState<{
     username: string;
     password: string;
     phone: string;
   } | null>(null);
+  // Define generateUsername function before using it
+
+  // Define generatePassword function before using it
+
+  function generateUsername(name: string, phone?: string): string {
+    const base = name.trim().toLowerCase().replace(/\s+/g, "") + "wg";
+    const suffix =
+      phone?.replace(/\D/g, "").slice(0, 3) ??
+      Math.floor(Math.random() * 100).toString();
+    return `${base}${suffix}`;
+  }
+
+  function generatePassword(): string {
+    const part1 = Math.random().toString(36).substring(2, 6);
+    const part2 = Math.random().toString(36).substring(2, 6);
+    return `Cont-${part1}-${part2}`;
+  }
 
   const handleSave = async () => {
     setErrorMessage("");
@@ -67,7 +86,16 @@ export default function AddClientDialog({
       return;
     }
 
-    // Validar fechas
+    if (!isValidPhoneNumber(phone)) {
+      setErrorMessage("El número de teléfono principal no es válido.");
+      return;
+    }
+
+    if (emergencyPhone && !isValidPhoneNumber(emergencyPhone)) {
+      setErrorMessage("El número de emergencia no es válido.");
+      return;
+    }
+
     if (membershipStart && membershipEnd) {
       const startDateObj = new Date(membershipStart);
       const endDateObj = new Date(membershipEnd);
@@ -79,21 +107,14 @@ export default function AddClientDialog({
       }
     }
 
-    if (!isValidPhoneNumber(phone)) {
-      setErrorMessage("El número de teléfono principal no es válido.");
-      return;
-    }
-    if (emergencyPhone && !isValidPhoneNumber(emergencyPhone)) {
-      setErrorMessage("El número de emergencia no es válido.");
-      return;
-    }
+    const username = generateUsername(name, phone);
+    const password = generatePassword();
 
-    // Generar el username a partir de los nombres
-    const generatedUsername = `${name.trim().toLowerCase()}.${lastName.trim().toLowerCase()}`;
+    setGeneratedUsername(username);
+    setGeneratedPassword(password);
 
-    // Armar el objeto a enviar, sin password
     const newClientData = {
-      username: generatedUsername,
+      username,
       firstName: name.trim(),
       lastName: lastName.trim(),
       plan: plan || "Mensual",
@@ -125,35 +146,26 @@ export default function AddClientDialog({
         return;
       }
 
-      // Extraer la respuesta del backend, que incluye la contraseña temporal en tempPassword
       const result = await response.json();
-      const tempPassword = result.tempPassword;
+      const tempPassword = result.tempPassword || password;
 
-  
-
-      // Armar el objeto credencial usando el valor retornado por el backend
       const cred = {
-        username: generatedUsername,
+        username,
         password: tempPassword,
         phone: phone!,
       };
 
-      // Guardar en localStorage
       const stored = localStorage.getItem("pendingCredentials");
       const list = stored ? JSON.parse(stored) : [];
       list.push(cred);
       localStorage.setItem("pendingCredentials", JSON.stringify(list));
 
-      // Actualizar el estado local para mostrar el modal (y opcionalmente notificar a ClientsPage)
       setCredentials(cred);
-      if (onCredentialsUpdate) {
-        onCredentialsUpdate(cred);
-      }
+      onCredentialsUpdate?.(cred);
 
-      // Llamar onSave para actualizar la lista de clientes en el panel
       onSave({
         ...newClientData,
-        userName: generatedUsername,
+        userName: username,
         password: tempPassword,
       });
     } catch (error) {
@@ -272,39 +284,65 @@ export default function AddClientDialog({
 
       {/* Modal con credenciales */}
       {credentials && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
-            <h2 className="text-2xl font-bold mb-4 text-center">
-              ¡Bienvenido al sistema!
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md space-y-4 text-black">
+            <h2 className="text-xl font-bold text-center">
+              ¡Bienvenido a Wolf Gym!
             </h2>
-            <p className="mb-4 text-center italic">
-              &ldquo;El éxito es la suma de pequeños esfuerzos repetidos día
-              tras día.&rdquo;
+            <p className="italic text-center text-gray-600">
+              “El éxito es la suma de pequeños esfuerzos repetidos día tras
+              día.”
             </p>
-            <div className="mb-4">
-              <p>
-                <span className="font-bold">Usuario:</span>{" "}
-                {credentials.username}
-              </p>
-              <p>
-                <span className="font-bold">Contraseña:</span>{" "}
-                {credentials.password}
-              </p>
-            </div>
+
+            {/* Caja de texto copiable */}
+            <textarea
+              readOnly
+              className="w-full h-48 bg-gray-100 p-4 rounded text-sm text-black resize-none"
+              value={`¡Bienvenido a Wolf Gym!
+“El éxito es la suma de pequeños esfuerzos repetidos día tras día.”
+
+Usuario: ${generatedUsername}
+Contraseña: ${generatedPassword}
+
+Puedes cambiar tu contraseña desde tu perfil presionando el botón Editar Perfil.
+
+Accede a: www.wolf-gym.com`}
+            />
+
+            {/* Botón para copiar */}
             <Button
-              className="bg-green-600 text-white w-full mb-2"
+              variant="outline"
+              className="w-full text-sm"
+              onClick={() => {
+                navigator.clipboard.writeText(`¡Bienvenido a Wolf Gym!
+“El éxito es la suma de pequeños esfuerzos repetidos día tras día.”
+
+Usuario: ${generatedUsername}
+Contraseña: ${generatedPassword}
+
+Puedes cambiar tu contraseña desde tu perfil presionando el botón Editar Perfil.
+
+Accede a: www.wolf-gym.com
+
+PROHIBIDO RENDIRSE!!`);
+              }}
+            >
+              📋 Copiar credenciales
+            </Button>
+
+            {/* Botón WhatsApp */}
+            <Button
+              className="bg-green-600 text-white w-full"
               onClick={() => {
                 window.open(`https://wa.me/${credentials.phone}`, "_blank");
               }}
             >
-              Abrir chat en WhatsApp
+              Enviar vía WhatsApp
             </Button>
+
             <Button
-              className="bg-yellow-400 text-black w-full"
-              onClick={() => {
-                setCredentials(null);
-                // Opcional: limpiar campos si lo deseas
-              }}
+              className="bg-yellow-400 w-full"
+              onClick={() => setCredentials(null)}
             >
               Cerrar
             </Button>

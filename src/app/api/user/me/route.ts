@@ -1,4 +1,3 @@
-// src/app/api/user/me/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/infrastructure/prisma/prisma";
 import { getToken } from "next-auth/jwt";
@@ -9,15 +8,21 @@ export async function GET(request: NextRequest) {
       req: request,
       secret: process.env.NEXTAUTH_SECRET,
     });
+
     if (!token?.id) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    // Buscas al usuario
     const user = await prisma.user.findUnique({
       where: { id: token.id as string },
       include: {
-        profile: true, // si la relación se llama "profile"
+        profile: true, // ✅ relación válida con ClientProfile
+        memberships: {
+          include: {
+            membership: true, // incluir detalles del plan
+          },
+        },
+        attendances: true, // asistencia del usuario
       },
     });
 
@@ -28,21 +33,23 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Retornas la info que necesitas
     return NextResponse.json(
       {
+        id: user.id,
         username: user.username,
-        firstName: user.firstName,
+        name: user.firstName,
         lastName: user.lastName,
         phoneNumber: user.phoneNumber,
-        emergencyPhone: user.profile?.profile_emergency_phone ?? null,
         image: user.image ?? null,
         role: user.role,
+        profile: user.profile,
+        memberships: user.memberships,
+        attendances: user.attendances,
       },
       { status: 200 }
     );
   } catch (error) {
-    console.error(error);
+    console.error("❌ Error en GET /api/user/me:", error);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
 }

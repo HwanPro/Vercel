@@ -9,8 +9,14 @@ import Link from "next/link";
 
 interface Attendance {
   id: string;
-  user: { name: string; email: string };
   checkInTime: string;
+  checkOutTime?: string;
+  durationMins?: number;
+  user: {
+    firstName: string;
+    lastName: string;
+    phoneNumber: string;
+  };
 }
 
 export default function AdminDashboard() {
@@ -104,24 +110,48 @@ export default function AdminDashboard() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-yellow-400 text-black">
-                <th className="p-2">ID Usuario</th>
-                <th className="p-2">Fecha y Hora</th>
+                <th className="p-2">Usuario</th>
+                <th className="p-2">Día</th>
+                <th className="p-2">Entradas y Salidas</th>
+                <th className="p-2">Estancia</th>
               </tr>
             </thead>
+
             <tbody>
               {attendees.length > 0 ? (
-                attendees.map((attendee) => (
-                  <tr key={attendee.id} className="border-b border-gray-600">
-                    <td className="p-2">{attendee.user.name}</td>{" "}
-                    {/* ✅ Muestra el nombre del usuario */}
-                    <td className="p-2">
-                      {new Date(attendee.checkInTime).toLocaleString()}
-                    </td>
-                  </tr>
-                ))
+                attendees.map((attendee) => {
+                  const checkIn = new Date(attendee.checkInTime);
+                  const checkOut = attendee.checkOutTime
+                    ? new Date(attendee.checkOutTime)
+                    : null;
+
+                  const dayOfWeek = checkIn.toLocaleDateString("es-PE", {
+                    weekday: "long",
+                  });
+
+                  return (
+                    <tr key={attendee.id} className="border-b border-gray-600">
+                      <td className="p-2">
+                        {attendee.user.firstName} {attendee.user.lastName}
+                      </td>
+                      <td className="p-2">{dayOfWeek.toUpperCase()}</td>
+                      <td className="p-2">
+                        Entrada: {checkIn.toLocaleTimeString()} <br />
+                        {checkOut
+                          ? `Salida: ${checkOut.toLocaleTimeString()}`
+                          : "Sin salida"}
+                      </td>
+                      <td className="p-2">
+                        {attendee.durationMins != null
+                          ? `${attendee.durationMins} min`
+                          : "En curso"}
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
-                  <td colSpan={2} className="text-center p-4 text-gray-400">
+                  <td colSpan={4} className="text-center p-4 text-gray-400">
                     No hay asistentes aún.
                   </td>
                 </tr>

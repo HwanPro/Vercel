@@ -1,23 +1,25 @@
 // src/app/api/plans/[id]/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import prisma from "@/infrastructure/prisma/prisma";
 
-export async function DELETE(
-  request: NextRequest,
+
+export async function PUT(
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
     const { id } = params;
-    await prisma.plan.delete({ where: { id } });
-    return NextResponse.json(
-      { message: "Plan eliminado con éxito" },
-      { status: 200 }
-    );
+    const { name, price, description } = await request.json();
+
+    // Lógica para actualizar
+    const updatedPlan = await prisma.plan.update({
+      where: { id },
+      data: { name, price, description },
+    });
+
+    return NextResponse.json(updatedPlan, { status: 200 });
   } catch (error) {
-    console.error("Error al eliminar plan:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
+    console.error("Error en PUT /api/plans/[id]:", error);
+    return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
 }
