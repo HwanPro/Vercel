@@ -43,8 +43,8 @@ export default function AdminDashboard() {
           toast.error("No autorizado. Redirigiendo a login...");
           window.location.href = "/auth/login";
           return;
-        } 
-      }      
+        }
+      }
       const data = await res.json();
       setDashboardData(data);
     } catch (error) {
@@ -390,17 +390,15 @@ export default function AdminDashboard() {
         </section>
       </main>
 
-      {/* Modal de Perfil */}
       {showProfileModal && (
         <ProfileModal
           isOpen={showProfileModal}
           onClose={() => setShowProfileModal(false)}
-          // OJO: Asegúrate de pasarle userName, firstName, userPhone, etc.
           userName={session?.user?.name ?? ""}
-          firstName={session?.user?.name ?? ""}
-          userLastName={session?.user?.name?.split(" ")[1] ?? ""}
+          firstName={session?.user?.firstName ?? ""}
+          userLastName={session?.user?.lastName ?? ""}
           userPhone={session?.user?.phoneNumber ?? ""}
-          userEmergencyPhone=""
+          userEmergencyPhone="" // Solo si decides agregar este campo luego
           userRole={session?.user?.role ?? ""}
           profileImage={session?.user?.image ?? ""}
         />

@@ -7,7 +7,6 @@ import bcrypt from "bcrypt";
 export const authOptions: AuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
-  
     CredentialsProvider({
       name: "Credentials",
       credentials: {
@@ -80,6 +79,7 @@ export const authOptions: AuthOptions = {
         session.user.role = token.role as string;
         session.user.phoneNumber = token.phoneNumber as string;
         session.user = {
+          name: token.username as string,
           ...session.user,
           ...((token as { firstName?: string }).firstName && {
             firstName: (token as { firstName?: string }).firstName as string,
