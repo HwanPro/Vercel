@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import Head from "next/head";
 
 <Head>
-  <link rel="ico" href="/favicon.ico" />
+  <link rel="ico" href="/public/favicon.ico" />
 </Head>
 
 export default function RootLayout({
