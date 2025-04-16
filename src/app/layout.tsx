@@ -4,6 +4,11 @@ import { SessionProvider } from "next-auth/react";
 import Script from "next/script";
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
+import Head from "next/head";
+
+<Head>
+  <link rel="ico" href="/favicon.ico" />
+</Head>
 
 export default function RootLayout({
   children,
