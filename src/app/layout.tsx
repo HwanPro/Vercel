@@ -1,14 +1,10 @@
 "use client";
+
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
 import Script from "next/script";
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
-import Head from "next/head";
-
-<Head>
-  <link rel="ico" href="/public/favicon.ico" />
-</Head>
 
 export default function RootLayout({
   children,
@@ -16,6 +12,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [pathname]);
@@ -30,7 +27,6 @@ export default function RootLayout({
             content="width=device-width, initial-scale=1.0"
           />
           <link rel="icon" href="/favicon.ico" />
-          {/* Carga de Culqi con Next/Script */}
           <Script
             src="https://checkout.culqi.com/js/v4"
             strategy="beforeInteractive"
