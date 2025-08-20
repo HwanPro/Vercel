@@ -1,9 +1,7 @@
-// src/app/api/stories/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/infrastructure/prisma/prisma";
 import { z, ZodError } from "zod";
 
-// Definimos el esquema de validación Zod
 const storySchema = z.object({
   title: z.string().min(1, { message: "El título es obligatorio" }),
   content: z.string().min(1, { message: "El contenido es obligatorio" }),
@@ -11,7 +9,7 @@ const storySchema = z.object({
   link: z.string().url().optional(),
 });
 
-// GET: Retorna todas las historias ordenadas por fecha descendente
+// GET
 export async function GET() {
   try {
     const stories = await prisma.story.findMany({
@@ -20,15 +18,11 @@ export async function GET() {
     return NextResponse.json(stories, { status: 200 });
   } catch (error) {
     console.error("Error GET /api/stories:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
+    return NextResponse.json([], { status: 200 });
   }
 }
 
-// POST: Crear una nueva historia
-// POST: Crear una nueva historia
+// POST
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -44,7 +38,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(newStory, { status: 201 });
   } catch (error) {
     if (error instanceof ZodError) {
-      console.error("Zod error:", error.errors);
       return NextResponse.json(
         { error: "Datos inválidos", details: error.errors },
         { status: 400 }
@@ -52,19 +45,20 @@ export async function POST(request: NextRequest) {
     }
     console.error("Error POST /api/stories:", error);
     return NextResponse.json(
-      { error: "Error interno del servidor" },
+      { error: "Error al crear historia" },
       { status: 500 }
     );
   }
 }
 
-// PUT: Actualizar historia (se espera que en el body venga también el id)
+// PUT
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
     const { id, ...data } = body;
-    if (!id)
+    if (!id) {
       return NextResponse.json({ error: "ID requerido" }, { status: 400 });
+    }
     const updatedStory = await prisma.story.update({
       where: { id },
       data,
@@ -73,13 +67,13 @@ export async function PUT(request: NextRequest) {
   } catch (error) {
     console.error("Error PUT /api/stories:", error);
     return NextResponse.json(
-      { error: "Error interno del servidor" },
+      { error: "Error al actualizar historia" },
       { status: 500 }
     );
   }
 }
 
-// DELETE: Eliminar historia pasando el id como query parameter
+// DELETE
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -95,7 +89,7 @@ export async function DELETE(request: NextRequest) {
   } catch (error) {
     console.error("Error DELETE /api/stories:", error);
     return NextResponse.json(
-      { error: "Error interno del servidor" },
+      { error: "Error al eliminar historia" },
       { status: 500 }
     );
   }
