@@ -3,37 +3,35 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
 model User {
-  id          String   @id @default(cuid())
-  username    String   @unique
-  firstName   String   @default("Sin nombre") // Nombre real
-  lastName    String   @default("")
-  phoneNumber String   @unique // Para autenticación por teléfono
-  image       String?
-  role        String   @default("client")
-  password    String?
-  otpCode     String? // Código OTP para autenticación sin contraseña
-  twoFASecret String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String               @id @default(cuid())
+  phoneNumber  String               @unique
+  image        String?
+  role         String               @default("client")
+  password     String?
+  otpCode      String?
+  twoFASecret  String?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  lastName     String               @default("")
+  username     String               @unique
+  firstName    String               @default("Sin nombre")
+  accounts     Account[]
+  attendances  Attendance[]         @relation("UserAttendance")
+  profile      ClientProfile?
+  payments     PaymentRecord[]      @relation("UserPayments")
+  purchases    Purchase[]
+  sessions     Session[]
+  contacts     UserContact[]        @relation("UserContacts")
+  memberships  UserMembershipPlan[]
+  fingerprints Fingerprint[]
 
-  // Relación con ClientProfile (1 usuario = 1 perfil de cliente)
-  profile ClientProfile?
-
-  // Relaciones con otras entidades
-  accounts    Account[]
-  attendances Attendance[]         @relation("UserAttendance")
-  payments    PaymentRecord[]      @relation("UserPayments")
-  purchases   Purchase[]
-  sessions    Session[]
-  contacts    UserContact[]        @relation("UserContacts")
-  memberships UserMembershipPlan[]
-
-  @@map("users") // Cambia el nombre en la base de datos si es necesario
+  @@map("users")
 }
 
 model MembershipPlan {
@@ -74,19 +72,18 @@ model UserContact {
 }
 
 model ClientProfile {
-  profile_id              String    @id @default(cuid())
-  user_id                 String    @unique
-  profile_first_name      String?
-  profile_last_name       String?
   profile_plan            String?
   profile_start_date      DateTime?
   profile_end_date        DateTime?
-  profile_phone           String?
   profile_emergency_phone String?
+  profile_phone           String?
+  user_id                 String    @unique
+  profile_id              String    @id @default(cuid())
   profile_address         String?   @default("")
   profile_social          String?   @default("")
-
-  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  profile_first_name      String?
+  profile_last_name       String?
+  user                    User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
 model InventoryItem {
@@ -141,12 +138,25 @@ model Purchase {
 }
 
 model Attendance {
-  id            String   @id @default(uuid())
-  userId        String
-  checkInTime   DateTime @default(now())
-  checkOutTime  DateTime?
-  durationMins  Int?     // Tiempo de permanencia en minutos
-  user          User     @relation("UserAttendance", fields: [userId], references: [id], onDelete: Cascade)
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation("UserAttendance", fields: [userId], references: [id], onDelete: Cascade)
+
+  checkInTime  DateTime @default(now())
+  checkOutTime DateTime?
+  durationMins Int?
+
+  // metadatos
+  type         String   @default("gym")
+  channel      String   @default("unknown")
+  stationId    String?
+
+  // auditoría
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId, checkInTime])
+  @@map("Attendance") // o "attendance" según tu tabla
 }
 
 model Story {
@@ -157,16 +167,31 @@ model Story {
   link      String?
   createdAt DateTime @default(now())
 }
+
 model Plan {
   id          String   @id @default(cuid())
-  slug        String   @unique
   name        String
   price       Float
   description String
   createdAt   DateTime @default(now())
+  slug        String   @unique
 }
+
 model Gallery {
   id        String   @id @default(cuid())
   imageUrl  String
   createdAt DateTime @default(now())
 }
+
+model Fingerprint {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  template  Bytes    // aquí guardas el template (bytes)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("fingerprints")
+}
+
