@@ -73,7 +73,7 @@ export async function POST() {
         ok: true,
         match: true,
         userId,
-        name: user?.name || null,
+        name: user ? `${user.firstName} ${user.lastName}` : null,
         message: "Asistencia registrada por huella",
       },
       { status: 200 }
