@@ -138,29 +138,22 @@ model Purchase {
 }
 
 model Attendance {
-  id           String   @id @default(uuid())
-
-  // Si en la BD la columna es 'userid' en minúscula, mapea así:
-  userId       String   @map("userid")
-  user         User     @relation("UserAttendance", fields: [userId], references: [id], onDelete: Cascade)
-
-  checkInTime  DateTime @default(now())
+  id           String    @id @default(uuid())
+  userId       String    @map("userId")
+  checkInTime  DateTime  @default(now())
   checkOutTime DateTime?
-
-  // En BD ya existe "duration" -> mapeamos:
-  durationMins Int?     @map("duration")
-
-  // Nuevas (ya creadas por SQL arriba)
-  type         String   @default("gym")
-  channel      String   @default("unknown")
+  type         String    @default("gym")
+  channel      String    @default("unknown")
   stationId    String?
-
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  durationMins Int?      @map("duration")
+  user         User      @relation("UserAttendance", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, checkInTime])
-  @@map("Attendance") // tu tabla real usa A mayúscula
+  @@map("Attendance")
 }
+
 model Story {
   id        String   @id @default(cuid())
   title     String
