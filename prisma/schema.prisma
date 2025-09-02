@@ -29,7 +29,7 @@ model User {
   sessions     Session[]
   contacts     UserContact[]        @relation("UserContacts")
   memberships  UserMembershipPlan[]
-  fingerprints Fingerprint[]
+  fingerprints Fingerprint?
 
   @@map("users")
 }
@@ -139,26 +139,28 @@ model Purchase {
 
 model Attendance {
   id           String   @id @default(uuid())
-  userId       String
+
+  // Si en la BD la columna es 'userid' en minúscula, mapea así:
+  userId       String   @map("userid")
   user         User     @relation("UserAttendance", fields: [userId], references: [id], onDelete: Cascade)
 
   checkInTime  DateTime @default(now())
   checkOutTime DateTime?
-  durationMins Int?
 
-  // metadatos
+  // En BD ya existe "duration" -> mapeamos:
+  durationMins Int?     @map("duration")
+
+  // Nuevas (ya creadas por SQL arriba)
   type         String   @default("gym")
   channel      String   @default("unknown")
   stationId    String?
 
-  // auditoría
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   @@index([userId, checkInTime])
-  @@map("Attendance") // o "attendance" según tu tabla
+  @@map("Attendance") // tu tabla real usa A mayúscula
 }
-
 model Story {
   id        String   @id @default(cuid())
   title     String
@@ -186,12 +188,10 @@ model Gallery {
 model Fingerprint {
   id        String   @id @default(cuid())
   userId    String   @unique
-  template  Bytes    // aquí guardas el template (bytes)
+  template  Bytes
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("fingerprints")
 }
-
