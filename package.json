@@ -2,7 +2,7 @@
   "name": "wolf-gym",
   "version": "0.1.0",
   "private": true,
-  "engines": { "node": "18.x || 20.x" },
+  
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "prisma generate && next build",
@@ -45,7 +45,7 @@
     "next": "^15.2.2",
     "next-auth": "^4.24.11",
     "next-connect": "^0.12.2",
-    "node-windows": "^1.0.0",
+    
     "nodemailer": "^6.9.16",
     "qrcode": "^1.5.4",
     "qrcode.react": "^4.2.0",
