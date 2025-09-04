@@ -2,18 +2,23 @@
 import { NextResponse } from "next/server";
 import prisma from "@/infrastructure/prisma/prisma";
 
-const PY = process.env.PY_BASE_URL || "http://127.0.0.1:8001";
-
+const BASE = process.env.BIOMETRIC_BASE || "http://127.0.0.1:8001";
 export const dynamic = "force-dynamic";
 
 export async function POST() {
   try {
     // 1) abrir (idempotente)
-    await fetch(`${PY}/device/open`, { method: "POST" }).catch(() => null);
+    await fetch(`${BASE}/device/open`, {
+      method: "POST",
+      cache: "no-store",
+    }).catch(() => null);
 
     // 2) capturar
-    const cap = await fetch(`${PY}/device/capture`, { method: "POST" });
-    const capData = await cap.json();
+    const cap = await fetch(`${BASE}/device/capture`, {
+      method: "POST",
+      cache: "no-store",
+    });
+    const capData = await cap.json().catch(() => ({}) as any);
     if (!cap.ok || !capData?.ok || !capData?.template) {
       return NextResponse.json(
         { ok: false, message: capData?.message || "No se pudo capturar" },
@@ -22,12 +27,13 @@ export async function POST() {
     }
 
     // 3) identificar (1:N)
-    const idResp = await fetch(`${PY}/identify-fingerprint`, {
+    const idResp = await fetch(`${BASE}/identify-fingerprint`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fingerprint: capData.template }),
+      cache: "no-store",
     });
-    const idData = await idResp.json();
+    const idData = await idResp.json().catch(() => ({}) as any);
 
     if (!idResp.ok) {
       return NextResponse.json(
@@ -49,11 +55,13 @@ export async function POST() {
       );
     }
 
-    // 4) registrar asistencia si matcheó (igual que tu ruta /api/check-in)
+    // 4) registrar asistencia (si no existe hoy)
     const userId = idData.user_id as string;
 
-    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date();   todayEnd.setHours(23, 59, 59, 999);
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
 
     const existing = await prisma.attendance.findFirst({
       where: { userId, checkInTime: { gte: todayStart, lte: todayEnd } },
@@ -65,7 +73,6 @@ export async function POST() {
       });
     }
 
-    // opcional: nombre para el saludo
     const user = await prisma.user.findUnique({ where: { id: userId } });
 
     return NextResponse.json(
