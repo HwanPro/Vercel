@@ -22,8 +22,8 @@ import Swal from "sweetalert2";
 import "sweetalert2/dist/sweetalert2.min.css";
 
 interface Client {
-  id: string;            // id de perfil (UI)
-  userId: string;        // id real de usuario (FK a users.id) ← NECESARIO para biometría
+  id: string; // id de perfil (UI)
+  userId: string; // id real de usuario (FK a users.id) ← NECESARIO para biometría
   userName: string;
   firstName: string;
   lastName: string;
@@ -92,26 +92,33 @@ export default function ClientsPage() {
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        const response = await fetch("/api/clients", { credentials: "include" });
+        const response = await fetch("/api/clients", {
+          credentials: "include",
+        });
         if (!response.ok) throw new Error("Error al obtener los clientes");
 
         const data = await response.json();
 
         // filtro: sacar admins
         const onlyClients = data.filter(
-          (client: { user?: { role?: string } }) => client?.user?.role !== "admin"
+          (client: { user?: { role?: string } }) =>
+            client?.user?.role !== "admin"
         );
 
         const sanitized: Client[] = onlyClients.map((c: any) => {
-          const membershipStart = c.profile_start_date ? new Date(c.profile_start_date) : null;
-          const membershipEnd = c.profile_end_date ? new Date(c.profile_end_date) : null;
+          const membershipStart = c.profile_start_date
+            ? new Date(c.profile_start_date)
+            : null;
+          const membershipEnd = c.profile_end_date
+            ? new Date(c.profile_end_date)
+            : null;
 
           // ← intenta tomar user id de varias formas (mejor si el backend manda `user_id`)
           const userId: string =
             c.user_id ||
             c.user?.id ||
             c.profile_user_id || // por si tu API lo trae así
-            c.profile_id;        // fallback (no ideal)
+            c.profile_id; // fallback (no ideal)
 
           return {
             id: c.profile_id,
@@ -120,8 +127,12 @@ export default function ClientsPage() {
             firstName: c.profile_first_name || "Sin nombre",
             lastName: c.profile_last_name || "Sin apellido",
             plan: c.profile_plan || "Sin plan",
-            membershipStart: membershipStart ? membershipStart.toISOString().split("T")[0] : "",
-            membershipEnd: membershipEnd ? membershipEnd.toISOString().split("T")[0] : "",
+            membershipStart: membershipStart
+              ? membershipStart.toISOString().split("T")[0]
+              : "",
+            membershipEnd: membershipEnd
+              ? membershipEnd.toISOString().split("T")[0]
+              : "",
             phone: c.profile_phone || "",
             emergencyPhone: c.profile_emergency_phone || "",
             prodfile_adress: c.profile_adress || "",
@@ -148,7 +159,9 @@ export default function ClientsPage() {
     const hydrate = async () => {
       const entries = await Promise.allSettled(
         clients.map(async (c) => {
-          const r = await fetch(`/api/biometric/status/${c.userId}`, { cache: "no-store" });
+          const r = await fetch(`/api/biometric/status/${c.userId}`, {
+            cache: "no-store",
+          });
           const j = await r.json().catch(() => ({ hasFingerprint: false }));
           return [c.userId, !!j?.hasFingerprint] as const;
         })
@@ -157,7 +170,10 @@ export default function ClientsPage() {
         Object.fromEntries(
           entries
             .filter((e) => e.status === "fulfilled")
-            .map((e) => (e as PromiseFulfilledResult<readonly [string, boolean]>).value)
+            .map(
+              (e) =>
+                (e as PromiseFulfilledResult<readonly [string, boolean]>).value
+            )
         )
       );
     };
@@ -189,7 +205,9 @@ export default function ClientsPage() {
 
     try {
       // ¿Ya tiene?
-      const st = await fetch(`/api/biometric/status/${userId}`, { cache: "no-store" });
+      const st = await fetch(`/api/biometric/status/${userId}`, {
+        cache: "no-store",
+      });
       const sj = await st.json().catch(() => ({ hasFingerprint: false }));
       if (sj?.hasFingerprint) {
         const ask = await Swal.fire({
@@ -210,7 +228,10 @@ export default function ClientsPage() {
         await Swal.fire({
           ...swalBase,
           title: `Coloca tu dedo (${i}/3)`,
-          text: i === 1 ? "Manténlo firme hasta que termine" : "Retira y vuelve a colocar",
+          text:
+            i === 1
+              ? "Manténlo firme hasta que termine"
+              : "Retira y vuelve a colocar",
           icon: "info",
           timer: 850,
           showConfirmButton: false,
@@ -303,10 +324,13 @@ export default function ClientsPage() {
         didOpen: () => Swal.showLoading(),
       });
 
-      const res = await fetch(`/api/biometric/verify/${userId}`, { method: "POST" });
+      const res = await fetch(`/api/biometric/verify/${userId}`, {
+        method: "POST",
+      });
       const data = await res.json().catch(() => ({}));
 
-      const isError = data?.ok === false && typeof data?.score === "number" && data.score < 0;
+      const isError =
+        data?.ok === false && typeof data?.score === "number" && data.score < 0;
       const baseMsg = data?.message ?? "";
       const extra = Number.isFinite(data?.score)
         ? ` (score=${data.score}, thr=${data?.threshold ?? "?"})`
@@ -314,7 +338,11 @@ export default function ClientsPage() {
 
       await Swal.fire({
         ...swalBase,
-        title: data?.match ? "Huella verificada" : isError ? "Error del lector" : "No coincide",
+        title: data?.match
+          ? "Huella verificada"
+          : isError
+            ? "Error del lector"
+            : "No coincide",
         text: `${baseMsg}${extra}`,
         icon: data?.match ? "success" : "error",
         timer: 1300,
@@ -367,7 +395,9 @@ export default function ClientsPage() {
 
       {/* ENCABEZADO */}
       <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
-        <h1 className="text-2xl md:text-3xl font-bold text-yellow-400">Gestión de Clientes</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-yellow-400">
+          Gestión de Clientes
+        </h1>
         <Link
           href="/admin/dashboard"
           className="bg-yellow-400 text-black px-4 py-2 rounded hover:bg-yellow-500 w-full md:w-auto text-center"
@@ -378,7 +408,9 @@ export default function ClientsPage() {
 
       {/* BLOQUE: Búsqueda + Alta */}
       <section className="mb-6 border border-yellow-400/40 rounded-xl p-4">
-        <h2 className="text-xl font-semibold text-yellow-400 mb-3">Administración</h2>
+        <h2 className="text-xl font-semibold text-yellow-400 mb-3">
+          Administración
+        </h2>
         <div className="flex flex-col md:flex-row items-center gap-4">
           <input
             type="text"
@@ -399,18 +431,31 @@ export default function ClientsPage() {
               </DialogTitle>
               <AddClientDialog
                 onSave={(newClient) => {
-                  // newClient NO tiene "id" ni "userId" → crea placeholders visuales
                   const clientWithId: Client = {
-                    prodfile_adress: "",
-                    profile_social: "",
-                    Plan: "Sin plan",
-                    membershipStart: "",
-                    membershipEnd: "",
-                    hasPaid: false,
-                    ...newClient,
-                    id: Math.random().toString(36).slice(2, 11),
-                    userId: (newClient as any)?.userId || (newClient as any)?.id || "",
+                    id:
+                      globalThis.crypto?.randomUUID?.() ??
+                      Math.random().toString(36).slice(2, 11),
+                    userId:
+                      (newClient as any)?.userId ??
+                      (newClient as any)?.id ??
+                      "",
+
+                    userName: (newClient as any)?.userName ?? "",
+                    firstName: (newClient as any)?.firstName ?? "Sin nombre",
+                    lastName: (newClient as any)?.lastName ?? "Sin apellido",
+
+                    // 👇 ojo: 'plan' en minúscula
+                    plan: (newClient as any)?.plan ?? "Sin plan",
+                    membershipStart: (newClient as any)?.membershipStart ?? "",
+                    membershipEnd: (newClient as any)?.membershipEnd ?? "",
+
+                    phone: (newClient as any)?.phone ?? "",
+                    emergencyPhone: (newClient as any)?.emergencyPhone ?? "",
+                    prodfile_adress: (newClient as any)?.prodfile_adress ?? "",
+                    profile_social: (newClient as any)?.profile_social ?? "",
+                    hasPaid: (newClient as any)?.hasPaid ?? false,
                   };
+
                   setClients((prev) => [...prev, clientWithId]);
                   setFilteredClients((prev) => [...prev, clientWithId]);
                   toast.success("Cliente agregado con éxito.");
@@ -493,10 +538,14 @@ export default function ClientsPage() {
                           client={{ ...client, email: client.userName }}
                           onUpdate={(updated) => {
                             setClients((prev) =>
-                              prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c))
+                              prev.map((c) =>
+                                c.id === updated.id ? { ...c, ...updated } : c
+                              )
                             );
                             setFilteredClients((prev) =>
-                              prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c))
+                              prev.map((c) =>
+                                c.id === updated.id ? { ...c, ...updated } : c
+                              )
                             );
                             toast.success("Cliente actualizado");
                           }}
@@ -530,9 +579,15 @@ export default function ClientsPage() {
         {pendingCredentials.length > 0 ? (
           pendingCredentials.map((cred, index) => (
             <div key={index} className="mb-2 p-2 border rounded">
-              <p><span className="font-bold">Usuario:</span> {cred.username}</p>
-              <p><span className="font-bold">Contraseña:</span> {cred.password}</p>
-              <p><span className="font-bold">Teléfono:</span> {cred.phone}</p>
+              <p>
+                <span className="font-bold">Usuario:</span> {cred.username}
+              </p>
+              <p>
+                <span className="font-bold">Contraseña:</span> {cred.password}
+              </p>
+              <p>
+                <span className="font-bold">Teléfono:</span> {cred.phone}
+              </p>
               <div className="flex gap-2 mt-1">
                 <Button
                   className="bg-green-600 text-white text-xs"
@@ -547,15 +602,22 @@ export default function ClientsPage() {
                 </Button>
                 <Button
                   className="bg-green-600 text-white"
-                  onClick={() => window.open(`https://wa.me/${cred.phone}`, "_blank")}
+                  onClick={() =>
+                    window.open(`https://wa.me/${cred.phone}`, "_blank")
+                  }
                 >
                   Abrir chat en WhatsApp
                 </Button>
                 <Button
                   className="bg-red-500 text-white text-xs"
                   onClick={() => {
-                    const updated = pendingCredentials.filter((_, i) => i !== index);
-                    localStorage.setItem("pendingCredentials", JSON.stringify(updated));
+                    const updated = pendingCredentials.filter(
+                      (_, i) => i !== index
+                    );
+                    localStorage.setItem(
+                      "pendingCredentials",
+                      JSON.stringify(updated)
+                    );
                     setPendingCredentials(updated);
                   }}
                 >
@@ -568,7 +630,8 @@ export default function ClientsPage() {
           <p>No hay credenciales pendientes.</p>
         )}
         <p className="mt-4 text-center italic">
-          &ldquo;El éxito es la suma de pequeños esfuerzos repetidos día tras día.&rdquo;
+          &ldquo;El éxito es la suma de pequeños esfuerzos repetidos día tras
+          día.&rdquo;
         </p>
       </section>
 
