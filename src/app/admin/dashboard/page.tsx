@@ -249,6 +249,12 @@ export default function AdminDashboard() {
             Asistencia
           </Link>
           <Link
+            href="/check-in"
+            className="block text-sm font-medium text-white hover:text-yellow-400 no-underline"
+          >
+            Registrarse
+          </Link>
+          <Link
             href="/admin/Edit"
             className="block text-sm font-medium text-white hover:text-yellow-400 no-underline"
           >

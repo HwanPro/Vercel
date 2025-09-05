@@ -524,7 +524,7 @@ export default function ClientsPage() {
                         </Button>
 
                         <Button
-                          className={`border border-yellow-400 text-yellow-400 hover:bg-yellow-500 hover:text-black ${
+                          className={`border border-yellow-400 text-yellow-600 hover:bg-yellow-500 hover:text-black ${
                             busy[uid] ? "opacity-50 cursor-not-allowed" : ""
                           }`}
                           onClick={() => verifyFingerprint(uid)}

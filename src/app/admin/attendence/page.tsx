@@ -27,18 +27,8 @@ interface Attendance {
 export default function AdminAttendance() {
   const [attendees, setAttendees] = useState<Attendance[]>([]);
   const [currentTime, setCurrentTime] = useState<string>("");
-  const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [hasFp, setHasFp] = useState<Record<string, boolean>>({});
   const [mode, setMode] = useState<GroupMode>("day");
-
-  const swalBase = useMemo(
-    () => ({
-      background: "#000",
-      color: "#fff",
-      confirmButtonColor: "#facc15",
-    }),
-    []
-  );
 
   // ---- cargar asistencia + reloj ----
   useEffect(() => {
@@ -82,112 +72,6 @@ export default function AdminAttendance() {
     };
     if (attendees.length) hydrateFp();
   }, [attendees]);
-
-  // ---- helpers biométricos ----
-  const captureOnce = async () => {
-    const r = await fetch("/api/biometric/capture", { method: "POST" });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok || !j?.ok || !j?.template) {
-      throw new Error(j?.message || "No se pudo capturar la huella");
-    }
-    return j.template as string;
-  };
-
-  const handleRegisterFingerprint = async (userId: string) => {
-    if (busy[userId]) return;
-    setBusy((b) => ({ ...b, [userId]: true }));
-    try {
-      const st = await fetch(`/api/biometric/status/${userId}`, { cache: "no-store" });
-      const sj = await st.json().catch(() => ({ hasFingerprint: false }));
-      if (sj?.hasFingerprint) {
-        const q = await Swal.fire({
-          ...swalBase,
-          title: "Reemplazar huella",
-          text: "Este usuario ya tiene una huella registrada. ¿Deseas reemplazarla?",
-          icon: "warning",
-          showCancelButton: true,
-          confirmButtonText: "Sí, reemplazar",
-          cancelButtonText: "Cancelar",
-        });
-        if (!q.isConfirmed) return;
-      }
-
-      const templates: string[] = [];
-      for (let i = 1; i <= 3; i++) {
-        await Swal.fire({
-          ...swalBase,
-          title: `Coloca tu dedo (${i}/3)`,
-          text: i === 1 ? "Manténlo firme hasta que termine" : "Retira y vuelve a colocar",
-          icon: "info",
-          timer: 900,
-          showConfirmButton: false,
-          allowOutsideClick: false,
-        });
-
-        Swal.fire({
-          ...swalBase,
-          title: `Capturando (${i}/3)…`,
-          allowOutsideClick: false,
-          showConfirmButton: false,
-          didOpen: () => Swal.showLoading(),
-        });
-
-        try {
-          const tpl = await captureOnce();
-          templates.push(tpl);
-        } catch (e: any) {
-          return Swal.fire({
-            ...swalBase,
-            title: "Error en captura",
-            text: e?.message || "No se pudo capturar la huella",
-            icon: "error",
-          });
-        }
-
-        await Swal.fire({
-          ...swalBase,
-          title: "Muestra capturada",
-          timer: 500,
-          showConfirmButton: false,
-        });
-      }
-
-      Swal.fire({
-        ...swalBase,
-        title: "Guardando huella…",
-        allowOutsideClick: false,
-        showConfirmButton: false,
-        didOpen: () => Swal.showLoading(),
-      });
-
-      const res = await fetch(`/api/biometric/register/${userId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ templates }),
-      });
-      const jr = await res.json().catch(() => ({}));
-
-      if (!res.ok || !jr?.ok) {
-        return Swal.fire({
-          ...swalBase,
-          title: "Error en registro",
-          text: jr?.message || "No se pudo registrar",
-          icon: "error",
-        });
-      }
-
-      setHasFp((m) => ({ ...m, [userId]: true }));
-      return Swal.fire({
-        ...swalBase,
-        title: jr?.message || "Huella registrada",
-        icon: "success",
-        timer: 1100,
-        showConfirmButton: false,
-      });
-    } finally {
-      setBusy((b) => ({ ...b, [userId]: false }));
-    }
-  };
 
   // ---- agrupar por día / mes / año ----
   const groups = useMemo(() => {
@@ -245,7 +129,7 @@ export default function AdminAttendance() {
       </header>
 
       {/* RELOJ + QR */}
-      <section className="my-6 grid md:grid-cols-2 gap-6">
+      <section className="my-6 grid gap-6">
         <div className="text-center border border-yellow-400/40 rounded-xl p-4">
           <h3 className="text-3xl text-yellow-400 font-bold">Hora Actual</h3>
           <p className="text-2xl text-white mt-2">{currentTime}</p>
@@ -326,7 +210,7 @@ export default function AdminAttendance() {
                         <th className="p-2">Día</th>
                         <th className="p-2">Entradas y Salidas</th>
                         <th className="p-2">Estancia</th>
-                        <th className="p-2">Acciones</th>
+                        <th className="p-2"></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -356,79 +240,7 @@ export default function AdminAttendance() {
                             </td>
                             <td className="p-2">{duration}</td>
                             <td className="p-2">
-                              <div className="flex gap-2 flex-wrap">
-                                <button
-                                  onClick={() => handleRegisterFingerprint(uid)}
-                                  disabled={!!busy[uid]}
-                                  className={`px-3 py-1 rounded text-sm ${
-                                    busy[uid]
-                                      ? "opacity-50 cursor-not-allowed bg-yellow-400 text-black"
-                                      : "bg-yellow-400 text-black hover:bg-yellow-500"
-                                  }`}
-                                >
-                                  {hasFp[uid] ? "Reemplazar huella" : "Registrar huella"}
-                                </button>
-
-                                <button
-                                  onClick={async () => {
-                                    if (busy[uid]) return;
-                                    setBusy((b) => ({ ...b, [uid]: true }));
-                                    try {
-                                      await Swal.fire({
-                                        ...swalBase,
-                                        title: "Coloca tu dedo en el lector",
-                                        text: "Manténlo hasta que termine la verificación",
-                                        icon: "info",
-                                        timer: 900,
-                                        showConfirmButton: false,
-                                      });
-                                      Swal.fire({
-                                        ...swalBase,
-                                        title: "Verificando huella...",
-                                        allowOutsideClick: false,
-                                        showConfirmButton: false,
-                                        didOpen: () => Swal.showLoading(),
-                                      });
-
-                                      const res = await fetch(`/api/biometric/verify/${uid}`, {
-                                        method: "POST",
-                                      });
-                                      const data = await res.json().catch(() => ({}));
-                                      const isError =
-                                        data?.ok === false &&
-                                        typeof data?.score === "number" &&
-                                        data.score < 0;
-                                      const baseMsg = data?.message ?? "";
-                                      const extra = Number.isFinite(data?.score)
-                                        ? ` (score=${data.score}, thr=${data?.threshold ?? "?"})`
-                                        : "";
-
-                                      await Swal.fire({
-                                        ...swalBase,
-                                        title: data?.match
-                                          ? "Huella verificada"
-                                          : isError
-                                          ? "Error del lector"
-                                          : "No coincide",
-                                        text: `${baseMsg}${extra}`,
-                                        icon: data?.match ? "success" : "error",
-                                        timer: 1300,
-                                        showConfirmButton: false,
-                                      });
-                                    } finally {
-                                      setBusy((b) => ({ ...b, [uid]: false }));
-                                    }
-                                  }}
-                                  disabled={!!busy[uid]}
-                                  className={`px-3 py-1 rounded text-sm border ${
-                                    busy[uid]
-                                      ? "opacity-50 cursor-not-allowed border-yellow-400 text-yellow-400"
-                                      : "border-yellow-400 text-yellow-400 hover:bg-yellow-500 hover:text-black"
-                                  }`}
-                                >
-                                  Verificar
-                                </button>
-                              </div>
+                              
                             </td>
                           </tr>
                         );
