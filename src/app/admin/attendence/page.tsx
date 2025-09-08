@@ -88,10 +88,30 @@ export default function AdminAttendance() {
       }
       (by[key] ||= []).push(a);
     }
-    // ordenar clave descendente
-    const ordered = Object.entries(by).sort(([a], [b]) => (a < b ? 1 : -1));
+
+    // Obtener la fecha actual en el mismo formato que la clave
+    const today = new Date();
+    let todayKey: string;
+    if (mode === "day") {
+      todayKey = today.toLocaleDateString("es-PE", { year: "numeric", month: "2-digit", day: "2-digit" });
+    } else if (mode === "month") {
+      todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+    } else {
+      todayKey = `${today.getFullYear()}`;
+    }
+
+    // Ordenar clave descendente, asegurándose de que la fecha actual esté primero si existe
+    const ordered = Object.entries(by).sort(([a], [b]) => {
+      if (a === todayKey) return -1; // Poner la fecha actual primero
+      if (b === todayKey) return 1;
+      if (a < b) return 1; // Orden descendente para las demás fechas
+      if (a > b) return -1;
+      return 0;
+    });
+
     return ordered;
   }, [attendees, mode]);
+
 
   // ---- util format ----
   const fmtH = (ms: number) => {
