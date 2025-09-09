@@ -41,30 +41,35 @@ const clientSchema = z.object({
 
 // GET /api/clients - lista de clientes
 export async function GET(request: NextRequest) {
-  console.log("⏳ Iniciando GET /api/clients...");
-
-  // Verifica rol admin
-  const token = await getToken({
-    req: request,
-    secret: process.env.NEXTAUTH_SECRET,
-  });
+  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
   if (!token || token.role !== "admin") {
     return NextResponse.json({ message: "No autorizado" }, { status: 401 });
   }
 
   try {
     const clients = await prisma.clientProfile.findMany({
-    
       orderBy: { profile_start_date: "desc" },
-      include: { user: true },
+      // 👇 SOLO columnas que ya existen en tu DB
+      select: {
+        profile_id: true,
+        user_id: true,
+        profile_first_name: true,
+        profile_last_name: true,
+        profile_plan: true,
+        profile_start_date: true,
+        profile_end_date: true,
+        profile_phone: true,
+        profile_emergency_phone: true,
+        profile_address: true,
+        profile_social: true,
+        user: { select: { id: true, role: true, username: true } },
+      },
     });
+
     return NextResponse.json(clients, { status: 200 });
   } catch (error) {
     console.error("Error GET /api/clients:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
 }
 

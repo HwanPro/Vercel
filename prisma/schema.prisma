@@ -54,14 +54,45 @@ model UserMembershipPlan {
   @@id([userId, membershipId])
 }
 
-model PaymentRecord {
-  payment_id     Int      @id @default(autoincrement())
-  payer_user_id  String
-  payment_amount Float
-  payment_method String
-  payment_date   DateTime @default(now())
-  payer_user     User     @relation("UserPayments", fields: [payer_user_id], references: [id])
+enum PaymentMethod {
+  CASH
+  CARD
+  TRANSFER
+  OTHER
 }
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+model PaymentRecord {
+  payment_id        Int            @id @default(autoincrement())
+  payer_user_id     String
+  payer_user        User           @relation("UserPayments", fields: [payer_user_id], references: [id])
+
+  // NUEVO: vínculo directo al cliente (si el pago es por un plan de cliente)
+  client_profile_id String?       
+  client_profile    ClientProfile? @relation(fields: [client_profile_id], references: [profile_id])
+
+  payment_amount    Decimal        @db.Decimal(10, 2)
+  payment_method    PaymentMethod  @default(CASH)
+  payment_status    PaymentStatus  @default(COMPLETED)
+  currency          String         @default("PEN")
+  note              String?
+  externalRef       String?        // p.ej. ID de transacción procesador
+
+  payment_date      DateTime       @default(now())
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([payer_user_id])
+  @@index([client_profile_id])
+  @@index([payment_date])
+}
+
 
 model UserContact {
   contact_id      Int      @id @default(autoincrement())
@@ -71,19 +102,38 @@ model UserContact {
   contact_user    User     @relation("UserContacts", fields: [contact_user_id], references: [id])
 }
 
+// En la parte superior, declara el enum:
+enum PromoPreset {
+  D30
+  D90
+  D180
+  D365
+  CUSTOM
+}
+
 model ClientProfile {
+  profile_id              String    @id @default(cuid())
+  user_id                 String    @unique
+  user                    User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
   profile_plan            String?
   profile_start_date      DateTime?
   profile_end_date        DateTime?
   profile_emergency_phone String?
   profile_phone           String?
-  user_id                 String    @unique
-  profile_id              String    @id @default(cuid())
   profile_address         String?   @default("")
   profile_social          String?   @default("")
   profile_first_name      String?
   profile_last_name       String?
-  user                    User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  // NUEVOS CAMPOS:
+  debt            Decimal   @db.Decimal(10, 2) @default(0)
+  promoPreset     PromoPreset?
+  promoTotalDays  Int?
+  promoUsedDays   Int?
+
+  // Relación con pagos (si quieres enlazar pagos al perfil)
+  payments        PaymentRecord[]
 }
 
 model InventoryItem {

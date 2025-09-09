@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import "sweetalert2/dist/sweetalert2.min.css";
 
@@ -14,8 +15,24 @@ function vibrate(ms = 120) {
   try { if (navigator.vibrate) navigator.vibrate(ms); } catch {}
 }
 
+type IdentifyResult = {
+  ok: boolean;
+  match: boolean;
+  userId: string | null;
+  name?: string;
+};
+
+type RegisterResult = {
+  ok: boolean;
+  action: "checkin" | "checkout" | "already_open";
+  fullName?: string;
+  minutesOpen?: number;
+};
+
 export default function CheckInPage() {
   const [loading, setLoading] = useState(false);
+  const scanningRef = useRef(false);   // evita loops dobles
+  const abortRef = useRef<AbortController | null>(null);
 
   const askPhone = async (title: string): Promise<string | null> => {
     const { value, isConfirmed } = await Swal.fire({
@@ -39,10 +56,10 @@ export default function CheckInPage() {
     return isConfirmed ? String(value).replace(/\D/g, "").slice(0, 9) : null;
   };
 
-  const identifyOnce = async () => {
+  const identifyOnce = async (): Promise<IdentifyResult> => {
     const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), 20000);
-
+    abortRef.current = controller;
+    const t = setTimeout(() => controller.abort(), 15000);
     try {
       const r = await fetch("/api/biometric/identify", {
         method: "POST",
@@ -53,131 +70,170 @@ export default function CheckInPage() {
       });
       const j = await r.json().catch(() => ({}));
       clearTimeout(t);
-
-      if (!r.ok) throw new Error(j?.message || "No se pudo identificar");
-
       return {
-        ok: Boolean(j?.ok ?? true),
+        ok: r.ok,
         match: Boolean(j?.match),
         userId: j?.userId ?? j?.user_id ?? null,
-        name: j?.name ?? undefined,
+        name: j?.fullName ?? j?.name, // intentar nombre completo
       };
-    } catch (err: any) {
+    } catch {
       clearTimeout(t);
-      return { ok: false, match: false, userId: null as any };
+      return { ok: false, match: false, userId: null };
     }
   };
 
-  const register = async (payload: { userId?: string; phone?: string }) => {
+  const register = async (payload: { userId?: string; phone?: string; intent?: "checkout" }) => {
     const r = await fetch("/api/check-in", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const j = await r.json();
-    if (!r.ok) throw new Error(j?.message || "No se pudo registrar la asistencia");
-    return j as { ok: boolean; action: "checkin" | "checkout" | "already_open"; fullName?: string; minutesOpen?: number };
+    const j = (await r.json().catch(() => ({}))) as RegisterResult;
+    if (!r.ok) throw new Error((j as any)?.message || "No se pudo registrar la asistencia");
+    return j;
   };
 
-  const startFlow = async () => {
+  // Bucle de escaneo automático: intenta hasta reconocer, sin botón
+  const startAutoScan = async () => {
+    if (scanningRef.current) return;
+    scanningRef.current = true;
     setLoading(true);
 
-    Swal.fire({
+    await Swal.fire({
       ...swalBase,
-      title: "Identificando...",
-      allowOutsideClick: false,
+      title: "Coloca tu dedo en el lector",
+      html: `<div style="opacity:.85">Escuchando huella…</div>`,
+      allowOutsideClick: true,
       showConfirmButton: false,
       didOpen: () => Swal.showLoading(),
     });
 
-    // 3 intentos con huella
-    let result: Awaited<ReturnType<typeof identifyOnce>> | null = null;
-    for (let i = 1; i <= 3; i++) {
-      // pequeño hint visual entre intentos
-      result = await identifyOnce();
-      if (result.match && result.userId) break;
-      if (i < 3) {
-        await Swal.update({ title: `No reconocido (${i}/3) · coloca el dedo otra vez` });
-      }
+    let matched: IdentifyResult | null = null;
+
+    while (scanningRef.current) {
+      const res = await identifyOnce();
+      if (res.match && res.userId) { matched = res; break; }
+      // pequeño respiro para no saturar
+      await new Promise(r => setTimeout(r, 900));
     }
 
     Swal.close();
 
     try {
-      if (result?.match && result.userId) {
-        // Registrar por userId
-        const data = await register({ userId: result.userId });
+      if (matched?.match && matched.userId) {
+        const data = await register({ userId: matched.userId });
         vibrate(200);
-
+        const name = (data.fullName || matched.name || "").trim();
         if (data.action === "checkin") {
-          await Swal.fire({ ...swalBase, icon: "success", title: `¡Bienvenido${result.name ? ", "+result.name : ""}!`, text: "Entrada registrada." });
+          await Swal.fire({ ...swalBase, icon: "success", title: `¡Bienvenido${name ? ", "+name : ""}!`, text: "Entrada registrada." });
         } else if (data.action === "checkout") {
-          await Swal.fire({ ...swalBase, icon: "success", title: "¡Hasta la próxima!", text: "Salida registrada." });
+          await Swal.fire({ ...swalBase, icon: "success", title: `¡Hasta la próxima${name ? ", "+name : ""}!`, text: "Salida registrada." });
         } else {
-          await Swal.fire({
-            ...swalBase,
-            icon: "info",
-            title: "Asistencia en curso",
-            text: "Vuelve más tarde para marcar tu salida.",
-          });
+          await Swal.fire({ ...swalBase, icon: "info", title: `Asistencia en curso${name ? " de " + name : ""}`, text: "Vuelve más tarde para marcar tu salida." });
         }
-        return;
-      }
-
-      // Fallback por teléfono
-      const phone = await askPhone("No te reconocimos. Registra por teléfono");
-      if (!phone) return;
-      const data = await register({ phone });
-      vibrate(200);
-
-      if (data.action === "checkin") {
-        await Swal.fire({ ...swalBase, icon: "success", title: "¡Bienvenido!", text: "Entrada registrada." });
-      } else if (data.action === "checkout") {
-        await Swal.fire({ ...swalBase, icon: "success", title: "¡Hasta la próxima!", text: "Salida registrada." });
       } else {
-        await Swal.fire({ ...swalBase, icon: "info", title: "Asistencia en curso", text: "Vuelve más tarde para marcar salida." });
+        // Fallback por teléfono si no hubo match
+        const phone = await askPhone("No te reconocimos. Registra por teléfono");
+        if (!phone) return;
+        const data = await register({ phone });
+        vibrate(200);
+        await Swal.fire({
+          ...swalBase,
+          icon: "success",
+          title: data.action === "checkout" ? "¡Hasta la próxima!" : "¡Bienvenido!",
+          text: data.action === "checkout" ? "Salida registrada." : "Entrada registrada.",
+        });
       }
     } catch (e: any) {
       vibrate(60);
       await Swal.fire({ ...swalBase, icon: "error", title: "No se pudo registrar la asistencia", text: e?.message || "Inténtalo de nuevo." });
     } finally {
       setLoading(false);
+      scanningRef.current = false;
+      abortRef.current?.abort();
     }
   };
 
+  // Botón de salida explícito (no depende del toggle)
+  const forceCheckout = async () => {
+    setLoading(true);
+    try {
+      const modal = await Swal.fire({
+        ...swalBase,
+        title: "Identificando para registrar salida…",
+        allowOutsideClick: true,
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading(),
+      });
+
+      const res = await identifyOnce();
+      Swal.close();
+
+      if (!(res.match && res.userId)) {
+        const p = await askPhone("No te reconocimos. Salida por teléfono");
+        if (!p) return;
+        const data = await register({ phone: p, intent: "checkout" });
+        vibrate(200);
+        await Swal.fire({ ...swalBase, icon: "success", title: "¡Hasta la próxima!", text: "Salida registrada." });
+        return;
+      }
+
+      const data = await register({ userId: res.userId, intent: "checkout" });
+      vibrate(200);
+      const name = (data.fullName || res.name || "").trim();
+      await Swal.fire({ ...swalBase, icon: "success", title: `¡Hasta la próxima${name ? ", "+name : ""}!`, text: "Salida registrada." });
+    } catch (e: any) {
+      await Swal.fire({ ...swalBase, icon: "error", title: "No se pudo registrar la salida", text: e?.message || "Inténtalo de nuevo." });
+    } finally {
+      setLoading(false);
+      abortRef.current?.abort();
+    }
+  };
+
+  // Arranca el autoescaneo al montar (sin botón)
+  useEffect(() => {
+    startAutoScan();
+    return () => {
+      scanningRef.current = false;
+      abortRef.current?.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-6">
-      <h2 className="text-2xl font-bold text-yellow-400 mb-4">Registro de Asistencia</h2>
-      <p className="text-gray-300 mb-6 text-center">
-        Primero probaremos con tu <b>huella</b>. Si falla, podrás usar tu <b>teléfono</b>.
+    <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-6 gap-4">
+      <div className="flex flex-col md:flex-row items-center justify-between w-full max-w-3xl mb-2 gap-4">
+        <h1 className="text-2xl md:text-3xl font-bold text-yellow-400">Registro de Asistencia</h1>
+        <Link href="/admin/dashboard" className="bg-yellow-400 text-black px-4 py-2 rounded hover:bg-yellow-500 w-full md:w-auto text-center">
+          Volver al Dashboard
+        </Link>
+      </div>
+
+      <p className="text-gray-300 text-center max-w-2xl">
+        Reconocimiento <b>automático por huella</b>. Si no te reconoce, podrás usar tu <b>teléfono</b>.
       </p>
 
+      {/* Botón oculto: respaldo manual si algo falla */}
       <button
-        onClick={startFlow}
-        className="bg-yellow-400 text-black px-6 py-3 rounded-lg font-semibold hover:bg-yellow-500 disabled:opacity-60"
+        onClick={startAutoScan}
+        className="bg-yellow-400 text-black px-6 py-3 rounded-lg font-semibold hover:bg-yellow-500 disabled:opacity-60 hidden"
         disabled={loading}
+        aria-hidden
       >
-        {loading ? "Leyendo huella..." : "Registrar con Huella"}
+        Reintentar huella
       </button>
 
-      <p className="text-gray-400 mt-4 text-sm">
-        ¿Problemas con el lector?{" "}
-        <span
-          className="text-yellow-400 underline cursor-pointer"
-          onClick={async () => {
-            const p = await askPhone("Registra por teléfono");
-            if (!p) return;
-            try {
-              const data = await register({ phone: p });
-              vibrate(200);
-              await Swal.fire({ ...swalBase, icon: "success", title: data.action === "checkout" ? "¡Hasta la próxima!" : "¡Bienvenido!", text: data.action === "checkout" ? "Salida registrada." : "Entrada registrada." });
-            } catch (e:any) {
-              await Swal.fire({ ...swalBase, icon: "error", title: "No se pudo registrar la asistencia", text: e?.message || "Inténtalo de nuevo." });
-            }
-          }}
-        >
-          usar teléfono
-        </span>
+      {/* Botón visible de salida explícita */}
+      <button
+        onClick={forceCheckout}
+        className="bg-transparent border border-yellow-400 text-yellow-400 px-6 py-3 rounded-lg font-semibold hover:bg-yellow-500 hover:text-black disabled:opacity-60"
+        disabled={loading}
+      >
+        Registrar salida
+      </button>
+
+      <p className="text-gray-500 text-xs mt-2">
+        Consejo: mantén el dedo firme ~1s. Si no responde, toca “Registrar salida” o usa teléfono desde el aviso.
       </p>
     </div>
   );

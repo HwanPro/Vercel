@@ -114,11 +114,7 @@ export default function ClientsPage() {
             : null;
 
           // ← intenta tomar user id de varias formas (mejor si el backend manda `user_id`)
-          const userId: string =
-            c.user_id ||
-            c.user?.id ||
-            c.profile_user_id || // por si tu API lo trae así
-            c.profile_id; // fallback (no ideal)
+          const userId: string = c.user_id; // 👈 único ID para biometría
 
           return {
             id: c.profile_id,
@@ -135,7 +131,7 @@ export default function ClientsPage() {
               : "",
             phone: c.profile_phone || "",
             emergencyPhone: c.profile_emergency_phone || "",
-            prodfile_adress: c.profile_adress || "",
+            prodfile_adress: c.profile_address || "", // 👈 no 'profile_adress'
             profile_social: c.profile_social || "",
             hasPaid: false,
           };
@@ -153,9 +149,11 @@ export default function ClientsPage() {
 
     fetchClients();
   }, []);
+  const ENABLE_AUTO_STATUS = false;
 
   // ---- estado de huellas por cliente (userId) ----
   useEffect(() => {
+    if (!ENABLE_AUTO_STATUS) return;
     const hydrate = async () => {
       const entries = await Promise.allSettled(
         clients.map(async (c) => {
@@ -425,42 +423,45 @@ export default function ClientsPage() {
                 Añadir Cliente
               </Button>
             </DialogTrigger>
-            <DialogContent className="bg-white p-6 rounded-lg shadow-lg max-w-md mx-auto">
-              <DialogTitle className="text-black text-lg font-bold mb-4">
+            <DialogContent className="w-[calc(100vw-2rem)] max-w-xl sm:max-w-2xl max-h-[90vh] overflow-y-auto p-0">
+              <DialogTitle className="sr-only">...</DialogTitle>
+              <div className="p-4">
                 Registrar Nuevo Cliente
-              </DialogTitle>
-              <AddClientDialog
-                onSave={(newClient) => {
-                  const clientWithId: Client = {
-                    id:
-                      globalThis.crypto?.randomUUID?.() ??
-                      Math.random().toString(36).slice(2, 11),
-                    userId:
-                      (newClient as any)?.userId ??
-                      (newClient as any)?.id ??
-                      "",
+                <AddClientDialog
+                  onSave={(newClient) => {
+                    const clientWithId: Client = {
+                      id:
+                        globalThis.crypto?.randomUUID?.() ??
+                        Math.random().toString(36).slice(2, 11),
+                      userId:
+                        (newClient as any)?.userId ??
+                        (newClient as any)?.id ??
+                        "",
 
-                    userName: (newClient as any)?.userName ?? "",
-                    firstName: (newClient as any)?.firstName ?? "Sin nombre",
-                    lastName: (newClient as any)?.lastName ?? "Sin apellido",
+                      userName: (newClient as any)?.userName ?? "",
+                      firstName: (newClient as any)?.firstName ?? "Sin nombre",
+                      lastName: (newClient as any)?.lastName ?? "Sin apellido",
 
-                    // 👇 ojo: 'plan' en minúscula
-                    plan: (newClient as any)?.plan ?? "Sin plan",
-                    membershipStart: (newClient as any)?.membershipStart ?? "",
-                    membershipEnd: (newClient as any)?.membershipEnd ?? "",
+                      // 👇 ojo: 'plan' en minúscula
+                      plan: (newClient as any)?.plan ?? "Sin plan",
+                      membershipStart:
+                        (newClient as any)?.membershipStart ?? "",
+                      membershipEnd: (newClient as any)?.membershipEnd ?? "",
 
-                    phone: (newClient as any)?.phone ?? "",
-                    emergencyPhone: (newClient as any)?.emergencyPhone ?? "",
-                    prodfile_adress: (newClient as any)?.prodfile_adress ?? "",
-                    profile_social: (newClient as any)?.profile_social ?? "",
-                    hasPaid: (newClient as any)?.hasPaid ?? false,
-                  };
+                      phone: (newClient as any)?.phone ?? "",
+                      emergencyPhone: (newClient as any)?.emergencyPhone ?? "",
+                      prodfile_adress:
+                        (newClient as any)?.prodfile_adress ?? "",
+                      profile_social: (newClient as any)?.profile_social ?? "",
+                      hasPaid: (newClient as any)?.hasPaid ?? false,
+                    };
 
-                  setClients((prev) => [...prev, clientWithId]);
-                  setFilteredClients((prev) => [...prev, clientWithId]);
-                  toast.success("Cliente agregado con éxito.");
-                }}
-              />
+                    setClients((prev) => [...prev, clientWithId]);
+                    setFilteredClients((prev) => [...prev, clientWithId]);
+                    toast.success("Cliente agregado con éxito.");
+                  }}
+                />
+              </div>
             </DialogContent>
           </Dialog>
         </div>
