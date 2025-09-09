@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const clients = await prisma.clientProfile.findMany({
-      take: 10,
+    
       orderBy: { profile_start_date: "desc" },
       include: { user: true },
     });
