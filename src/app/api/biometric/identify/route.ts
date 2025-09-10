@@ -55,9 +55,23 @@ export async function POST() {
       );
     }
 
-    // 4) registrar asistencia (si no existe hoy)
+    // 4) Obtener información del usuario y registrar asistencia
     const userId = idData.user_id as string;
+    
+    // Obtener información del usuario para el saludo
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        username: true,
+      },
+    });
 
+    const fullName = user ? `${user.firstName} ${user.lastName}`.trim() : null;
+
+    // 5) Registrar asistencia (si no existe hoy)
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date();
@@ -73,15 +87,17 @@ export async function POST() {
       });
     }
 
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-
     return NextResponse.json(
       {
         ok: true,
         match: true,
         userId,
-        name: user ? `${user.firstName} ${user.lastName}` : null,
-        message: "Asistencia registrada por huella",
+        user_id: userId, // Compatibilidad
+        fullName,
+        name: fullName, // Compatibilidad
+        score: idData?.score,
+        threshold: idData?.threshold,
+        message: "Usuario identificado",
       },
       { status: 200 }
     );

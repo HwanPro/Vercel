@@ -186,6 +186,7 @@ export default function AddClientDialog({
 
       const result = await response.json();
       const tempPassword = result.tempPassword || password;
+      const apiUserId: string | undefined = result?.clientProfile?.user_id;
 
       const cred: Cred = { username, password: tempPassword, phone: phone! };
 
@@ -201,6 +202,7 @@ export default function AddClientDialog({
         ...newClientData,
         userName: username,
         password: tempPassword,
+        ...(apiUserId ? { userId: apiUserId } : {}), // ← IMPORTANTE
       });
     } catch (err) {
       console.error("Error al guardar cliente:", err);

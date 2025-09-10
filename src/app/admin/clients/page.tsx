@@ -198,7 +198,12 @@ export default function ClientsPage() {
   };
 
   const registerFingerprint = async (userId: string) => {
-    if (busy[userId]) return;
+    if (!userId) {
+      toast.error(
+        "Este cliente no tiene userId válido. Actualiza la lista o recarga la página."
+      );
+      return;
+    }
     setBusy((b) => ({ ...b, [userId]: true }));
 
     try {
@@ -302,7 +307,10 @@ export default function ClientsPage() {
   };
 
   const verifyFingerprint = async (userId: string) => {
-    if (busy[userId]) return;
+    if (!userId) {
+      toast.error("Este cliente no tiene userId válido.");
+      return;
+    }
     setBusy((b) => ({ ...b, [userId]: true }));
     try {
       await Swal.fire({

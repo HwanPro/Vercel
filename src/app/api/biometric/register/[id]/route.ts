@@ -10,9 +10,10 @@ export async function POST(
 ) {
   try {
     const id = params?.id;
-    if (!id) {
+    if (!id || id.length < 10) {
+      // cuid: ~25 chars
       return NextResponse.json(
-        { ok: false, message: "Falta id de usuario" },
+        { ok: false, message: "userId inválido" },
         { status: 400 }
       );
     }

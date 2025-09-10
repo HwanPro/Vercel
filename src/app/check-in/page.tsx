@@ -74,11 +74,86 @@ export default function CheckInPage() {
         ok: r.ok,
         match: Boolean(j?.match),
         userId: j?.userId ?? j?.user_id ?? null,
-        name: j?.fullName ?? j?.name, // intentar nombre completo
+        name: j?.fullName ?? j?.name, // Buscar fullName primero
       };
     } catch {
       clearTimeout(t);
       return { ok: false, match: false, userId: null };
+    }
+  };
+
+  const registerAttendance = async (userId: string): Promise<RegisterResult> => {
+    try {
+      const r = await fetch("/api/check-in", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+        cache: "no-store",
+      });
+      const j = await r.json().catch(() => ({}));
+      
+      return {
+        ok: r.ok,
+        action: j?.type || "checkin",
+        fullName: j?.fullName || j?.name,
+        minutesOpen: j?.record?.durationMins,
+      };
+    } catch {
+      return { ok: false, action: "checkin" };
+    }
+  };
+
+  const startScanning = async () => {
+    if (scanningRef.current) return;
+    scanningRef.current = true;
+    setLoading(true);
+
+    try {
+      while (scanningRef.current) {
+        const result = await identifyOnce();
+        
+        if (result.match && result.userId) {
+          // Match encontrado - registrar asistencia
+          const attendance = await registerAttendance(result.userId);
+          
+          if (attendance.ok) {
+            const greeting = attendance.fullName 
+              ? `¡Hola ${attendance.fullName}!`
+              : "¡Bienvenido!";
+            
+            const actionText = attendance.action === "checkout" 
+              ? `Salida registrada (${attendance.minutesOpen} min)`
+              : "Entrada registrada";
+            
+            await Swal.fire({
+              ...swalBase,
+              title: greeting,
+              text: actionText,
+              icon: "success",
+              timer: 2000,
+              showConfirmButton: false,
+            });
+          } else {
+            await Swal.fire({
+              ...swalBase,
+              title: "Error",
+              text: "No se pudo registrar la asistencia",
+              icon: "error",
+              timer: 2000,
+              showConfirmButton: false,
+            });
+          }
+          
+          // Pausa después del registro
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        } else {
+          // No match - continuar loop
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+    } finally {
+      setLoading(false);
+      scanningRef.current = false;
     }
   };
 

@@ -41,7 +41,10 @@ const clientSchema = z.object({
 
 // GET /api/clients - lista de clientes
 export async function GET(request: NextRequest) {
-  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+  const token = await getToken({
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET,
+  });
   if (!token || token.role !== "admin") {
     return NextResponse.json({ message: "No autorizado" }, { status: 401 });
   }
@@ -69,7 +72,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(clients, { status: 200 });
   } catch (error) {
     console.error("Error GET /api/clients:", error);
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 }
+    );
   }
 }
 
@@ -159,15 +165,23 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 }
     );
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof ZodError) {
-      console.log("Zod error details:", error.errors);
       return NextResponse.json(
         { error: "Datos inválidos", details: error.errors },
         { status: 400 }
       );
     }
-
+    // Prisma unique constraint
+    if (error.code === "P2002") {
+      const fields = (error.meta?.target as string[]) ?? [];
+      const msg = fields.includes("username")
+        ? "El usuario ya está registrado"
+        : fields.includes("phoneNumber")
+          ? "El teléfono ya está registrado"
+          : "Registro duplicado";
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
     console.error("❌ Error al crear cliente:", error);
     return NextResponse.json(
       { error: "Error interno del servidor" },
