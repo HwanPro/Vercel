@@ -29,3 +29,6 @@ public/uploads/*
 !public/uploads/.gitkeep
 Tarea.md
 REPORTE-PRUEBAS-CORREO.md
+
+# Python Services (separate repository)
+python-services/
