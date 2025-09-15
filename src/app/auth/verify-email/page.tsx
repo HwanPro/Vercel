@@ -20,14 +20,13 @@ export default function VerifyEmailClient() {
       setError("Falta el token de verificación.");
       return;
     }
-
     setIsVerifying(true);
     try {
       const response = await fetch("/api/auth/verify-email", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token }),
-        cache: "no-store", // 👈 evita cache
+        cache: "no-store", // evita caché en verificación
       });
 
       const data = await response.json().catch(() => ({}));
