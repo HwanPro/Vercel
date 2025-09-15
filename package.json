@@ -6,7 +6,7 @@
     "dev": "next dev -p 3000",
     "build": "prisma migrate deploy && prisma generate && next build",
     "start": "next start -p 3000",
-    "lint": "eslint .",
+    "lint": "next lint",
     "postinstall": "prisma generate",
     "kiosk": "cross-env NEXT_PUBLIC_KIOSK=1 NEXT_PUBLIC_BIOMETRIC_BASE=http://127.0.0.1:8001 next start -p 3000",
     "service:install": "node ./service-install.cjs",
