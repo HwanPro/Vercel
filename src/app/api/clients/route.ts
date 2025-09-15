@@ -157,11 +157,13 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // src/app/api/clients/route.ts  (al final del POST)
     return NextResponse.json(
       {
         message: "Cliente registrado con éxito",
-        clientProfile,
-        tempPassword: generatedPassword, // Se retorna la contraseña en texto plano
+        tempPassword: generatedPassword,
+        userId: user.id, 
+        profileId: clientProfile.profile_id, 
       },
       { status: 201 }
     );

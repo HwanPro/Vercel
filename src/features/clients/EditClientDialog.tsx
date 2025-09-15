@@ -1,14 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogTrigger, DialogContent, DialogTitle } from "@/ui/dialog";
 import { Button } from "@/ui/button";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import MembershipSelection from "@/ui/components/MembershipSelection";
+import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
+import "react-phone-number-input/style.css";
+import Image from "next/image";
 
 interface Client {
   id: string;
+  userName: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -19,11 +23,15 @@ interface Client {
   emergencyPhone: string;
   address?: string;
   social?: string;
+  hasPaid: boolean;
+  password?: string;
+  debt?: number;
+  image?: string;
 }
 
 interface EditClientDialogProps {
   client: Client;
-  onUpdate: (updatedClient: Client) => void;
+  onUpdate: (updatedClient: Client) => Promise<void>;
 }
 
 export default function EditClientDialog({
@@ -32,6 +40,10 @@ export default function EditClientDialog({
 }: EditClientDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [formData, setFormData] = useState<Client>(client);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(client.image || null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setFormData(client);
@@ -46,6 +58,34 @@ export default function EditClientDialog({
     }));
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onload = () => setImagePreview(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadImage = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('folder', 'users');
+    
+    const response = await fetch('/api/uploads', {
+      method: 'POST',
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      throw new Error('Error uploading image');
+    }
+    
+    const data = await response.json();
+    return data.fileUrl;
+  };
+
   const formatDateToISO = (date: string) => {
     if (!date) return "";
     const parsedDate = new Date(date);
@@ -54,6 +94,25 @@ export default function EditClientDialog({
 
   const handleSave = async () => {
     try {
+      setUploading(true);
+      
+      // Validate phone numbers
+      if (formData.phone && !isValidPhoneNumber(formData.phone)) {
+        toast.error('El número de teléfono principal no es válido.');
+        return;
+      }
+      if (formData.emergencyPhone && !isValidPhoneNumber(formData.emergencyPhone)) {
+        toast.error('El número de emergencia no es válido.');
+        return;
+      }
+      
+      let imageUrl = formData.image;
+      
+      // Upload image if a new one was selected
+      if (imageFile) {
+        imageUrl = await uploadImage(imageFile);
+      }
+      
       const payload = {
         firstName: formData.firstName,
         lastName: formData.lastName,
@@ -64,6 +123,7 @@ export default function EditClientDialog({
         emergencyPhone: formData.emergencyPhone || "",
         address: formData.address || "",
         social: formData.social || "",
+        image: imageUrl,
       };
 
       const response = await fetch(`/api/clients/${formData.id}`, {
@@ -77,11 +137,14 @@ export default function EditClientDialog({
         throw new Error(errorText || "Error al actualizar el cliente");
       }
 
-      onUpdate({ ...formData });
+      await onUpdate({ ...formData, image: imageUrl });
       setIsOpen(false);
+      toast.success('Cliente actualizado exitosamente');
     } catch (error) {
       console.error("Error al actualizar cliente:", error);
-      toast.error("No se pudo actualizar el cliente.");
+      toast.error(error instanceof Error ? error.message : "No se pudo actualizar el cliente.");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -105,6 +168,39 @@ export default function EditClientDialog({
         </DialogTitle>
 
         <div className="space-y-4 mt-4">
+          {/* Profile Image */}
+          <div>
+            <label className="text-gray-600 text-sm">Foto de Perfil</label>
+            <div className="flex items-center space-x-4">
+              {imagePreview && (
+                <Image
+                  src={imagePreview}
+                  alt="Profile preview"
+                  width={64}
+                  height={64}
+                  className="w-16 h-16 rounded-full object-cover"
+                />
+              )}
+              <div>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleImageChange}
+                  accept="image/*"
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  variant="outline"
+                  className="text-sm"
+                >
+                  {imagePreview ? 'Cambiar Foto' : 'Subir Foto'}
+                </Button>
+              </div>
+            </div>
+          </div>
+
           {/* Nombre */}
           <div>
             <label className="text-gray-600 text-sm">Nombre</label>
@@ -145,11 +241,10 @@ export default function EditClientDialog({
           {/* Teléfono Principal */}
           <div>
             <label className="text-gray-600 text-sm">Teléfono</label>
-            <input
-              type="text"
-              name="phone"
+            <PhoneInput
               value={formData.phone}
-              onChange={handleChange}
+              onChange={(value) => setFormData(prev => ({ ...prev, phone: value || '' }))}
+              defaultCountry="PE"
               className="border p-2 w-full"
             />
           </div>
@@ -159,11 +254,10 @@ export default function EditClientDialog({
             <label className="text-gray-600 text-sm">
               Teléfono de Emergencia
             </label>
-            <input
-              type="text"
-              name="emergencyPhone"
+            <PhoneInput
               value={formData.emergencyPhone}
-              onChange={handleChange}
+              onChange={(value) => setFormData(prev => ({ ...prev, emergencyPhone: value || '' }))}
+              defaultCountry="PE"
               className="border p-2 w-full"
             />
           </div>
@@ -249,9 +343,10 @@ export default function EditClientDialog({
           </Button>
           <Button
             onClick={handleSave}
+            disabled={uploading}
             className="bg-yellow-400 hover:bg-yellow-500 text-black"
           >
-            Guardar Cambios
+            {uploading ? 'Guardando...' : 'Guardar Cambios'}
           </Button>
         </div>
       </DialogContent>

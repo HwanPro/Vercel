@@ -27,3 +27,5 @@ prisma/dev.db-journal
 # Uploads locales (si no quieres versionarlas)
 public/uploads/*
 !public/uploads/.gitkeep
+Tarea.md
+REPORTE-PRUEBAS-CORREO.md

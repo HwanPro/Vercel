@@ -30,6 +30,7 @@ model User {
   contacts     UserContact[]        @relation("UserContacts")
   memberships  UserMembershipPlan[]
   fingerprints Fingerprint?
+  emailVerification EmailVerification?
 
   @@map("users")
 }
@@ -229,12 +230,25 @@ model Gallery {
 }
 
 model Fingerprint {
+  id       String @id @default(cuid())
+  user_id  String @unique
+  template Bytes
+  user     User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("fingerprints")
+}
+
+model EmailVerification {
   id        String   @id @default(cuid())
   userId    String   @unique
-  template  Bytes
+  email     String
+  code      String
+  token     String
+  verified  Boolean  @default(false)
+  expiresAt DateTime
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("fingerprints")
+  @@map("email_verifications")
 }

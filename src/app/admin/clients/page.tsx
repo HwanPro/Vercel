@@ -3,7 +3,17 @@
 
 import ConfirmDialog from "@/ui/components/ConfirmDialog";
 import { useEffect, useMemo, useState } from "react";
+import useSWR from "swr";
 import { Button } from "@/ui/button";
+
+type ClientResponse = {
+  tempPassword?: string;
+  clientProfile?: {
+    user_id: string;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+};
 import {
   Table,
   TableHeader,
@@ -20,6 +30,23 @@ import "react-toastify/dist/ReactToastify.css";
 import EditClientDialog from "@/features/clients/EditClientDialog";
 import Swal from "sweetalert2";
 import "sweetalert2/dist/sweetalert2.min.css";
+
+// Type definitions
+type BiometricResponse = {
+  ok: boolean;
+  message?: string;
+  template?: string;
+  hasFingerprint?: boolean;
+  match?: boolean;
+  score?: number;
+  threshold?: number;
+};
+
+interface SwalBase {
+  background: string;
+  color: string;
+  confirmButtonColor: string;
+}
 
 interface Client {
   id: string; // id de perfil (UI)
@@ -39,21 +66,86 @@ interface Client {
 }
 
 export default function ClientsPage() {
-  const [clients, setClients] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
+  // Define API response types
+  interface ApiClient {
+    profile_id: string;
+    user_id: string;
+    user?: {
+      role?: string;
+    };
+    profile_username?: string;
+    profile_first_name?: string;
+    profile_last_name?: string;
+    profile_plan?: string;
+    profile_start_date?: string;
+    profile_end_date?: string;
+    profile_phone?: string;
+    profile_emergency_phone?: string;
+    profile_address?: string;
+    profile_social?: string;
+  }
+
+  const { data: clientsData = [], mutate } = useSWR<Client[]>('/api/clients', 
+    async (url) => {
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) throw new Error('Error al cargar clientes');
+      const data: ApiClient[] = await res.json();
+      return data.filter(client => client?.user?.role !== 'admin').map((c: ApiClient) => ({
+        id: c.profile_id,
+        userId: c.user_id,
+        userName: c.profile_username || '',
+        firstName: c.profile_first_name || 'Sin nombre',
+        lastName: c.profile_last_name || 'Sin apellido',
+        plan: c.profile_plan || 'Sin plan',
+        membershipStart: c.profile_start_date ? new Date(c.profile_start_date).toISOString().split('T')[0] : '',
+        membershipEnd: c.profile_end_date ? new Date(c.profile_end_date).toISOString().split('T')[0] : '',
+        phone: c.profile_phone || '',
+        emergencyPhone: c.profile_emergency_phone || '',
+        prodfile_adress: c.profile_address || '',
+        profile_social: c.profile_social || '',
+        hasPaid: false
+      }));
+    },
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false
+    }
+  );
+
+  // State management
   const [filteredClients, setFilteredClients] = useState<Client[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<string | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [isPageLoading, setIsPageLoading] = useState(false);
+  const [busy, setBusy] = useState<Record<string, boolean>>({});
+  const [fpStatus, setFpStatus] = useState<Record<string, boolean>>({});
+  
+  // Use clientsData directly from SWR instead of local state
+  const clients = clientsData;
+
+  // Define Client type for the new client data
+  interface NewClientData extends Omit<Client, 'id' | 'userId' | 'userName' | 'firstName' | 'lastName' | 'plan' | 'membershipStart' | 'membershipEnd' | 'phone' | 'emergencyPhone' | 'prodfile_adress' | 'profile_social' | 'hasPaid'> {
+    userId?: string;
+    userName?: string;
+    firstName?: string;
+    lastName?: string;
+    plan?: string;
+    membershipStart?: string;
+    membershipEnd?: string;
+    phone?: string;
+    emergencyPhone?: string;
+    prodfile_adress?: string;
+    profile_social?: string;
+    hasPaid?: boolean;
+  }
 
   const [pendingCredentials, setPendingCredentials] = useState<
     Array<{ username: string; password: string; phone: string }>
-  >([]);
+  >([])
 
-  const [busy, setBusy] = useState<Record<string, boolean>>({});
-  const [fpStatus, setFpStatus] = useState<Record<string, boolean>>({}); // userId -> hasFingerprint
-
-  const swalBase = useMemo(
+  const swalBase: SwalBase = useMemo(
     () => ({
       background: "#000",
       color: "#fff",
@@ -88,67 +180,19 @@ export default function ClientsPage() {
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
-  // ---- cargar clientes ----
+  // Actualizar clientes filtrados cuando cambia la búsqueda o la lista de clientes
   useEffect(() => {
-    const fetchClients = async () => {
-      try {
-        const response = await fetch("/api/clients", {
-          credentials: "include",
-        });
-        if (!response.ok) throw new Error("Error al obtener los clientes");
-
-        const data = await response.json();
-
-        // filtro: sacar admins
-        const onlyClients = data.filter(
-          (client: { user?: { role?: string } }) =>
-            client?.user?.role !== "admin"
-        );
-
-        const sanitized: Client[] = onlyClients.map((c: any) => {
-          const membershipStart = c.profile_start_date
-            ? new Date(c.profile_start_date)
-            : null;
-          const membershipEnd = c.profile_end_date
-            ? new Date(c.profile_end_date)
-            : null;
-
-          // ← intenta tomar user id de varias formas (mejor si el backend manda `user_id`)
-          const userId: string = c.user_id; // 👈 único ID para biometría
-
-          return {
-            id: c.profile_id,
-            userId,
-            userName: c.profile_username || "",
-            firstName: c.profile_first_name || "Sin nombre",
-            lastName: c.profile_last_name || "Sin apellido",
-            plan: c.profile_plan || "Sin plan",
-            membershipStart: membershipStart
-              ? membershipStart.toISOString().split("T")[0]
-              : "",
-            membershipEnd: membershipEnd
-              ? membershipEnd.toISOString().split("T")[0]
-              : "",
-            phone: c.profile_phone || "",
-            emergencyPhone: c.profile_emergency_phone || "",
-            prodfile_adress: c.profile_address || "", // 👈 no 'profile_adress'
-            profile_social: c.profile_social || "",
-            hasPaid: false,
-          };
-        });
-
-        setClients(sanitized);
-        setFilteredClients(sanitized);
-      } catch (error) {
-        console.error("Error al cargar clientes:", error);
-        toast.error("Error al cargar clientes. Inténtelo más tarde.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchClients();
-  }, []);
+    if (!clients || clients.length === 0) return;
+    
+    const q = searchQuery.trim().toLowerCase();
+    const filtered = q 
+      ? clients.filter(c => 
+          `${c.firstName || ''} ${c.lastName || ''} ${c.userName || ''} ${c.phone || ''}`.toLowerCase().includes(q)
+        )
+      : [...clients];
+      
+    setFilteredClients(filtered);
+  }, [searchQuery, clients]);
   const ENABLE_AUTO_STATUS = false;
 
   // ---- estado de huellas por cliente (userId) ----
@@ -176,26 +220,69 @@ export default function ClientsPage() {
       );
     };
     if (clients.length) hydrate();
-  }, [clients]);
+  }, [ENABLE_AUTO_STATUS, clients]);
 
-  // ---- búsqueda ----
-  useEffect(() => {
-    const q = searchQuery.trim().toLowerCase();
-    const filter = clients.filter((c) =>
-      `${c.firstName} ${c.lastName} ${c.userName}`.toLowerCase().includes(q)
-    );
-    setFilteredClients(filter);
-  }, [searchQuery, clients]);
+
+  // Manejar la adición de un nuevo cliente
+  // Handle add client function - used in the component
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleAddClient = useMemo(() => async (newClient: NewClientData): Promise<ClientResponse> => {
+    try {
+      const response = await fetch('/api/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(newClient)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Error al guardar el cliente');
+      }
+
+      const responseData = await response.json();
+      
+      // Actualizar la caché de SWR
+      await mutate();
+      
+      // Mostrar notificación de éxito
+      toast.success('Cliente registrado exitosamente');
+      
+      return responseData as ClientResponse;
+    } catch (error) {
+      console.error('Error al agregar cliente:', error);
+      toast.error(error instanceof Error ? error.message : 'Error al guardar el cliente');
+      throw error;
+    }
+  }, [mutate]);
 
   // ---- helpers biométricos ----
-  const captureOnce = async () => {
-    const r = await fetch("/api/biometric/capture", { method: "POST" });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok || !j?.ok || !j?.template) {
-      throw new Error(j?.message || "No se pudo capturar la huella");
+  const captureOnce = async (): Promise<string> => {
+    try {
+      const response = await fetch("/api/biometric/capture", { method: "POST" });
+      const data: BiometricResponse = await response.json().catch(() => ({ ok: false } as BiometricResponse));
+      
+      if (!response.ok || !data?.ok || !data?.template) {
+        throw new Error(data?.message || "No se pudo capturar la huella");
+      }
+      
+      if (typeof data.template !== 'string') {
+        throw new Error("Formato de plantilla de huella inválido");
+      }
+      
+      return data.template;
+    } catch (error) {
+      console.error("Error en captura de huella:", error);
+      throw error instanceof Error ? error : new Error("Error desconocido al capturar huella");
     }
-    return j.template as string;
   };
+
+  // Define RegisterFingerprintResponse type
+  interface RegisterFingerprintResponse {
+    ok: boolean;
+    message?: string;
+    template?: string;
+  }
 
   const registerFingerprint = async (userId: string) => {
     if (!userId) {
@@ -252,21 +339,23 @@ export default function ClientsPage() {
         try {
           const tpl = await captureOnce();
           templates.push(tpl);
-        } catch (e: any) {
-          return Swal.fire({
+          
+          await Swal.fire({
+            ...swalBase,
+            title: "Muestra capturada",
+            timer: 450,
+            showConfirmButton: false,
+          });
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : "No se pudo capturar";
+          await Swal.fire({
             ...swalBase,
             title: "Error en captura",
-            text: e?.message || "No se pudo capturar",
-            icon: "error",
+            text: errorMessage,
+            icon: "error" as const,
           });
+          return;
         }
-
-        await Swal.fire({
-          ...swalBase,
-          title: "Muestra capturada",
-          timer: 450,
-          showConfirmButton: false,
-        });
       }
 
       Swal.fire({
@@ -282,7 +371,7 @@ export default function ClientsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ templates }),
       });
-      const jr = await res.json().catch(() => ({}));
+      const jr: RegisterFingerprintResponse = await res.json().catch(() => ({ ok: false }));
 
       if (!res.ok || !jr?.ok) {
         return Swal.fire({
@@ -311,37 +400,34 @@ export default function ClientsPage() {
       toast.error("Este cliente no tiene userId válido.");
       return;
     }
+    
     setBusy((b) => ({ ...b, [userId]: true }));
+    
     try {
-      await Swal.fire({
-        ...swalBase,
-        title: "Coloca tu dedo en el lector",
-        text: "Manténlo hasta que termine la verificación",
-        icon: "info",
-        timer: 850,
-        showConfirmButton: false,
-      });
-
-      Swal.fire({
-        ...swalBase,
-        title: "Verificando huella…",
-        allowOutsideClick: false,
-        showConfirmButton: false,
-        didOpen: () => Swal.showLoading(),
-      });
-
-      const res = await fetch(`/api/biometric/verify/${userId}`, {
+      // Primero capturamos la huella
+      const template = await captureOnce();
+      
+      // Luego la verificamos
+      const response = await fetch(`/api/biometric/verify/${userId}`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ template })
       });
-      const data = await res.json().catch(() => ({}));
-
-      const isError =
-        data?.ok === false && typeof data?.score === "number" && data.score < 0;
-      const baseMsg = data?.message ?? "";
-      const extra = Number.isFinite(data?.score)
-        ? ` (score=${data.score}, thr=${data?.threshold ?? "?"})`
+      
+      const data = await response.json() as {
+        ok: boolean;
+        match?: boolean;
+        score?: number;
+        threshold?: number;
+        message?: string;
+      };
+      
+      const isError = data.ok === false && typeof data.score === 'number' && data.score < 0;
+      const baseMsg = data?.message || "";
+      const extra = Number.isFinite(data?.score) 
+        ? ` (score=${data.score}, thr=${data?.threshold ?? "?"})` 
         : "";
-
+      
       await Swal.fire({
         ...swalBase,
         title: data?.match
@@ -354,6 +440,12 @@ export default function ClientsPage() {
         timer: 1300,
         showConfirmButton: false,
       });
+      
+      return data;
+    } catch (error) {
+      console.error("Error en verificación de huella:", error);
+      toast.error("Error al verificar la huella. Intente nuevamente.");
+      throw error;
     } finally {
       setBusy((b) => ({ ...b, [userId]: false }));
     }
@@ -371,29 +463,28 @@ export default function ClientsPage() {
       return;
     }
     try {
+      setIsPageLoading(true);
       const response = await fetch(`/api/clients/${clientToDelete}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
       });
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Error al eliminar el cliente");
+        const errorData = await response.json() as { error?: string };
+        throw new Error(errorData?.error || "Error al eliminar el cliente");
       }
-      setClients((prev) => prev.filter((c) => c.id !== clientToDelete));
-      setFilteredClients((prev) => prev.filter((c) => c.id !== clientToDelete));
-      toast.success("Cliente eliminado con éxito.");
+      // Update SWR cache by refetching data
+      await mutate();
+      setFilteredClients(prev => prev.filter(c => c.id !== clientToDelete));
+      toast.success("Cliente eliminado con éxito");
     } catch (error) {
       console.error("Error al eliminar cliente:", error);
-      toast.error("Error al eliminar cliente. Inténtelo más tarde.");
+      toast.error(error instanceof Error ? error.message : "Error al eliminar el cliente");
     } finally {
+      setIsPageLoading(false);
       setShowConfirm(false);
       setClientToDelete(null);
     }
   };
-
-  if (loading) {
-    return <p className="text-center text-yellow-400">Cargando clientes...</p>;
-  }
 
   return (
     <div className="p-6 bg-black min-h-screen text-white">
@@ -436,36 +527,25 @@ export default function ClientsPage() {
               <div className="p-4">
                 Registrar Nuevo Cliente
                 <AddClientDialog
-                  onSave={(newClient) => {
-                    const clientWithId: Client = {
-                      id:
-                        globalThis.crypto?.randomUUID?.() ??
-                        Math.random().toString(36).slice(2, 11),
-                      userId:
-                        (newClient as any)?.userId ??
-                        (newClient as any)?.id ??
-                        "",
+                  onSave={async (newClient) => {
+                    // Use the handleAddClient function to save the client
+                    await handleAddClient({
+                      userId: newClient.userName, // Use userName as userId for compatibility
+                      userName: newClient.userName,
+                      firstName: newClient.firstName,
+                      lastName: newClient.lastName,
+                      plan: newClient.plan,
+                      membershipStart: newClient.membershipStart,
+                      membershipEnd: newClient.membershipEnd,
+                      phone: newClient.phone,
+                      emergencyPhone: newClient.emergencyPhone,
+                      prodfile_adress: (newClient as { address?: string }).address || "",
+                      profile_social: (newClient as { social?: string }).social || "",
+                      hasPaid: newClient.hasPaid,
+                    });
 
-                      userName: (newClient as any)?.userName ?? "",
-                      firstName: (newClient as any)?.firstName ?? "Sin nombre",
-                      lastName: (newClient as any)?.lastName ?? "Sin apellido",
-
-                      // 👇 ojo: 'plan' en minúscula
-                      plan: (newClient as any)?.plan ?? "Sin plan",
-                      membershipStart:
-                        (newClient as any)?.membershipStart ?? "",
-                      membershipEnd: (newClient as any)?.membershipEnd ?? "",
-
-                      phone: (newClient as any)?.phone ?? "",
-                      emergencyPhone: (newClient as any)?.emergencyPhone ?? "",
-                      prodfile_adress:
-                        (newClient as any)?.prodfile_adress ?? "",
-                      profile_social: (newClient as any)?.profile_social ?? "",
-                      hasPaid: (newClient as any)?.hasPaid ?? false,
-                    };
-
-                    setClients((prev) => [...prev, clientWithId]);
-                    setFilteredClients((prev) => [...prev, clientWithId]);
+                    // Update SWR cache by refetching data
+                    await mutate();
                     toast.success("Cliente agregado con éxito.");
                   }}
                 />
@@ -545,12 +625,9 @@ export default function ClientsPage() {
 
                         <EditClientDialog
                           client={{ ...client, email: client.userName }}
-                          onUpdate={(updated) => {
-                            setClients((prev) =>
-                              prev.map((c) =>
-                                c.id === updated.id ? { ...c, ...updated } : c
-                              )
-                            );
+                          onUpdate={async (updated) => {
+                            // Update SWR cache by refetching data
+                            await mutate();
                             setFilteredClients((prev) =>
                               prev.map((c) =>
                                 c.id === updated.id ? { ...c, ...updated } : c

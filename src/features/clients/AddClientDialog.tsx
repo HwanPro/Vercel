@@ -21,17 +21,28 @@ interface Client {
   social: string;
   hasPaid: boolean;
   password?: string;
-  // ⬇️ nuevo
   debt?: number; // S/. adeudado
+  username?: string; // Alias for userName for form compatibility
 }
 
 type Cred = { username: string; password: string; phone: string };
+
+interface ClientProfile {
+  user_id: string;
+  [key: string]: unknown;
+}
+
+interface ClientResponse {
+  tempPassword?: string;
+  clientProfile?: ClientProfile;
+  [key: string]: unknown;
+}
 
 export default function AddClientDialog({
   onSave,
   onCredentialsUpdate,
 }: {
-  onSave: (client: Omit<Client, "id">) => void;
+  onSave: (client: Omit<Client, "id">) => Promise<unknown> | void;
   onCredentialsUpdate?: (cred: Cred) => void;
 }) {
   // ---- estados base ----
@@ -150,7 +161,8 @@ export default function AddClientDialog({
     setGeneratedPassword(password);
 
     const newClientData = {
-      username, // 👈 esta
+      username,
+      userName: username, // Ensure both username and userName are set for compatibility
       firstName: name.trim(),
       lastName: lastName.trim(),
       plan: plan || "Mensual",
@@ -161,32 +173,17 @@ export default function AddClientDialog({
       address,
       social,
       hasPaid: debtValue === 0,
-      password, // el backend la ignora (ok)
-      debt: debtValue, // el backend hoy la ignora (no rompe)
+      password,
+      debt: debtValue,
     };
 
     try {
       setLoading(true);
-      const response = await fetch("/api/clients", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(newClientData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        setErrorMessage(
-          errorData.error ||
-            "No se pudo guardar el cliente. Intente nuevamente."
-        );
-        setLoading(false);
-        return;
-      }
-
-      const result = await response.json();
-      const tempPassword = result.tempPassword || password;
-      const apiUserId: string | undefined = result?.clientProfile?.user_id;
+      
+      // Usar la función handleAddClient del padre
+      const response = await onSave(newClientData) as ClientResponse;
+      const tempPassword = response?.tempPassword || password;
+      const apiUserId: string | undefined = response?.clientProfile?.user_id;
 
       const cred: Cred = { username, password: tempPassword, phone: phone! };
 

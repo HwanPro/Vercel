@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { v4 as uuidv4 } from "uuid";
 
 // Configuración del cliente S3
 const s3Client = new S3Client({
@@ -42,10 +41,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Get folder from form data or default to 'uploads'
+    const folder = data.get('folder') as string || 'uploads';
+
     // Convertir el archivo a buffer
     const buffer = Buffer.from(await file.arrayBuffer());
-    const today = new Date();
-    const fileKey = `uploads/${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()}/${uuidv4()}-${file.name}`;
+
+    // Generar nombre único para el archivo
+    const fileExtension = file.name.split(".").pop();
+    const fileName = `${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(2)}.${fileExtension}`;
+    const fileKey = `${folder}/${fileName}`;
 
     // Subir a S3
     const uploadParams = {
