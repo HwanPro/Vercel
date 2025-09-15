@@ -1,5 +1,3 @@
-# server.py - Main fingerprint service server
-
 # Standard library imports
 import os
 import time
