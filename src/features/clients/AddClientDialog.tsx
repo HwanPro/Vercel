@@ -7,24 +7,6 @@ import "react-phone-number-input/style.css";
 import { Button } from "@/ui/button";
 import MembershipSelection from "@/ui/components/MembershipSelection";
 
-interface Client {
-  id: string;
-  userName: string;
-  firstName: string;
-  lastName: string;
-  plan: string;
-  membershipStart: string;
-  membershipEnd: string;
-  phone: string;
-  emergencyPhone: string;
-  address: string;
-  social: string;
-  hasPaid: boolean;
-  password?: string;
-  debt?: number; // S/. adeudado
-  username?: string; // Alias for userName for form compatibility
-}
-
 type Cred = { username: string; password: string; phone: string };
 
 interface ClientProfile {
@@ -38,11 +20,24 @@ interface ClientResponse {
   [key: string]: unknown;
 }
 
+interface NewClientData {
+  firstName: string;
+  lastName: string;
+  username: string;
+  plan: string;
+  membershipStart: string;
+  membershipEnd: string;
+  phone: string;
+  emergencyPhone: string;
+  address: string;
+  social: string;
+}
+
 export default function AddClientDialog({
   onSave,
   onCredentialsUpdate,
 }: {
-  onSave: (client: Omit<Client, "id">) => Promise<unknown> | void;
+  onSave: (client: NewClientData) => Promise<unknown> | void;
   onCredentialsUpdate?: (cred: Cred) => void;
 }) {
   // ---- estados base ----
@@ -78,21 +73,24 @@ export default function AddClientDialog({
   const [generatedPassword, setGeneratedPassword] = useState<string>("");
 
   const [credentials, setCredentials] = useState<Cred | null>(null);
+  const normalizePhone = (p?: string) => (p ? p.replace(/\D/g, "") : "");
 
   // ---- helpers ----
-  function generateUsername(name: string, phone?: string): string {
+  function generateUsername(name: string): string {
     // usa nombre + apellido para más unicidad
     const base = (name + lastName)
       .trim()
       .toLowerCase()
       .replace(/\s+/g, "")
-      .slice(0, 12);
-    const suffix =
-      phone?.replace(/\D/g, "").slice(-3) ??
-      Math.floor(Math.random() * 1000)
-        .toString()
-        .padStart(3, "0");
-    return `${base}wg${suffix}`;
+      .slice(0, 8);
+
+    // Usar timestamp + random para garantizar unicidad
+    const timestamp = Date.now().toString().slice(-4);
+    const random = Math.floor(Math.random() * 100)
+      .toString()
+      .padStart(2, "0");
+
+    return `${base}wg${timestamp}${random}`;
   }
   function generatePassword(): string {
     const part1 = Math.random().toString(36).substring(2, 6);
@@ -124,7 +122,6 @@ export default function AddClientDialog({
   // ---- guardar ----
   const handleSave = async () => {
     setErrorMessage("");
-
     if (!name || !lastName || !phone) {
       setErrorMessage("Por favor, complete Nombres, Apellidos y Teléfono.");
       return;
@@ -137,7 +134,6 @@ export default function AddClientDialog({
       setErrorMessage("El número de emergencia no es válido.");
       return;
     }
-
     if (membershipStart && membershipEnd) {
       const start = new Date(membershipStart);
       const end = new Date(membershipEnd);
@@ -155,36 +151,35 @@ export default function AddClientDialog({
       return;
     }
 
-    const username = generateUsername(name, phone);
+    const username = generateUsername(name);
     const password = generatePassword();
     setGeneratedUsername(username);
     setGeneratedPassword(password);
 
-    const newClientData = {
-      username,
-      userName: username, // Ensure both username and userName are set for compatibility
+
+    // 👇 payload EXACTO que espera el backend
+    const payloadForApi = {
       firstName: name.trim(),
       lastName: lastName.trim(),
+      username,
       plan: plan || "Mensual",
-      membershipStart,
-      membershipEnd,
-      phone: phone!,
-      emergencyPhone: emergencyPhone || "",
-      address,
-      social,
-      hasPaid: debtValue === 0,
-      password,
-      debt: debtValue,
+      membershipStart: membershipStart || "",
+      membershipEnd: membershipEnd || "",
+      phone: normalizePhone(phone),
+      emergencyPhone: normalizePhone(emergencyPhone) || "",
+      address: address || "",
+      social: social || "", // ← COMA AQUÍ
+      debt: debtValue, // ← ya viaja al backend
     };
 
     try {
       setLoading(true);
-      
-      // Usar la función handleAddClient del padre
-      const response = await onSave(newClientData) as ClientResponse;
-      const tempPassword = response?.tempPassword || password;
-      const apiUserId: string | undefined = response?.clientProfile?.user_id;
 
+      // 👉 Llama UNA sola vez al padre; él hace el fetch a /api/clients
+      const response = (await onSave(payloadForApi)) as ClientResponse;
+
+      const tempPassword = response?.tempPassword || password;
+      setGeneratedPassword(tempPassword);
       const cred: Cred = { username, password: tempPassword, phone: phone! };
 
       const stored = localStorage.getItem("pendingCredentials");
@@ -194,13 +189,6 @@ export default function AddClientDialog({
 
       setCredentials(cred);
       onCredentialsUpdate?.(cred);
-
-      onSave({
-        ...newClientData,
-        userName: username,
-        password: tempPassword,
-        ...(apiUserId ? { userId: apiUserId } : {}), // ← IMPORTANTE
-      });
     } catch (err) {
       console.error("Error al guardar cliente:", err);
       setErrorMessage("No se pudo guardar el cliente. Intente nuevamente.");

@@ -1,50 +1,37 @@
 // src/app/api/clients/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/infrastructure/prisma/prisma";
 import { z, ZodError } from "zod";
-import { parsePhoneNumberFromString } from "libphonenumber-js";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { getToken } from "next-auth/jwt";
 
-const clientSchema = z.object({
-  firstName: z.string().min(1, { message: "El nombre es obligatorio" }),
-  lastName: z.string().min(1, { message: "El apellido es obligatorio" }),
-  username: z.string().min(1, { message: "El usuario es obligatorio" }),
-  plan: z.enum(["Mensual", "Básico", "Pro", "Elite"]),
+/* ========= helpers ========= */
+const PlanEnum = z.enum(["Mensual", "Básico", "Pro", "Elite"]);
 
-  membershipStart: z
-    .string()
-    .optional()
-    .or(z.literal(""))
-    .refine((val) => !val || /^\d{4}-\d{2}-\d{2}$/.test(val), {
-      message: "Fecha de inicio inválida",
-    }),
-  membershipEnd: z
-    .string()
-    .optional()
-    .or(z.literal(""))
-    .refine((val) => !val || /^\d{4}-\d{2}-\d{2}$/.test(val), {
-      message: "Fecha de fin inválida",
-    }),
-
-  phone: z.string().min(9, { message: "Teléfono inválido" }),
-
-  // Permitir vacío u omitido
-  emergencyPhone: z.string().optional().or(z.literal("")),
-
-  // Campos nuevos
-  address: z.string().optional().or(z.literal("")),
-  social: z.string().optional().or(z.literal("")),
+const ProfileSchema = z.object({
+  plan: PlanEnum,
+  startDate: z.preprocess((v) => (v === "" ? null : v ?? null), z.string().nullable()),
+  endDate: z.preprocess((v) => (v === "" ? null : v ?? null), z.string().nullable()),
+  emergencyPhone: z.preprocess((v) => (v === "" ? null : v ?? null), z.string().nullable()),
+  address: z.string().default(""),
+  social: z.string().default(""),
 });
 
-// GET /api/clients - lista de clientes
+const BodySchema = z.object({
+  username: z.string().min(3, { message: "Usuario requerido" }),
+  // puede venir vacío: si no mandas, el backend autogenera
+  password: z.string().optional().default(""),
+  phoneNumber: z.string().min(6, { message: "Teléfono inválido" }),
+  firstName: z.string().min(1, { message: "Nombre requerido" }),
+  lastName: z.string().min(1, { message: "Apellido requerido" }),
+  profile: ProfileSchema,
+});
+
+/* ========= GET ========= */
 export async function GET(request: NextRequest) {
-  const token = await getToken({
-    req: request,
-    secret: process.env.NEXTAUTH_SECRET,
-  });
+  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
   if (!token || token.role !== "admin") {
     return NextResponse.json({ message: "No autorizado" }, { status: 401 });
   }
@@ -52,7 +39,6 @@ export async function GET(request: NextRequest) {
   try {
     const clients = await prisma.clientProfile.findMany({
       orderBy: { profile_start_date: "desc" },
-      // 👇 SOLO columnas que ya existen en tu DB
       select: {
         profile_id: true,
         user_id: true,
@@ -65,129 +51,149 @@ export async function GET(request: NextRequest) {
         profile_emergency_phone: true,
         profile_address: true,
         profile_social: true,
-        user: { select: { id: true, role: true, username: true } },
+        user: { select: { id: true, role: true, username: true, createdAt: true } },
       },
     });
-
     return NextResponse.json(clients, { status: 200 });
-  } catch (error) {
-    console.error("Error GET /api/clients:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
+  } catch (err) {
+    console.error("GET /api/clients error:", err);
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
 }
 
-// POST /api/clients - registra un cliente con plan y contraseña temporal
+/* ========= POST ========= */
 export async function POST(request: NextRequest) {
+  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+  if (!token || token.role !== "admin") {
+    return NextResponse.json({ message: "No autorizado" }, { status: 401 });
+  }
+
   try {
-    const body = await request.json();
-    const validatedData = clientSchema.parse(body);
+    const raw = await request.json();
 
-    // Validar teléfonos
-    const phoneNumber = parsePhoneNumberFromString(validatedData.phone, "PE");
-    if (!phoneNumber?.isValid()) {
-      return NextResponse.json(
-        { error: "El teléfono principal no es válido" },
-        { status: 400 }
-      );
+    // Normaliza entrada plana o anidada
+    const isNested = raw && typeof raw === "object" && raw.profile && typeof raw.profile === "object";
+    const username = raw?.username ?? raw?.userName ?? "";
+    const password = raw?.password ?? ""; // puede venir vacío
+    const firstName = raw?.firstName ?? raw?.profile_first_name ?? "";
+    const lastName = raw?.lastName ?? raw?.profile_last_name ?? "";
+    const phoneNumber = raw?.phoneNumber ?? raw?.phone ?? "";
+
+    const baseProfile = isNested
+      ? {
+          plan: raw.profile?.plan,
+          startDate: raw.profile?.startDate,
+          endDate: raw.profile?.endDate,
+          emergencyPhone: raw.profile?.emergencyPhone,
+          address: raw.profile?.address ?? "",
+          social: raw.profile?.social ?? "",
+        }
+      : {
+          plan: raw?.plan,
+          startDate: raw?.membershipStart,
+          endDate: raw?.membershipEnd,
+          emergencyPhone: raw?.emergencyPhone,
+          address: raw?.address ?? raw?.profile_address ?? "",
+          social: raw?.social ?? raw?.profile_social ?? "",
+        };
+
+    const plan = PlanEnum.options.includes(baseProfile.plan as any)
+      ? (baseProfile.plan as z.infer<typeof PlanEnum>)
+      : "Mensual";
+
+    const body = BodySchema.parse({
+      username,
+      password,
+      phoneNumber,
+      firstName,
+      lastName,
+      profile: { ...baseProfile, plan },
+    });
+
+    // Normaliza teléfonos a E.164 (PE)
+    const main = parsePhoneNumberFromString(body.phoneNumber, "PE");
+    if (!main?.isValid()) {
+      return NextResponse.json({ error: "El teléfono principal no es válido" }, { status: 400 });
     }
+    const phoneE164 = main.number;
 
-    if (validatedData.emergencyPhone) {
-      const emergNum = parsePhoneNumberFromString(
-        validatedData.emergencyPhone,
-        "PE"
-      );
-      if (emergNum && !emergNum.isValid()) {
-        return NextResponse.json(
-          { error: "El teléfono de emergencia no es válido" },
-          { status: 400 }
-        );
+    let emergencyE164: string | null = null;
+    if (body.profile.emergencyPhone) {
+      const emerg = parsePhoneNumberFromString(body.profile.emergencyPhone, "PE");
+      if (emerg && !emerg.isValid()) {
+        return NextResponse.json({ error: "El teléfono de emergencia no es válido" }, { status: 400 });
       }
+      emergencyE164 = emerg ? emerg.number : null;
     }
 
-    // Verificar username único
-    const existingUser = await prisma.user.findUnique({
-      where: { username: validatedData.username },
-    });
-    if (existingUser) {
-      return NextResponse.json(
-        { error: "El usuario ya está registrado." },
-        { status: 400 }
-      );
-    }
+    // Unicidad
+    const [uByUsername, uByPhone] = await Promise.all([
+      prisma.user.findUnique({ where: { username: body.username }, select: { id: true } }),
+      prisma.user.findUnique({ where: { phoneNumber: phoneE164 }, select: { id: true } }),
+    ]);
+    if (uByUsername) return NextResponse.json({ error: "El usuario ya está registrado" }, { status: 400 });
+    if (uByPhone) return NextResponse.json({ error: "El teléfono ya está registrado" }, { status: 400 });
 
-    // Generar contraseña temporal
-    const generatedPassword = crypto.randomBytes(6).toString("hex");
-    const hashedPassword = await bcrypt.hash(generatedPassword, 10);
+    // Password: usa la enviada si viene y es >= 6; si no, genera una
+    const finalRawPassword =
+      body.password && body.password.length >= 6 ? body.password : crypto.randomBytes(6).toString("hex");
+    const hashed = await bcrypt.hash(finalRawPassword, 10);
 
-    // Crear user + profile
-    const user = await prisma.user.create({
-      data: {
-        username: validatedData.username,
-        firstName: validatedData.firstName,
-        lastName: validatedData.lastName,
-        password: hashedPassword,
-        role: "client",
-        phoneNumber: validatedData.phone,
-      },
-    });
+    // Transacción
+    const result = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          username: body.username,
+          firstName: body.firstName,
+          lastName: body.lastName,
+          password: hashed,
+          role: "client",
+          phoneNumber: phoneE164,
+        },
+      });
 
-    // En el endpoint POST /api/clients
-    const clientProfile = await prisma.clientProfile.create({
-      data: {
-        profile_first_name: validatedData.firstName,
-        profile_last_name: validatedData.lastName,
-        profile_plan: validatedData.plan,
-        profile_start_date:
-          validatedData.membershipStart && validatedData.membershipStart !== ""
-            ? new Date(validatedData.membershipStart)
-            : null,
-        profile_end_date:
-          validatedData.membershipEnd && validatedData.membershipEnd !== ""
-            ? new Date(validatedData.membershipEnd)
-            : null,
+      const profile = await tx.clientProfile.create({
+        data: {
+          user: { connect: { id: user.id } },
+          profile_first_name: body.firstName,
+          profile_last_name: body.lastName,
+          profile_plan: body.profile.plan,
+          profile_start_date: body.profile.startDate ? new Date(body.profile.startDate) : null,
+          profile_end_date: body.profile.endDate ? new Date(body.profile.endDate) : null,
+          profile_phone: phoneE164,
+          profile_emergency_phone: emergencyE164,
+          profile_address: body.profile.address ?? "",
+          profile_social: body.profile.social ?? "",
+        },
+      });
 
-        profile_phone: validatedData.phone,
-        profile_emergency_phone: validatedData.emergencyPhone || null,
-        profile_address: validatedData.address || null,
-        profile_social: validatedData.social || null,
-        user: { connect: { id: user.id } },
-      },
+      return { user, profile };
     });
 
-    // src/app/api/clients/route.ts  (al final del POST)
     return NextResponse.json(
       {
         message: "Cliente registrado con éxito",
-        tempPassword: generatedPassword,
-        userId: user.id, 
-        profileId: clientProfile.profile_id, 
+        tempPassword: finalRawPassword,
+        userId: result.user.id,
+        profileId: result.profile.profile_id,
       },
       { status: 201 }
     );
-  } catch (error: any) {
-    if (error instanceof ZodError) {
-      return NextResponse.json(
-        { error: "Datos inválidos", details: error.errors },
-        { status: 400 }
-      );
+  } catch (err: any) {
+    if (err instanceof ZodError) {
+      console.error("Zod error /api/clients:", JSON.stringify(err.issues));
+      return NextResponse.json({ error: "Datos inválidos", details: err.issues }, { status: 400 });
     }
-    // Prisma unique constraint
-    if (error.code === "P2002") {
-      const fields = (error.meta?.target as string[]) ?? [];
-      const msg = fields.includes("username")
+    if (err?.code === "P2002") {
+      const t = Array.isArray(err?.meta?.target) ? (err.meta.target as string[]).join(",") : String(err?.meta?.target || "");
+      const msg = t.includes("username")
         ? "El usuario ya está registrado"
-        : fields.includes("phoneNumber")
-          ? "El teléfono ya está registrado"
-          : "Registro duplicado";
+        : t.includes("phoneNumber")
+        ? "El teléfono ya está registrado"
+        : "Registro duplicado";
       return NextResponse.json({ error: msg }, { status: 400 });
     }
-    console.error("❌ Error al crear cliente:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
+    console.error("POST /api/clients error:", err);
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
 }

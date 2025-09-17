@@ -128,10 +128,10 @@ model ClientProfile {
   profile_last_name       String?
 
   // NUEVOS CAMPOS:
-  debt            Decimal   @db.Decimal(10, 2) @default(0)
-  promoPreset     PromoPreset?
-  promoTotalDays  Int?
-  promoUsedDays   Int?
+ debt           Decimal @db.Decimal(10, 2) @default(0)
+  promoPreset    PromoPreset?
+  promoTotalDays Int?
+  promoUsedDays  Int?
 
   // Relación con pagos (si quieres enlazar pagos al perfil)
   payments        PaymentRecord[]

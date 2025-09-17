@@ -11,29 +11,32 @@ const swalBase = {
   confirmButtonColor: "#facc15",
 } as const;
 
-function vibrate(ms = 120) {
+function vibrate(ms = 100) {
   try { if (navigator.vibrate) navigator.vibrate(ms); } catch {}
 }
 
-type IdentifyResult = {
-  ok: boolean;
-  match: boolean;
-  userId: string | null;
-  name?: string;
-};
-
-type RegisterResult = {
-  ok: boolean;
-  action: "checkin" | "checkout" | "already_open";
-  fullName?: string;
-  minutesOpen?: number;
-};
+type IdentifyResult = { ok: boolean; match: boolean; userId: string | null; name?: string };
+type RegisterResult = { ok: boolean; action: "checkin" | "checkout" | "already_open"; fullName?: string; minutesOpen?: number; debt?: number; daysLeft?: number; avatarUrl?: string };
 
 export default function CheckInPage() {
+  // ----- modo / sala -----
+  const [mode, setMode] = useState<"kiosk" | "remote">("kiosk"); // valor estable para SSR => NO hydration error
+  const [room, setRoom] = useState("default");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const sp = new URLSearchParams(window.location.search);
+    setMode(sp.get("remote") ? "remote" : "kiosk");
+    setRoom(sp.get("room") || "default");
+  }, []);
+
+  // ----- estados captura/escaneo -----
   const [loading, setLoading] = useState(false);
-  const scanningRef = useRef(false);   // evita loops dobles
+  const scanningRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
 
+  // ==================== utilidades ====================
   const askPhone = async (title: string): Promise<string | null> => {
     const { value, isConfirmed } = await Swal.fire({
       ...swalBase,
@@ -74,86 +77,11 @@ export default function CheckInPage() {
         ok: r.ok,
         match: Boolean(j?.match),
         userId: j?.userId ?? j?.user_id ?? null,
-        name: j?.fullName ?? j?.name, // Buscar fullName primero
+        name: j?.fullName ?? j?.name,
       };
     } catch {
       clearTimeout(t);
       return { ok: false, match: false, userId: null };
-    }
-  };
-
-  const registerAttendance = async (userId: string): Promise<RegisterResult> => {
-    try {
-      const r = await fetch("/api/check-in", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId }),
-        cache: "no-store",
-      });
-      const j = await r.json().catch(() => ({}));
-      
-      return {
-        ok: r.ok,
-        action: j?.type || "checkin",
-        fullName: j?.fullName || j?.name,
-        minutesOpen: j?.record?.durationMins,
-      };
-    } catch {
-      return { ok: false, action: "checkin" };
-    }
-  };
-
-  const startScanning = async () => {
-    if (scanningRef.current) return;
-    scanningRef.current = true;
-    setLoading(true);
-
-    try {
-      while (scanningRef.current) {
-        const result = await identifyOnce();
-        
-        if (result.match && result.userId) {
-          // Match encontrado - registrar asistencia
-          const attendance = await registerAttendance(result.userId);
-          
-          if (attendance.ok) {
-            const greeting = attendance.fullName 
-              ? `¡Hola ${attendance.fullName}!`
-              : "¡Bienvenido!";
-            
-            const actionText = attendance.action === "checkout" 
-              ? `Salida registrada (${attendance.minutesOpen} min)`
-              : "Entrada registrada";
-            
-            await Swal.fire({
-              ...swalBase,
-              title: greeting,
-              text: actionText,
-              icon: "success",
-              timer: 2000,
-              showConfirmButton: false,
-            });
-          } else {
-            await Swal.fire({
-              ...swalBase,
-              title: "Error",
-              text: "No se pudo registrar la asistencia",
-              icon: "error",
-              timer: 2000,
-              showConfirmButton: false,
-            });
-          }
-          
-          // Pausa después del registro
-          await new Promise(resolve => setTimeout(resolve, 3000));
-        } else {
-          // No match - continuar loop
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-      }
-    } finally {
-      setLoading(false);
-      scanningRef.current = false;
     }
   };
 
@@ -162,13 +90,57 @@ export default function CheckInPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
+      cache: "no-store",
     });
     const j = (await r.json().catch(() => ({}))) as RegisterResult;
     if (!r.ok) throw new Error((j as any)?.message || "No se pudo registrar la asistencia");
     return j;
   };
 
-  // Bucle de escaneo automático: intenta hasta reconocer, sin botón
+  // ==================== acciones principal ====================
+  const showCard = async (data: RegisterResult, fallbackName?: string) => {
+    const name = (data.fullName || fallbackName || "").trim();
+  
+    // 👇 coerción robusta (si API manda string por Decimal)
+    const debtNum =
+      data.debt === null || data.debt === undefined ? undefined : Number(data.debt);
+    const daysLeftNum =
+      data.daysLeft === null || data.daysLeft === undefined ? undefined : Number(data.daysLeft);
+  
+    const title =
+      data.action === "checkout"
+        ? `¡Hasta la próxima${name ? ", " + name : ""}!`
+        : `¡Bienvenido${name ? ", " + name : ""}!`;
+  
+    const avatar =
+      data.avatarUrl ||
+      "https://ui-avatars.com/api/?background=0D8ABC&color=fff&name=" +
+        encodeURIComponent(name || "W G");
+  
+    const html = `
+      <div style="display:flex;gap:12px;align-items:center">
+        <img src="${avatar}" style="width:64px;height:64px;border-radius:9999px;object-fit:cover" alt="avatar" />
+        <div style="text-align:left">
+          ${Number.isFinite(daysLeftNum) ? `<div>Días restantes: <b>${daysLeftNum}</b></div>` : ""}
+          ${Number.isFinite(debtNum) ? `<div>Deuda: <b>S/. ${debtNum!.toFixed(2)}</b></div>` : ""}
+          ${
+            data.action === "checkout" && Number.isFinite(data.minutesOpen)
+              ? `<div>Sesión: ${data.minutesOpen} min</div>`
+              : ""
+          }
+        </div>
+      </div>`;
+  
+    await Swal.fire({
+      ...swalBase,
+      icon: "success",
+      title,
+      html,
+      timer: 2000,
+      showConfirmButton: false,
+    });
+  };  
+
   const startAutoScan = async () => {
     if (scanningRef.current) return;
     scanningRef.current = true;
@@ -184,40 +156,24 @@ export default function CheckInPage() {
     });
 
     let matched: IdentifyResult | null = null;
-
     while (scanningRef.current) {
       const res = await identifyOnce();
       if (res.match && res.userId) { matched = res; break; }
-      // pequeño respiro para no saturar
       await new Promise(r => setTimeout(r, 900));
     }
-
     Swal.close();
 
     try {
       if (matched?.match && matched.userId) {
         const data = await register({ userId: matched.userId });
         vibrate(200);
-        const name = (data.fullName || matched.name || "").trim();
-        if (data.action === "checkin") {
-          await Swal.fire({ ...swalBase, icon: "success", title: `¡Bienvenido${name ? ", "+name : ""}!`, text: "Entrada registrada." });
-        } else if (data.action === "checkout") {
-          await Swal.fire({ ...swalBase, icon: "success", title: `¡Hasta la próxima${name ? ", "+name : ""}!`, text: "Salida registrada." });
-        } else {
-          await Swal.fire({ ...swalBase, icon: "info", title: `Asistencia en curso${name ? " de " + name : ""}`, text: "Vuelve más tarde para marcar tu salida." });
-        }
+        await showCard(data, matched.name);
       } else {
-        // Fallback por teléfono si no hubo match
         const phone = await askPhone("No te reconocimos. Registra por teléfono");
         if (!phone) return;
         const data = await register({ phone });
         vibrate(200);
-        await Swal.fire({
-          ...swalBase,
-          icon: "success",
-          title: data.action === "checkout" ? "¡Hasta la próxima!" : "¡Bienvenido!",
-          text: data.action === "checkout" ? "Salida registrada." : "Entrada registrada.",
-        });
+        await showCard(data);
       }
     } catch (e: any) {
       vibrate(60);
@@ -229,34 +185,30 @@ export default function CheckInPage() {
     }
   };
 
-  // Botón de salida explícito (no depende del toggle)
   const forceCheckout = async () => {
     setLoading(true);
     try {
-      const modal = await Swal.fire({
+      await Swal.fire({
         ...swalBase,
         title: "Identificando para registrar salida…",
         allowOutsideClick: true,
         showConfirmButton: false,
         didOpen: () => Swal.showLoading(),
       });
-
       const res = await identifyOnce();
       Swal.close();
 
-      if (!(res.match && res.userId)) {
+      let data: RegisterResult;
+      if (res.match && res.userId) {
+        data = await register({ userId: res.userId, intent: "checkout" });
+        await showCard(data, res.name);
+      } else {
         const p = await askPhone("No te reconocimos. Salida por teléfono");
         if (!p) return;
-        const data = await register({ phone: p, intent: "checkout" });
-        vibrate(200);
-        await Swal.fire({ ...swalBase, icon: "success", title: "¡Hasta la próxima!", text: "Salida registrada." });
-        return;
+        data = await register({ phone: p, intent: "checkout" });
+        await showCard(data);
       }
-
-      const data = await register({ userId: res.userId, intent: "checkout" });
       vibrate(200);
-      const name = (data.fullName || res.name || "").trim();
-      await Swal.fire({ ...swalBase, icon: "success", title: `¡Hasta la próxima${name ? ", "+name : ""}!`, text: "Salida registrada." });
     } catch (e: any) {
       await Swal.fire({ ...swalBase, icon: "error", title: "No se pudo registrar la salida", text: e?.message || "Inténtalo de nuevo." });
     } finally {
@@ -265,51 +217,98 @@ export default function CheckInPage() {
     }
   };
 
-  // Arranca el autoescaneo al montar (sin botón)
+  // ==================== kiosko: escucha comandos ====================
   useEffect(() => {
-    startAutoScan();
-    return () => {
-      scanningRef.current = false;
-      abortRef.current?.abort();
+    if (!mounted || mode !== "kiosk") return;
+    const ev = new EventSource(`/api/commands?room=${encodeURIComponent(room)}`);
+    ev.onmessage = (msg) => {
+      try {
+        const data = JSON.parse(msg.data || "{}");
+        if (data.action === "scan") startAutoScan();
+        if (data.action === "checkout") forceCheckout();
+        if (data.action === "stop") {
+          scanningRef.current = false;
+          abortRef.current?.abort();
+          setLoading(false);
+          Swal.close();
+        }
+      } catch {}
     };
+    ev.onerror = () => {/* mantener abierta la conexión */};
+    return () => ev.close();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [mounted, mode, room]);
 
+  // ==================== remote: envía comandos ====================
+  const sendCommand = async (action: "scan" | "checkout" | "stop") => {
+    await fetch("/api/commands", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ room, action }),
+    }).catch(() => {});
+  };
+
+  // ==================== UI ====================
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-6 gap-4">
       <div className="flex flex-col md:flex-row items-center justify-between w-full max-w-3xl mb-2 gap-4">
-        <h1 className="text-2xl md:text-3xl font-bold text-yellow-400">Registro de Asistencia</h1>
+        {/* Título fijo para que SSR == CSR (evita hydration error) */}
+        <h1 className="text-2xl md:text-3xl font-bold text-yellow-400">
+          Kiosko de Asistencia
+        </h1>
+
         <Link href="/admin/dashboard" className="bg-yellow-400 text-black px-4 py-2 rounded hover:bg-yellow-500 w-full md:w-auto text-center">
           Volver al Dashboard
         </Link>
       </div>
 
-      <p className="text-gray-300 text-center max-w-2xl">
-        Reconocimiento <b>automático por huella</b>. Si no te reconoce, podrás usar tu <b>teléfono</b>.
-      </p>
+      {/* Chip de modo */}
+      <div className="text-sm opacity-80">
+        Modo: <span className="px-2 py-0.5 rounded bg-yellow-400 text-black">{mode === "remote" ? "Control remoto" : "Kiosko"}</span> · Sala: <b>{room}</b>
+      </div>
 
-      {/* Botón oculto: respaldo manual si algo falla */}
-      <button
-        onClick={startAutoScan}
-        className="bg-yellow-400 text-black px-6 py-3 rounded-lg font-semibold hover:bg-yellow-500 disabled:opacity-60 hidden"
-        disabled={loading}
-        aria-hidden
-      >
-        Reintentar huella
-      </button>
+      {mode === "kiosk" ? (
+        <>
+          <p className="text-gray-300 text-center max-w-2xl">
+            Reconocimiento <b>automático por huella</b>. Si no te reconoce, usaremos tu <b>teléfono</b>.
+          </p>
 
-      {/* Botón visible de salida explícita */}
-      <button
-        onClick={forceCheckout}
-        className="bg-transparent border border-yellow-400 text-yellow-400 px-6 py-3 rounded-lg font-semibold hover:bg-yellow-500 hover:text-black disabled:opacity-60"
-        disabled={loading}
-      >
-        Registrar salida
-      </button>
+          {/* Botón visible de salida explícita */}
+          <button
+            onClick={forceCheckout}
+            className="bg-transparent border border-yellow-400 text-yellow-400 px-6 py-3 rounded-lg font-semibold hover:bg-yellow-500 hover:text-black disabled:opacity-60"
+            disabled={loading}
+          >
+            Registrar salida
+          </button>
+        </>
+      ) : (
+        // ====== Panel de control remoto ======
+        <div className="w-full max-w-md grid grid-cols-1 gap-3 mt-2">
+          <button
+            onClick={() => sendCommand("scan")}
+            className="bg-yellow-400 text-black px-6 py-4 rounded-lg font-bold text-lg hover:bg-yellow-500"
+          >
+            🔎 Escanear / Marcar entrada
+          </button>
+          <button
+            onClick={() => sendCommand("checkout")}
+            className="bg-yellow-400 text-black px-6 py-4 rounded-lg font-bold text-lg hover:bg-yellow-500"
+          >
+            ⏏️ Marcar salida
+          </button>
+          <button
+            onClick={() => sendCommand("stop")}
+            className="bg-black border border-yellow-500 text-yellow-400 px-6 py-3 rounded-lg font-semibold hover:bg-yellow-600/30"
+          >
+            ✋ Detener
+          </button>
 
-      <p className="text-gray-500 text-xs mt-2">
-        Consejo: mantén el dedo firme ~1s. Si no responde, toca “Registrar salida” o usa teléfono desde el aviso.
-      </p>
+          <p className="text-gray-400 text-xs mt-1">
+            Abre <code>/check-in?room=nombre</code> en la PC/monitor (kiosko) y <code>/check-in?remote=1&room=nombre</code> en el celular (control).
+          </p>
+        </div>
+      )}
     </div>
   );
 }
