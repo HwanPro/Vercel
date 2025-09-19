@@ -29,6 +29,7 @@ import Link from "next/link";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import EditClientDialog from "@/features/clients/EditClientDialog";
+import DebtManagement from "@/features/clients/DebtManagement";
 import Swal from "sweetalert2";
 import "sweetalert2/dist/sweetalert2.min.css";
 
@@ -181,6 +182,14 @@ export default function ClientsPage() {
   const [isPageLoading, setIsPageLoading] = useState(false);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [fpStatus, setFpStatus] = useState<Record<string, boolean>>({});
+  
+  // Estados para gestión de deudas
+  const [showDebtDialog, setShowDebtDialog] = useState(false);
+  const [selectedClientForDebt, setSelectedClientForDebt] = useState<{
+    id: string;
+    name: string;
+    profileId: string;
+  } | null>(null);
   const [deleting, setDeleting] = useState<Record<string, boolean>>({});
 
   // Use clientsData directly from SWR instead of local state
@@ -782,6 +791,7 @@ export default function ClientsPage() {
                     </button>
                   </TableHead>
 
+                  <TableHead className="text-yellow-400">Deudas</TableHead>
                   <TableHead className="text-yellow-400">Huella</TableHead>
                   <TableHead className="text-yellow-400">Acción</TableHead>
                 </TableRow>
@@ -803,6 +813,21 @@ export default function ClientsPage() {
                         <TableCell>{client.membershipStart || "—"}</TableCell>
                         <TableCell>{client.membershipEnd || "—"}</TableCell>
                         <TableCell>{client.createdAt || "—"}</TableCell>
+                        <TableCell>
+                          <Button
+                            onClick={() => {
+                              setSelectedClientForDebt({
+                                id: client.id,
+                                name: `${client.firstName} ${client.lastName}`,
+                                profileId: client.id, // Usar el profile_id del cliente
+                              });
+                              setShowDebtDialog(true);
+                            }}
+                            className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1"
+                          >
+                            Gestionar
+                          </Button>
+                        </TableCell>
                         <TableCell>
                           <span
                             className={`inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs ${
@@ -971,6 +996,20 @@ export default function ClientsPage() {
           message="¿Estás seguro de que deseas eliminar este cliente?"
           onConfirm={confirmDelete}
           onCancel={() => setShowConfirm(false)}
+        />
+      )}
+      
+      {/* Diálogo de gestión de deudas */}
+      {selectedClientForDebt && (
+        <DebtManagement
+          isOpen={showDebtDialog}
+          onClose={() => {
+            setShowDebtDialog(false);
+            setSelectedClientForDebt(null);
+          }}
+          clientId={selectedClientForDebt.id}
+          clientName={selectedClientForDebt.name}
+          profileId={selectedClientForDebt.profileId}
         />
       )}
     </div>

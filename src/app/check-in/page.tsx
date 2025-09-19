@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import "sweetalert2/dist/sweetalert2.min.css";
+import { useSession } from "next-auth/react";
 
 const swalBase = {
   background: "#000",
@@ -16,13 +17,43 @@ function vibrate(ms = 100) {
 }
 
 type IdentifyResult = { ok: boolean; match: boolean; userId: string | null; name?: string };
-type RegisterResult = { ok: boolean; action: "checkin" | "checkout" | "already_open"; fullName?: string; minutesOpen?: number; debt?: number; daysLeft?: number; avatarUrl?: string };
+type RegisterResult = { 
+  ok: boolean; 
+  action: "checkin" | "checkout" | "already_open"; 
+  fullName?: string; 
+  minutesOpen?: number; 
+  monthlyDebt?: number;
+  dailyDebt?: number;
+  totalDebt?: number;
+  daysLeft?: number; 
+  avatarUrl?: string;
+  profileId?: string;
+};
+
+type ActivityLog = {
+  id: string;
+  timestamp: Date;
+  fullName: string;
+  action: "checkin" | "checkout";
+  avatarUrl?: string;
+  monthlyDebt: number;
+  dailyDebt: number;
+  daysLeft?: number;
+  profileId?: string;
+};
 
 export default function CheckInPage() {
+  const { data: session } = useSession();
+  
   // ----- modo / sala -----
   const [mode, setMode] = useState<"kiosk" | "remote">("kiosk"); // valor estable para SSR => NO hydration error
   const [room, setRoom] = useState("default");
   const [mounted, setMounted] = useState(false);
+  
+  // ----- estados para admin -----
+  const [activityLog, setActivityLog] = useState<ActivityLog[]>([]);
+  const [showDebtDialog, setShowDebtDialog] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<RegisterResult | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -100,10 +131,12 @@ export default function CheckInPage() {
   // ==================== acciones principal ====================
   const showCard = async (data: RegisterResult, fallbackName?: string) => {
     const name = (data.fullName || fallbackName || "").trim();
+    const isAdmin = session?.user?.role === "admin";
   
     // 👇 coerción robusta (si API manda string por Decimal)
-    const debtNum =
-      data.debt === null || data.debt === undefined ? undefined : Number(data.debt);
+    const monthlyDebtNum = data.monthlyDebt || 0;
+    const dailyDebtNum = data.dailyDebt || 0;
+    const totalDebtNum = data.totalDebt || 0;
     const daysLeftNum =
       data.daysLeft === null || data.daysLeft === undefined ? undefined : Number(data.daysLeft);
   
@@ -122,7 +155,9 @@ export default function CheckInPage() {
         <img src="${avatar}" style="width:64px;height:64px;border-radius:9999px;object-fit:cover" alt="avatar" />
         <div style="text-align:left">
           ${Number.isFinite(daysLeftNum) ? `<div>Días restantes: <b>${daysLeftNum}</b></div>` : ""}
-          ${Number.isFinite(debtNum) ? `<div>Deuda: <b>S/. ${debtNum!.toFixed(2)}</b></div>` : ""}
+          ${totalDebtNum > 0 ? `<div>Deuda total: <b>S/. ${totalDebtNum.toFixed(2)}</b></div>` : ""}
+          ${isAdmin && monthlyDebtNum > 0 ? `<div>Deuda mensual: <b>S/. ${monthlyDebtNum.toFixed(2)}</b></div>` : ""}
+          ${isAdmin && dailyDebtNum > 0 ? `<div>Deuda diaria: <b>S/. ${dailyDebtNum.toFixed(2)}</b></div>` : ""}
           ${
             data.action === "checkout" && Number.isFinite(data.minutesOpen)
               ? `<div>Sesión: ${data.minutesOpen} min</div>`
@@ -130,15 +165,40 @@ export default function CheckInPage() {
           }
         </div>
       </div>`;
+
+    // Agregar al log de actividad si es admin
+    if (isAdmin) {
+      const logEntry: ActivityLog = {
+        id: Date.now().toString(),
+        timestamp: new Date(),
+        fullName: name,
+        action: data.action === "checkout" ? "checkout" : "checkin",
+        avatarUrl: data.avatarUrl,
+        monthlyDebt: monthlyDebtNum,
+        dailyDebt: dailyDebtNum,
+        daysLeft: daysLeftNum || undefined,
+        profileId: data.profileId,
+      };
+      setActivityLog(prev => [logEntry, ...prev.slice(0, 49)]); // Mantener últimas 50 entradas
+    }
   
-    await Swal.fire({
+    const result = await Swal.fire({
       ...swalBase,
       icon: "success",
       title,
       html,
-      timer: 2000,
-      showConfirmButton: false,
+      timer: isAdmin ? undefined : 2000,
+      showConfirmButton: isAdmin && data.action === "checkin",
+      confirmButtonText: isAdmin ? "Agregar Deuda" : undefined,
+      showCancelButton: isAdmin,
+      cancelButtonText: isAdmin ? "Cerrar" : undefined,
     });
+
+    // Si es admin y confirmó, mostrar diálogo de deuda
+    if (isAdmin && result.isConfirmed && data.profileId) {
+      setSelectedClient(data);
+      setShowDebtDialog(true);
+    }
   };  
 
   const startAutoScan = async () => {
@@ -217,7 +277,7 @@ export default function CheckInPage() {
     }
   };
 
-  // ==================== kiosko: escucha comandos ====================
+  // ==================== Panel: escucha comandos ====================
   useEffect(() => {
     if (!mounted || mode !== "kiosk") return;
     const ev = new EventSource(`/api/commands?room=${encodeURIComponent(room)}`);
@@ -248,65 +308,292 @@ export default function CheckInPage() {
     }).catch(() => {});
   };
 
+  // Función para agregar deuda
+  const addDebt = async (productType: string, customAmount?: number, customName?: string) => {
+    if (!selectedClient?.profileId) return;
+
+    try {
+      const response = await fetch("/api/debts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientProfileId: selectedClient.profileId,
+          productType,
+          quantity: 1,
+          customAmount,
+          customName,
+        }),
+      });
+
+      if (response.ok) {
+        await Swal.fire({
+          ...swalBase,
+          icon: "success",
+          title: "Deuda agregada",
+          timer: 1500,
+          showConfirmButton: false,
+        });
+        setShowDebtDialog(false);
+        setSelectedClient(null);
+      } else {
+        throw new Error("Error al agregar deuda");
+      }
+    } catch (error) {
+      await Swal.fire({
+        ...swalBase,
+        icon: "error",
+        title: "Error",
+        text: "No se pudo agregar la deuda",
+      });
+    }
+  };
+
+  const isAdmin = session?.user?.role === "admin";
+
   // ==================== UI ====================
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-6 gap-4">
-      <div className="flex flex-col md:flex-row items-center justify-between w-full max-w-3xl mb-2 gap-4">
-        {/* Título fijo para que SSR == CSR (evita hydration error) */}
+    <div className="min-h-screen bg-black text-white">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row items-center justify-between w-full p-6 gap-4 border-b border-gray-800">
         <h1 className="text-2xl md:text-3xl font-bold text-yellow-400">
-          Kiosko de Asistencia
+          Panel de Asistencia {isAdmin && "(Admin)"}
         </h1>
-
-        <Link href="/admin/dashboard" className="bg-yellow-400 text-black px-4 py-2 rounded hover:bg-yellow-500 w-full md:w-auto text-center">
-          Volver al Dashboard
-        </Link>
+        <div className="flex items-center gap-4">
+          <div className="text-sm opacity-80">
+            Modo: <span className="px-2 py-0.5 rounded bg-yellow-400 text-black">{mode === "remote" ? "Control remoto" : "Panel"}</span> · Sala: <b>{room}</b>
+          </div>
+          <Link href="/admin/dashboard" className="bg-yellow-400 text-black px-4 py-2 rounded hover:bg-yellow-500 text-center">
+            Dashboard
+          </Link>
+        </div>
       </div>
 
-      {/* Chip de modo */}
-      <div className="text-sm opacity-80">
-        Modo: <span className="px-2 py-0.5 rounded bg-yellow-400 text-black">{mode === "remote" ? "Control remoto" : "Kiosko"}</span> · Sala: <b>{room}</b>
+      {/* Contenido principal */}
+      <div className={`flex ${isAdmin ? "h-[calc(100vh-120px)]" : "flex-col items-center justify-center min-h-[calc(100vh-120px)]"} p-6 gap-6`}>
+        
+        {/* Columna izquierda - Controles */}
+        <div className={`${isAdmin ? "w-1/2 border-r border-gray-800 pr-6" : "w-full max-w-2xl"} flex flex-col items-center justify-center gap-4`}>
+          {mode === "kiosk" ? (
+            <>
+              <p className="text-gray-300 text-center max-w-2xl">
+                Reconocimiento <b>automático por huella</b>. Si no te reconoce, usaremos tu <b>teléfono</b>.
+              </p>
+
+              {/* Botones principales */}
+              <div className="grid grid-cols-1 gap-3 w-full max-w-md">
+                <button
+                  onClick={startAutoScan}
+                  className="bg-yellow-400 text-black px-6 py-4 rounded-lg font-bold text-lg hover:bg-yellow-500 disabled:opacity-60"
+                  disabled={loading}
+                >
+                  🔎 Marcar Entrada
+                </button>
+                
+                <button
+                  onClick={forceCheckout}
+                  className="bg-red-600 text-white px-6 py-4 rounded-lg font-bold text-lg hover:bg-red-700 disabled:opacity-60"
+                  disabled={loading}
+                >
+                  🚪 Marcar Salida
+                </button>
+                
+                <button
+                  onClick={() => {
+                    scanningRef.current = false;
+                    setLoading(false);
+                  }}
+                  className="bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-700"
+                >
+                  ✋ Detener
+                </button>
+              </div>
+
+              {/* Generador de link para pantalla de visualización */}
+              {isAdmin && (
+                <div className="mt-6 p-4 bg-gray-900 rounded-lg border border-yellow-400/30 w-full max-w-md">
+                  <h3 className="text-yellow-400 font-semibold mb-2">📺 Pantalla de Visualización</h3>
+                  <p className="text-gray-300 text-sm mb-3">
+                    Link para mostrar las marcaciones en una pantalla adicional:
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={`${window.location.origin}/check-in/display?room=${room}`}
+                      readOnly
+                      className="flex-1 bg-gray-800 text-white px-3 py-2 rounded text-sm"
+                    />
+                    <button
+                      onClick={() => {
+                        const link = `${window.location.origin}/check-in/display?room=${room}`;
+                        navigator.clipboard.writeText(link);
+                        alert("Link copiado al portapapeles");
+                      }}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm"
+                    >
+                      📋 Copiar
+                    </button>
+                    <button
+                      onClick={() => {
+                        const link = `${window.location.origin}/check-in/display?room=${room}`;
+                        window.open(link, '_blank');
+                      }}
+                      className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-sm"
+                    >
+                      🔗 Abrir
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            // ====== Panel de control remoto ======
+            <div className="w-full max-w-md grid grid-cols-1 gap-3">
+              <button
+                onClick={() => sendCommand("scan")}
+                className="bg-yellow-400 text-black px-6 py-4 rounded-lg font-bold text-lg hover:bg-yellow-500"
+              >
+                🔎 Escanear / Marcar entrada
+              </button>
+              <button
+                onClick={() => sendCommand("checkout")}
+                className="bg-yellow-400 text-black px-6 py-4 rounded-lg font-bold text-lg hover:bg-yellow-500"
+              >
+                ⏏️ Marcar salida
+              </button>
+              <button
+                onClick={() => sendCommand("stop")}
+                className="bg-black border border-yellow-500 text-yellow-400 px-6 py-3 rounded-lg font-semibold hover:bg-yellow-600/30"
+              >
+                ✋ Detener
+              </button>
+
+              <p className="text-gray-400 text-xs mt-1">
+                Abre <code>/check-in?room=nombre</code> en la PC/monitor (Panel) y <code>/check-in?remote=1&room=nombre</code> en el celular (control).
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Columna derecha - Stream de actividad (solo para admin) */}
+        {isAdmin && (
+          <div className="w-1/2 pl-6">
+            <h2 className="text-xl font-bold text-yellow-400 mb-4">Stream de Actividad</h2>
+            <div className="bg-gray-900 rounded-lg p-4 h-[calc(100vh-220px)] overflow-y-auto">
+              {activityLog.length === 0 ? (
+                <p className="text-gray-500 text-center">No hay actividad reciente</p>
+              ) : (
+                <div className="space-y-3">
+                  {activityLog.map((log) => (
+                    <div key={log.id} className="bg-gray-800 rounded-lg p-3 border-l-4 border-yellow-400">
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={log.avatarUrl || `https://ui-avatars.com/api/?background=0D8ABC&color=fff&name=${encodeURIComponent(log.fullName)}`}
+                          alt="Avatar"
+                          className="w-10 h-10 rounded-full"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-white">{log.fullName}</span>
+                            <span className="text-xs text-gray-400">
+                              {log.timestamp.toLocaleTimeString()}
+                            </span>
+                          </div>
+                          <div className="text-sm text-gray-300">
+                            <span className={`inline-block px-2 py-1 rounded text-xs ${
+                              log.action === "checkin" 
+                                ? "bg-green-600 text-white" 
+                                : "bg-red-600 text-white"
+                            }`}>
+                              {log.action === "checkin" ? "Entrada" : "Salida"}
+                            </span>
+                            {log.daysLeft !== undefined && (
+                              <span className="ml-2 text-blue-400">
+                                {log.daysLeft} días restantes
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-400 mt-1">
+                            Deuda mensual: S/. {log.monthlyDebt.toFixed(2)} | 
+                            Deuda diaria: S/. {log.dailyDebt.toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
-      {mode === "kiosk" ? (
-        <>
-          <p className="text-gray-300 text-center max-w-2xl">
-            Reconocimiento <b>automático por huella</b>. Si no te reconoce, usaremos tu <b>teléfono</b>.
-          </p>
-
-          {/* Botón visible de salida explícita */}
-          <button
-            onClick={forceCheckout}
-            className="bg-transparent border border-yellow-400 text-yellow-400 px-6 py-3 rounded-lg font-semibold hover:bg-yellow-500 hover:text-black disabled:opacity-60"
-            disabled={loading}
-          >
-            Registrar salida
-          </button>
-        </>
-      ) : (
-        // ====== Panel de control remoto ======
-        <div className="w-full max-w-md grid grid-cols-1 gap-3 mt-2">
-          <button
-            onClick={() => sendCommand("scan")}
-            className="bg-yellow-400 text-black px-6 py-4 rounded-lg font-bold text-lg hover:bg-yellow-500"
-          >
-            🔎 Escanear / Marcar entrada
-          </button>
-          <button
-            onClick={() => sendCommand("checkout")}
-            className="bg-yellow-400 text-black px-6 py-4 rounded-lg font-bold text-lg hover:bg-yellow-500"
-          >
-            ⏏️ Marcar salida
-          </button>
-          <button
-            onClick={() => sendCommand("stop")}
-            className="bg-black border border-yellow-500 text-yellow-400 px-6 py-3 rounded-lg font-semibold hover:bg-yellow-600/30"
-          >
-            ✋ Detener
-          </button>
-
-          <p className="text-gray-400 text-xs mt-1">
-            Abre <code>/check-in?room=nombre</code> en la PC/monitor (kiosko) y <code>/check-in?remote=1&room=nombre</code> en el celular (control).
-          </p>
+      {/* Diálogo de deuda */}
+      {showDebtDialog && selectedClient && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-900 rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-bold text-yellow-400 mb-4">
+              Agregar Deuda - {selectedClient.fullName}
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={() => addDebt("WATER_1_5")} className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded">
+                Agua S/. 1.50
+              </button>
+              <button onClick={() => addDebt("WATER_2_5")} className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded">
+                Agua S/. 2.50
+              </button>
+              <button onClick={() => addDebt("WATER_3_5")} className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded">
+                Agua S/. 3.50
+              </button>
+              <button onClick={() => addDebt("PROTEIN_5")} className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded">
+                Proteína S/. 5
+              </button>
+              <button onClick={() => addDebt("PRE_WORKOUT_3")} className="bg-orange-600 hover:bg-orange-700 px-4 py-2 rounded">
+                Pre S/. 3
+              </button>
+              <button onClick={() => addDebt("PRE_WORKOUT_5")} className="bg-orange-600 hover:bg-orange-700 px-4 py-2 rounded">
+                Pre S/. 5
+              </button>
+              <button onClick={() => addDebt("PRE_WORKOUT_10")} className="bg-orange-600 hover:bg-orange-700 px-4 py-2 rounded">
+                Pre S/. 10
+              </button>
+              <button 
+                onClick={async () => {
+                  const { value: customData } = await Swal.fire({
+                    ...swalBase,
+                    title: "Producto personalizado",
+                    html: `
+                      <input id="customName" class="swal2-input" placeholder="Nombre del producto">
+                      <input id="customAmount" class="swal2-input" type="number" step="0.01" placeholder="Precio">
+                    `,
+                    focusConfirm: false,
+                    preConfirm: () => {
+                      const name = (document.getElementById('customName') as HTMLInputElement)?.value;
+                      const amount = parseFloat((document.getElementById('customAmount') as HTMLInputElement)?.value || '0');
+                      if (!name || amount <= 0) {
+                        Swal.showValidationMessage('Ingresa nombre y precio válidos');
+                        return false;
+                      }
+                      return { name, amount };
+                    }
+                  });
+                  if (customData) {
+                    addDebt("CUSTOM", customData.amount, customData.name);
+                  }
+                }}
+                className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded col-span-2"
+              >
+                Producto personalizado
+              </button>
+            </div>
+            <div className="flex gap-3 mt-4">
+              <button 
+                onClick={() => setShowDebtDialog(false)}
+                className="flex-1 bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

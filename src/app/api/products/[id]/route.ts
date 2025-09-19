@@ -1,3 +1,4 @@
+// src/app/api/products/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/infrastructure/prisma/prisma";
 import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";

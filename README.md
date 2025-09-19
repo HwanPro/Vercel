@@ -1,37 +1,128 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Wolf Gym – Monorepo Guide (App + Fingerprint Service)
 
-## Getting Started
+Este repositorio contiene la aplicación web principal (Next.js). El servicio de huellas dactilares (python-services) vive en un repositorio SEPARADO y no se versiona dentro de este repo (está ignorado por `.gitignore`).
 
-First, run the development server:
+La idea es que tanto tú como tu cliente puedan actualizar cada proyecto con un simple `git pull`, sin compartir entornos ni configuraciones locales.
+
+---
+
+## Estructura y Repositorios
+
+- App Web (este repo)
+  - Framework: Next.js (TypeScript)
+  - Ruta: raíz del repo
+  - Producción: Vercel u otro hosting
+
+- Servicio de Huellas – python-services (OTRO repo)
+  - Framework: FastAPI (Python)
+  - Ruta local sugerida: fuera de este repo
+  - Ejecución local: Windows (scripts .bat incluidos en su propio repo)
+
+> Nota: En este repo, la carpeta `python-services/` está listada en `.gitignore` para evitar push accidentales.
+
+---
+
+## 1) App Web (Next.js)
+
+### Requisitos
+- Node.js 18+
+- pnpm, npm o yarn
+
+### Variables de entorno
+Crear un archivo `.env.local` en la raíz de la app con tus credenciales. Ejemplos (ajusta a tu entorno):
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+NEXTAUTH_URL=http://localhost:3000
+DATABASE_URL=postgresql://usuario:password@localhost:5432/gym_db
+AWS_BUCKET_NAME=tu-bucket
+AWS_REGION=sa-east-1
+AWS_ACCESS_KEY_ID=xxxx
+AWS_SECRET_ACCESS_KEY=xxxx
+NEXT_PUBLIC_CULQI_PUBLIC_KEY=pk_live_xxx_o_test
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Instalar y correr
+```bash
+npm install
+npm run dev
+# abre http://localhost:3000
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Producción
+- Vercel (recomendado) o el proveedor que prefieras.
+- Recuerda configurar las mismas variables de entorno en el panel de tu hosting.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## 2) Servicio de Huellas (python-services) – Repo independiente
 
-To learn more about Next.js, take a look at the following resources:
+Este servicio NO está en este repo. Se entrega como un proyecto aparte. La guía de uso para tu cliente está incluida en el propio repo del servicio (README, setup.bat y run_service.bat).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Pasos típicos para tu cliente
+1. Clonar o actualizar el repo del servicio:
+   ```bash
+   git pull
+   ```
+2. Ejecutar configuración inicial (solo 1ra vez):
+   ```bash
+   setup.bat
+   ```
+3. Iniciar el servicio local:
+   ```bash
+   run_service.bat
+   ```
+4. El servicio queda en: `http://127.0.0.1:8001`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Variables de entorno (archivo .env en el repo python-services)
+```bash
+DATABASE_URL=postgresql://usuario:password@localhost:5432/gym_db
+ZK_MATCH_THRESHOLD=98
+ZK_FORCE_FALLBACK=true
+ZK_DEBUG_LOGGING=true
+```
 
-## Deploy on Vercel
+> Cada PC puede tener su propia `DATABASE_URL` sin afectar a los demás. Los scripts ya crean `.env` desde `config.env.example` si falta.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-# WolfGym
+## 3) Flujo de actualizaciones (para tu cliente)
+
+- App Web (este repo):
+  ```bash
+  git pull
+  npm run build # según hosting
+  ```
+
+- Servicio de Huellas (repo aparte):
+  ```bash
+  git pull
+  run_service.bat
+  ```
+
+No es necesario tocar código ni reconfigurar rutas. Solo mantener `.env` de cada proyecto con su propia conexión.
+
+---
+
+## 4) Desarrollo local – tips
+
+- La API pública de productos está en `src/app/api/products/public/route.ts`.
+- Campos para visibilidad:
+  - `is_admin_only` = true => NO aparece en catálogo público.
+- Prisma schema: `prisma/schema.prisma`.
+
+---
+
+## 5) Soporte rápido
+
+- Problemas con App Web: revisar consola/`/api/*` y variables en `.env.local`.
+- Problemas con Servicio de Huellas: ejecutar `setup.bat`, revisar `.env` y puertos libres (8001).
+
+---
+
+## 6) Changelog breve (últimos cambios relevantes)
+
+- SEO mejorado (metas, OG/Twitter, schema.org) en `src/app/layout.tsx` y estructura semántica en `src/app/page.tsx`.
+- Productos “solo gimnasio”: endpoint público filtra `is_admin_only=false`.
+- Modal de “Agregar Producto”: UI mejorada y botón cerrar corregido.
+- python-services: endurecido el algoritmo de similitud y scripts de instalación/arranque.
+

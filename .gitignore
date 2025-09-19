@@ -29,6 +29,13 @@ public/uploads/*
 !public/uploads/.gitkeep
 Tarea.md
 REPORTE-PRUEBAS-CORREO.md
+DEBT_SYSTEM_README.md
+FINGERPRINT_SYSTEM_OVERHAUL.md
+FIXES_APPLIED.md
+FIXES_SUMMARY.md
+IMPLEMENTATION_SUMMARY.md
+MODAL_INTERACTION_FIX.md
+PRODUCTS_UNIFICATION_SUMMARY.md
 
 # Python Services (separate repository)
 python-services/

@@ -1,7 +1,7 @@
 // src/app/api/check-in/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/infrastructure/prisma/prisma";
-
+import { broadcastToRoom } from "@/lib/stream-manager";
 export const dynamic = "force-dynamic";
 
 /* ================= Utils ================= */
@@ -101,13 +101,14 @@ async function getProfileInfo(userId: string) {
   const profile = await prisma.clientProfile.findUnique({
     where: { user_id: userId },
     select: {
+      profile_id: true,
       profile_first_name: true,
       profile_last_name: true,
       profile_start_date: true,
       profile_end_date: true,
       profile_phone: true,
       profile_plan: true,
-      debt: true, // Decimal(10,2)
+      debt: true, // Decimal(10,2) - deuda mensual
     },
   });
 
@@ -119,10 +120,27 @@ async function getProfileInfo(userId: string) {
     undefined;
 
   // Coerce Decimal -> number (o 0 si null/undefined)
-  const debt =
+  const monthlyDebt =
     profile?.debt !== null && profile?.debt !== undefined
       ? Number(profile.debt)
       : 0;
+
+  // Debug: Log para verificar la deuda mensual
+  console.log(`Debug - Usuario: ${fullName}, Deuda mensual raw:`, profile?.debt, 'Procesada:', monthlyDebt);
+
+  // Obtener deudas diarias
+  let dailyDebt = 0;
+  if (profile?.profile_id) {
+    try {
+      const dailyDebts = await (prisma as any).dailyDebt.findMany({
+        where: { clientProfileId: profile.profile_id },
+      });
+      dailyDebt = dailyDebts.reduce((sum: number, debt: any) => sum + Number(debt.amount), 0);
+    } catch (error) {
+      // Si el modelo no existe aún, usar 0
+      dailyDebt = 0;
+    }
+  }
 
   const daysLeft = calcDaysLeft(profile?.profile_end_date);
 
@@ -131,9 +149,12 @@ async function getProfileInfo(userId: string) {
     plan: profile?.profile_plan ?? null,
     startDate: profile?.profile_start_date ?? null,
     endDate: profile?.profile_end_date ?? null,
-    debt,
+    monthlyDebt,
+    dailyDebt,
+    totalDebt: monthlyDebt + dailyDebt,
     daysLeft,
     avatarUrl: user?.image ?? null,
+    profileId: profile?.profile_id ?? null,
   };
 }
 
@@ -164,7 +185,7 @@ export async function POST(req: Request) {
 
       const info = await getProfileInfo(user.id);
 
-      return NextResponse.json({
+      const responseData = {
         ok: true,
         userId: user.id,
         fullName: info.fullName,
@@ -172,8 +193,12 @@ export async function POST(req: Request) {
         startDate: info.startDate,
         endDate: info.endDate,
         daysLeft: info.daysLeft,
-        debt: info.debt,
+        monthlyDebt: info.monthlyDebt,
+        dailyDebt: info.dailyDebt,
+        totalDebt: info.totalDebt,
         avatarUrl: info.avatarUrl,
+        profileId: info.profileId,
+        action: res.type === "checkout" ? "checkout" : "checkin",
         type: res.type,
         message:
           res.type === "checkout"
@@ -182,7 +207,15 @@ export async function POST(req: Request) {
               ? "Registro ya tomado"
               : "Entrada registrada",
         record: (res as any).record ?? null,
-      });
+        minutesOpen: res.type === "checkout" ? (res as any).record?.durationMins : undefined,
+      };
+
+      // Broadcast a todas las salas (o puedes usar una sala específica)
+      if (res.type !== "rebote") {
+        broadcastToRoom("default", responseData);
+      }
+
+      return NextResponse.json(responseData);
     }
 
     // ---- TELÉFONO (phone) ----
@@ -236,7 +269,7 @@ export async function POST(req: Request) {
 
       const info = await getProfileInfo(userIdFromPhone);
 
-      return NextResponse.json({
+      const responseData = {
         ok: true,
         userId: userIdFromPhone,
         fullName: info.fullName,
@@ -244,8 +277,12 @@ export async function POST(req: Request) {
         startDate: info.startDate,
         endDate: info.endDate,
         daysLeft: info.daysLeft,
-        debt: info.debt,
+        monthlyDebt: info.monthlyDebt,
+        dailyDebt: info.dailyDebt,
+        totalDebt: info.totalDebt,
         avatarUrl: info.avatarUrl,
+        profileId: info.profileId,
+        action: res.type === "checkout" ? "checkout" : "checkin",
         type: res.type,
         message:
           res.type === "checkout"
@@ -254,7 +291,15 @@ export async function POST(req: Request) {
               ? "Registro ya tomado"
               : "Entrada registrada",
         record: (res as any).record ?? null,
-      });
+        minutesOpen: res.type === "checkout" ? (res as any).record?.durationMins : undefined,
+      };
+
+      // Broadcast a todas las salas
+      if (res.type !== "rebote") {
+        broadcastToRoom("default", responseData);
+      }
+
+      return NextResponse.json(responseData);
     }
 
     return NextResponse.json(

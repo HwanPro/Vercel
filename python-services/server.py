@@ -37,7 +37,7 @@ load_dotenv()
 
 ARCH_BITS = 64 if platform.architecture()[0].startswith("64") else 32
 PG_URL = os.environ.get("DATABASE_URL")
-MATCH_THRESHOLD = int(os.environ.get("ZK_MATCH_THRESHOLD", "95"))
+MATCH_THRESHOLD = int(os.environ.get("ZK_MATCH_THRESHOLD", "98"))  # Threshold más estricto
 FORCE_FALLBACK = os.environ.get("ZK_FORCE_FALLBACK", "true").lower() == "true"
 
 # Database configuration
@@ -483,72 +483,47 @@ class ZKDevice:
 # ============================================================================
 
 def calculate_similarity(a: bytes, b: bytes) -> int:
-    """Calcula similitud entre dos templates usando múltiples algoritmos"""
-    # Si las longitudes son muy diferentes, usar un enfoque más tolerante
+    """
+    Algoritmo de similitud más estricto para evitar falsos positivos.
+    Usa solo Hamming Distance que es más confiable para templates biométricos.
+    """
+    # Validación estricta de tamaños
     if len(a) != len(b):
-        # Método para templates de diferentes tamaños
-        min_len = min(len(a), len(b))
-        max_len = max(len(a), len(b))
-        
-        # Si la diferencia es muy grande, es probable que sean diferentes dedos
-        if max_len / min_len > 1.5:
+        size_ratio = max(len(a), len(b)) / min(len(a), len(b))
+        # Rechazar si la diferencia de tamaño es mayor al 20%
+        if size_ratio > 1.2:
+            print(f"[DEBUG] Templates rechazados por diferencia de tamaño: {len(a)} vs {len(b)} (ratio: {size_ratio:.2f})")
             return 0
+    
+    # Usar la longitud mínima para comparación
+    min_len = min(len(a), len(b))
+    
+    # Calcular distancia de Hamming (más confiable para biometría)
+    hamming_distance = 0
+    for i in range(min_len):
+        # Contar bits diferentes entre los bytes
+        hamming_distance += bin(a[i] ^ b[i]).count('1')
+    
+    total_bits = min_len * 8
+    
+    # Calcular similitud base
+    if total_bits == 0:
+        return 0
         
-        # Usar solo la parte común para comparar
-        common_a = a[:min_len]
-        common_b = b[:min_len]
-        
-        # Calcular similitud en la parte común
-        hamming_distance = sum(bin(common_a[i] ^ common_b[i]).count('1') for i in range(min_len))
-        total_bits = min_len * 8
-        similarity = max(0, 100 - (hamming_distance / total_bits) * 100)
-        
-        # Penalizar más severamente por diferencia de tamaño
-        size_penalty = (max_len - min_len) / max_len * 50
-        final_similarity = max(0, similarity - size_penalty)
-        
-        return int(final_similarity)
+    similarity = max(0, 100 - (hamming_distance / total_bits) * 100)
     
-    # Método 1: Distancia de Hamming (más estricto)
-    hamming_distance = sum(bin(a[i] ^ b[i]).count('1') for i in range(min(len(a), len(b))))
-    total_bits = len(a) * 8
-    hamming_similarity = max(0, 100 - (hamming_distance / total_bits) * 100)
+    # Penalización adicional por diferencia de tamaño
+    if len(a) != len(b):
+        size_diff = abs(len(a) - len(b))
+        max_len = max(len(a), len(b))
+        size_penalty = (size_diff / max_len) * 30  # Penalización más severa
+        similarity = max(0, similarity - size_penalty)
+        print(f"[DEBUG] Penalización por tamaño aplicada: -{size_penalty:.2f}%")
     
-    # Método 2: Correlación de bytes (más tolerante)
-    byte_correlations = []
-    for i in range(min(len(a), len(b))):
-        if a[i] == b[i]:
-            byte_correlations.append(100)
-        else:
-            # Calcular similitud basada en diferencia absoluta
-            diff = abs(a[i] - b[i])
-            similarity = max(0, 100 - (diff / 255) * 100)
-            byte_correlations.append(similarity)
+    final_score = int(similarity)
+    print(f"[DEBUG] Similitud calculada: {final_score}% (Hamming: {hamming_distance}/{total_bits} bits)")
     
-    correlation_similarity = sum(byte_correlations) / len(byte_correlations) if byte_correlations else 0
-    
-    # Método 3: Patrones de bits (intermedio)
-    bit_patterns_a = [bin(a[i])[2:].zfill(8) for i in range(min(len(a), len(b)))]
-    bit_patterns_b = [bin(b[i])[2:].zfill(8) for i in range(min(len(a), len(b)))]
-    
-    pattern_matches = 0
-    total_patterns = len(bit_patterns_a) * 8
-    
-    for i in range(len(bit_patterns_a)):
-        for j in range(8):
-            if bit_patterns_a[i][j] == bit_patterns_b[i][j]:
-                pattern_matches += 1
-    
-    pattern_similarity = (pattern_matches / total_patterns) * 100 if total_patterns > 0 else 0
-    
-    # Combinar los tres métodos con pesos más estrictos
-    final_similarity = (
-        hamming_similarity * 0.6 +      # 60% peso al método más estricto
-        correlation_similarity * 0.3 +   # 30% peso al método intermedio
-        pattern_similarity * 0.1         # 10% peso al método más tolerante
-    )
-    
-    return int(final_similarity)
+    return final_score
 
 # ============================================================================
 # SCHEDULER FUNCTIONS
@@ -958,7 +933,8 @@ def identify_fingerprint(payload: IdentifyPayload):
         except Exception:
             use_dbmatch = False
 
-    best_user, best_score = None, -1
+    # Recopilar todos los candidatos que superen el threshold
+    candidates = []
 
     if use_dbmatch:
         lib.ZKFPM_DBMatch.argtypes = [POINTER(c_ubyte), c_int, POINTER(c_ubyte), c_int]
@@ -967,22 +943,69 @@ def identify_fingerprint(payload: IdentifyPayload):
         for uid, stored in rows:
             A = (c_ubyte * len(stored)).from_buffer_copy(stored)
             sc = int(lib.ZKFPM_DBMatch(A, len(stored), B, len(live)))
-            if sc >= 0 and sc > best_score:
-                best_score, best_user = sc, uid
+            if sc >= MATCH_THRESHOLD:  # Solo candidatos que superen el threshold
+                candidates.append((uid, sc))
+                print(f"[DEBUG] Candidato DBMatch: {uid} -> {sc}%")
     else:
         for uid, stored in rows:
             sc = calculate_similarity(stored, live)
-            if sc > best_score:
-                best_score, best_user = sc, uid
+            if sc >= MATCH_THRESHOLD:  # Solo candidatos que superen el threshold
+                candidates.append((uid, sc))
+                print(f"[DEBUG] Candidato Fallback: {uid} -> {sc}%")
 
-    match = best_score >= MATCH_THRESHOLD
+    # Validar resultados para evitar falsos positivos
+    if not candidates:
+        print("[DEBUG] Sin candidatos que superen el threshold")
+        return {
+            "ok": True,
+            "match": False,
+            "user_id": None,
+            "score": 0,
+            "threshold": MATCH_THRESHOLD,
+            "fallback_used": not use_dbmatch or FORCE_FALLBACK,
+            "message": "Sin coincidencias confiables"
+        }
+
+    # Ordenar candidatos por score (mayor a menor)
+    candidates.sort(key=lambda x: x[1], reverse=True)
+    best_user, best_score = candidates[0]
+
+    # Si hay múltiples candidatos, verificar que el mejor sea significativamente mejor
+    if len(candidates) > 1:
+        second_best_score = candidates[1][1]
+        score_difference = best_score - second_best_score
+        
+        print(f"[DEBUG] Múltiples candidatos: {len(candidates)}")
+        print(f"[DEBUG] Mejor: {best_user} ({best_score}%), Segundo: {candidates[1][0]} ({second_best_score}%)")
+        print(f"[DEBUG] Diferencia: {score_difference}%")
+        
+        # Requerir al menos 3% de diferencia para evitar ambigüedad
+        if score_difference < 3:
+            print("[WARNING] Coincidencias ambiguas detectadas - rechazando identificación")
+            return {
+                "ok": True,
+                "match": False,
+                "user_id": None,
+                "score": best_score,
+                "threshold": MATCH_THRESHOLD,
+                "fallback_used": not use_dbmatch or FORCE_FALLBACK,
+                "message": f"Coincidencias ambiguas: {len(candidates)} candidatos con scores similares",
+                "candidates_count": len(candidates),
+                "best_score": best_score,
+                "second_best_score": second_best_score,
+                "score_difference": score_difference
+            }
+
+    print(f"[DEBUG] Identificación exitosa: {best_user} con {best_score}%")
     return {
         "ok": True,
-        "match": bool(match),
-        "user_id": best_user if match else None,
+        "match": True,
+        "user_id": best_user,
         "score": int(best_score),
         "threshold": MATCH_THRESHOLD,
         "fallback_used": not use_dbmatch or FORCE_FALLBACK,
+        "candidates_count": len(candidates),
+        "message": f"Identificado con {best_score}% de confianza"
     }
 
 # ============================================================================

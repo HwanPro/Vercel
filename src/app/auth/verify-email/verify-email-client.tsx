@@ -1,13 +1,13 @@
 // app/auth/verify-email/verify-email-client.tsx
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/ui/button";
 import { toast } from "react-toastify";
 import { CheckCircle, AlertCircle, Mail } from "lucide-react";
 
-export default function VerifyEmailClient() {
+function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [isVerifying, setIsVerifying] = useState(false);
@@ -119,5 +119,20 @@ export default function VerifyEmailClient() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function VerifyEmailClient() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Cargando verificación...</p>
+        </div>
+      </div>
+    }>
+      <VerifyEmailContent />
+    </Suspense>
   );
 }

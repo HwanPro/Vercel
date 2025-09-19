@@ -26,50 +26,38 @@ export async function GET() {
 
 // POST: Create a new product
 export async function POST(req: NextRequest) {
-  console.log("Request received at /api/products");
   try {
     const data = await req.formData();
 
-    // Extract fields
-    const item_name = data.get("item_name") as string;
+    const item_name        = data.get("item_name") as string;
     const item_description = data.get("item_description") as string;
-    const item_price = parseFloat(data.get("item_price") as string);
-    const item_discount = parseFloat(data.get("item_discount") as string) || 0;
-    const item_stock = parseInt(data.get("item_stock") as string, 10);
-    const file = data.get("file");
+    const item_price       = parseFloat(String(data.get("item_price")));
+    const item_discount    = parseFloat(String(data.get("item_discount") ?? "0")) || 0;
+    const item_stock       = parseInt(String(data.get("item_stock") ?? "0"), 10);
+    const isGymProduct     = String(data.get("isGymProduct") ?? "false") === "true"; // <- USADO
+    const category         = (data.get("category") as string) || "general";         // <- USADO
+    const file             = data.get("file");
 
-    // Validate fields
     if (!item_name || !item_description || isNaN(item_price) || isNaN(item_stock)) {
-      return NextResponse.json(
-        { error: "Missing or invalid required fields" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing or invalid required fields" }, { status: 400 });
     }
-
-    // Validate file
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "Invalid file" }, { status: 400 });
     }
 
-    // Convert file to buffer
+    // Sube a S3 (tu código actual) -> imageUrl
     const buffer = Buffer.from(await file.arrayBuffer());
     const uniqueFileName = `${uuidv4()}-${file.name}`;
-
-    // S3 Upload parameters
-    const uploadParams = {
+    await s3Client.send(new PutObjectCommand({
       Bucket: process.env.AWS_BUCKET_NAME!,
       Key: `uploads/${uniqueFileName}`,
       Body: buffer,
       ContentType: file.type,
-    };
+    }));
+    const imageUrl =
+      `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/uploads/${uniqueFileName}`;
 
-    // Upload to S3
-    await s3Client.send(new PutObjectCommand(uploadParams));
-
-    // Public URL of the uploaded file
-    const imageUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/uploads/${uniqueFileName}`;
-
-    // Save product in the database
+    // Guarda usando los NUEVOS campos
     const newProduct = await prisma.inventoryItem.create({
       data: {
         item_name,
@@ -78,19 +66,15 @@ export async function POST(req: NextRequest) {
         item_discount,
         item_stock,
         item_image_url: imageUrl,
+        item_category: category,
+        is_admin_only: isGymProduct, // <- clave para ocultar en público
       },
     });
 
-    return NextResponse.json({
-      message: "Product created successfully",
-      product: newProduct,
-    });
+    return NextResponse.json({ message: "Product created successfully", product: newProduct });
   } catch (error) {
     console.error("Error uploading to S3 or saving to DB:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 

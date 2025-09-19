@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+Allow: /auth/login
+Allow: /auth/register
+Allow: /products/public
+
+Disallow: /admin/
+Disallow: /api/
+Disallow: /client/
+Disallow: /check-in/
+Disallow: /profile/
+
+Sitemap: https://wolfgym.com/sitemap.xml

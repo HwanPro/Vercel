@@ -29,8 +29,7 @@ model User {
   sessions     Session[]
   contacts     UserContact[]        @relation("UserContacts")
   memberships  UserMembershipPlan[]
-  fingerprints Fingerprint?
-  emailVerification EmailVerification?
+  fingerprints Fingerprint[]
 
   @@map("users")
 }
@@ -55,45 +54,25 @@ model UserMembershipPlan {
   @@id([userId, membershipId])
 }
 
-enum PaymentMethod {
-  CASH
-  CARD
-  TRANSFER
-  OTHER
-}
-
-enum PaymentStatus {
-  PENDING
-  COMPLETED
-  FAILED
-  REFUNDED
-}
-
 model PaymentRecord {
-  payment_id        Int            @id @default(autoincrement())
+  payment_id        Int           @id @default(autoincrement())
   payer_user_id     String
-  payer_user        User           @relation("UserPayments", fields: [payer_user_id], references: [id])
-
-  // NUEVO: vínculo directo al cliente (si el pago es por un plan de cliente)
-  client_profile_id String?       
-  client_profile    ClientProfile? @relation(fields: [client_profile_id], references: [profile_id])
-
-  payment_amount    Decimal        @db.Decimal(10, 2)
-  payment_method    PaymentMethod  @default(CASH)
-  payment_status    PaymentStatus  @default(COMPLETED)
-  currency          String         @default("PEN")
+  payment_amount    Decimal       @db.Decimal(10, 2)
+  payment_date      DateTime      @default(now())
+  client_profile_id String?
+  createdAt         DateTime      @default(now())
+  currency          String        @default("PEN")
+  externalRef       String?
   note              String?
-  externalRef       String?        // p.ej. ID de transacción procesador
-
-  payment_date      DateTime       @default(now())
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  payment_status    PaymentStatus @default(COMPLETED)
+  updatedAt         DateTime      @updatedAt
+  payment_method    PaymentMethod @default(CASH)
+  payer_user        User          @relation("UserPayments", fields: [payer_user_id], references: [id])
 
   @@index([payer_user_id])
   @@index([client_profile_id])
   @@index([payment_date])
 }
-
 
 model UserContact {
   contact_id      Int      @id @default(autoincrement())
@@ -103,52 +82,44 @@ model UserContact {
   contact_user    User     @relation("UserContacts", fields: [contact_user_id], references: [id])
 }
 
-// En la parte superior, declara el enum:
-enum PromoPreset {
-  D30
-  D90
-  D180
-  D365
-  CUSTOM
-}
-
 model ClientProfile {
-  profile_id              String    @id @default(cuid())
-  user_id                 String    @unique
-  user                    User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
-
   profile_plan            String?
   profile_start_date      DateTime?
   profile_end_date        DateTime?
   profile_emergency_phone String?
   profile_phone           String?
-  profile_address         String?   @default("")
-  profile_social          String?   @default("")
+  user_id                 String       @unique
+  profile_id              String       @id @default(cuid())
+  profile_address         String?      @default("")
+  profile_social          String?      @default("")
   profile_first_name      String?
   profile_last_name       String?
-
-  // NUEVOS CAMPOS:
- debt           Decimal @db.Decimal(10, 2) @default(0)
-  promoPreset    PromoPreset?
-  promoTotalDays Int?
-  promoUsedDays  Int?
-
-  // Relación con pagos (si quieres enlazar pagos al perfil)
-  payments        PaymentRecord[]
+  debt                    Decimal      @default(0) @db.Decimal(10, 2)
+  promoTotalDays          Int?
+  promoUsedDays           Int?
+  promoPreset             PromoPreset?
+  user                    User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
 model InventoryItem {
-  item_id          String     @id @default(uuid())
+  item_id          String   @id @default(uuid())
   item_name        String
   item_description String
   item_price       Float
   item_discount    Float?
   item_stock       Int
   item_image_url   String
-  item_created_at  DateTime   @default(now())
-  item_updated_at  DateTime   @updatedAt
+  item_created_at  DateTime @default(now())
+  item_updated_at  DateTime @updatedAt
   purchases        Purchase[]
+
+  item_category    String?  @default("general")
+  is_admin_only    Boolean  @default(false)
+
+  @@index([is_admin_only])
+  @@index([item_category])
 }
+
 
 model Account {
   id                String  @id @default(cuid())
@@ -231,8 +202,8 @@ model Gallery {
 
 model Fingerprint {
   id       String @id @default(cuid())
-  user_id  String @unique
   template Bytes
+  user_id  String
   user     User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("fingerprints")
@@ -248,7 +219,69 @@ model EmailVerification {
   expiresAt DateTime
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("email_verifications")
+}
+
+model DailyDebt {
+  id              String      @id @default(cuid())
+  clientProfileId String
+  productType     ProductType
+  productName     String?
+  amount          Decimal     @db.Decimal(10, 2)
+  quantity        Int         @default(1)
+  createdAt       DateTime    @default(now())
+  createdBy       String?
+
+  @@index([clientProfileId, createdAt])
+  @@map("daily_debts")
+}
+
+model DebtHistory {
+  id              String      @id @default(cuid())
+  clientProfileId String
+  productType     ProductType
+  productName     String?
+  amount          Decimal     @db.Decimal(10, 2)
+  quantity        Int
+  debtType        String
+  createdAt       DateTime    @default(now())
+  deletedAt       DateTime?
+  createdBy       String?
+
+  @@index([clientProfileId, createdAt])
+  @@map("debt_history")
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  TRANSFER
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PromoPreset {
+  D30
+  D90
+  D180
+  D365
+  CUSTOM
+}
+
+enum ProductType {
+  WATER_1_5
+  WATER_2_5
+  WATER_3_5
+  PROTEIN_5
+  PRE_WORKOUT_3
+  PRE_WORKOUT_5
+  PRE_WORKOUT_10
+  CUSTOM
 }

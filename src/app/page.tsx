@@ -444,18 +444,21 @@ export default function WolfGymLanding() {
       )}
 
       <main className="flex-1">
-        <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48 bg-black">
+        <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48 bg-black" role="banner">
           <div className="container px-4 md:px-6 mx-auto">
             <div className="flex flex-col items-center space-y-4 text-center">
               <div className="space-y-2">
                 <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl text-yellow-400">
-                  Bienvenido a Wolf Gym
+                  Wolf Gym - El Mejor Gimnasio de Ica
                 </h1>
-                <p className="mx-auto max-w-[700px] text-white md:text-xl">
+                <h2 className="mx-auto max-w-[700px] text-white md:text-xl font-semibold">
+                  Equipos de Última Tecnología | Entrenadores Expertos | Planes Accesibles
+                </h2>
+                <p className="mx-auto max-w-[700px] text-white md:text-lg">
                   Libera tu lobo interior. Únete a la manada y transforma tu
-                  cuerpo y mente.
+                  cuerpo y mente en el gimnasio más completo de Ica.
                 </p>
-                <p className="mx-auto max-w-[700px] text-white md:text-xl">
+                <p className="mx-auto max-w-[700px] text-yellow-400 md:text-xl font-bold">
                   Prohibido Rendirse
                 </p>
               </div>
@@ -468,10 +471,11 @@ export default function WolfGymLanding() {
         <section
           id="features"
           className="w-full py-12 md:py-24 lg:py-32 bg-white text-black"
+          aria-labelledby="features-heading"
         >
           <div className="container px-4 md:px-6 mx-auto">
-            <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl text-center mb-12 text-black">
-              Nuestras Características
+            <h2 id="features-heading" className="text-3xl font-bold tracking-tighter sm:text-5xl text-center mb-12 text-black">
+              ¿Por Qué Elegir Wolf Gym en Ica?
             </h2>
             <div className="grid gap-10 sm:grid-cols-2 md:grid-cols-4">
               <Card className="bg-black text-white">
@@ -482,44 +486,47 @@ export default function WolfGymLanding() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p>Acceso a equipamiento de fitness.</p>
+                  <p>Máquinas de última generación para cardio, fuerza y entrenamiento funcional en Ica.</p>
                 </CardContent>
               </Card>
               <Card className="bg-black text-white">
                 <CardHeader>
                   <Users className="w-12 h-12 mb-4 text-yellow-400" />
                   <CardTitle className="text-yellow-400">
-                    Entrenadores Expertos
+                    Entrenadores Certificados
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p>Guía personalizada por profesionales certificados.</p>
+                  <p>Personal trainers profesionales con experiencia en fitness y nutrición deportiva.</p>
                 </CardContent>
               </Card>
               <Card className="bg-black text-white">
                 <CardHeader>
                   <Calendar className="w-12 h-12 mb-4 text-yellow-400" />
                   <CardTitle className="text-yellow-400">
-                    Clases Diversas
+                    Planes Flexibles
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p>Próximamente...</p>
+                  <p>Membresías desde S/60 mensuales. Planes que se adaptan a tu presupuesto y objetivos.</p>
                 </CardContent>
               </Card>
               <Card className="bg-black text-white">
                 <CardHeader>
                   <Clock className="w-12 h-12 mb-4 text-yellow-400" />
                   <CardTitle className="text-yellow-400">
-                    Horarios de Apertura
+                    Horarios Amplios
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-white text-sm">
-                    <strong>De lunes a viernes:</strong> 6 AM - 9 PM
+                    <strong>Lunes a Viernes:</strong> 6:00 AM - 9:00 PM
                   </p>
                   <p className="text-white text-sm">
-                    <strong>Sábados:</strong> 6 AM - 8 PM
+                    <strong>Sábados:</strong> 6:00 AM - 8:00 PM
+                  </p>
+                  <p className="text-white text-xs mt-2">
+                    Ubicados en Av. Peru 622, Ica
                   </p>
                 </CardContent>
               </Card>
@@ -527,11 +534,14 @@ export default function WolfGymLanding() {
           </div>
         </section>
 
-        <section id="pricing" className="py-10 md:py-20 lg:py-28 bg-black">
+        <section id="pricing" className="py-10 md:py-20 lg:py-28 bg-black" aria-labelledby="pricing-heading">
           <div className="container px-4 md:px-6 mx-auto">
-            <h2 className="text-5xl text-yellow-400 font-bold text-center mb-12">
-              Planes de Membresía
+            <h2 id="pricing-heading" className="text-5xl text-yellow-400 font-bold text-center mb-12">
+              Planes de Membresía - Gimnasio en Ica
             </h2>
+            <p className="text-center text-white text-lg mb-8 max-w-2xl mx-auto">
+              Elige el plan que mejor se adapte a tus objetivos fitness. Todos incluyen acceso completo a equipos y asesoría personalizada.
+            </p>
             <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
               {membershipPlans.map((plan) => (
                 <div
@@ -576,11 +586,15 @@ export default function WolfGymLanding() {
         <section
           id="gallery"
           className="w-full py-12 md:py-24 lg:py-32 bg-white container mx-auto"
+          aria-labelledby="gallery-heading"
         >
           <div className="container px-4 md:px-6 mx-auto">
-            <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl text-center mb-12 text-black">
-              Galería de Fotos
+            <h2 id="gallery-heading" className="text-3xl font-bold tracking-tighter sm:text-5xl text-center mb-12 text-black">
+              Conoce Nuestras Instalaciones
             </h2>
+            <p className="text-center text-gray-600 text-lg mb-8 max-w-2xl mx-auto">
+              Descubre el ambiente y equipos de Wolf Gym. Un espacio diseñado para tu transformación física en el corazón de Ica.
+            </p>
 
             {isAdmin && (
               <div className="mb-6 flex justify-center">
@@ -657,45 +671,70 @@ export default function WolfGymLanding() {
         </section>
       </main>
 
-      <footer className="bg-black text-white py-8">
+      <footer className="bg-black text-white py-8" role="contentinfo">
         <div className="container mx-auto px-4">
           <div className="flex flex-wrap items-center justify-center md:justify-between">
             <div className="w-full md:w-1/3 mb-6 md:mb-0 text-center md:text-left">
-              <h3 className="text-xl font-bold mb-2">Wolf Gym</h3>
+              <h3 className="text-xl font-bold mb-2">Wolf Gym Ica</h3>
               <p className="text-sm">
-                Transformando vidas, un entrenamiento a la vez.
+                El mejor gimnasio de Ica. Transformando vidas, un entrenamiento a la vez.
+              </p>
+              <p className="text-sm mt-2">
+                <strong>Horarios:</strong> L-V 6AM-9PM | Sáb 6AM-8PM
               </p>
             </div>
             <div className="flex space-x-6 mb-4 md:mb-0">
-              <a href="#" className="text-white hover:text-yellow-400 text-2xl">
+              <a 
+                href="https://www.facebook.com/wolfgym" 
+                className="text-white hover:text-yellow-400 text-2xl"
+                aria-label="Síguenos en Facebook"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <FaFacebook />
               </a>
-              <a href="#" className="text-white hover:text-yellow-400 text-2xl">
+              <a 
+                href="https://www.instagram.com/wolfgym" 
+                className="text-white hover:text-yellow-400 text-2xl"
+                aria-label="Síguenos en Instagram"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <FaInstagram />
               </a>
-              <a href="#" className="text-white hover:text-yellow-400 text-2xl">
+              <a 
+                href="https://twitter.com/wolfgym" 
+                className="text-white hover:text-yellow-400 text-2xl"
+                aria-label="Síguenos en Twitter"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <FaTwitter />
               </a>
             </div>
             <div className="w-full md:w-1/3 text-center md:text-right">
-              <h4 className="text-lg font-semibold mb-2">Ubícanos</h4>
-              <p className="text-sm mb-2">Av. Peru 622, Ica 11003</p>
+              <h4 className="text-lg font-semibold mb-2">Visítanos en Ica</h4>
+              <address className="text-sm mb-2 not-italic">
+                Av. Peru 622, Ica 11003, Perú
+              </address>
               <a
                 href="https://maps.app.goo.gl/jnQge8XcuerTmnZRA"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-yellow-400 hover:underline"
               >
-                Ver en Google Maps
+                📍 Ver en Google Maps
               </a>
             </div>
-            <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl text-yellow-400 mx-auto">
-              PROHIBIDO RENDIRSE
-            </h1>
+            <div className="w-full text-center mt-6">
+              <h2 className="text-2xl md:text-3xl font-bold text-yellow-400">
+                PROHIBIDO RENDIRSE
+              </h2>
+            </div>
           </div>
           <div className="mt-8 pt-8 border-t border-gray-700 text-center">
             <p className="text-sm">
-              © 2024 Wolf Gym. Todos los derechos reservados.
+              © 2024 Wolf Gym Ica. Todos los derechos reservados. | Gimnasio en Ica, Perú
             </p>
           </div>
         </div>

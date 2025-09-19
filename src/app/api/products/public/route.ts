@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
         item_stock: {
           gt: 0,
         },
+        is_admin_only: false, // Solo productos públicos
       },
       select: {
         item_id: true,
