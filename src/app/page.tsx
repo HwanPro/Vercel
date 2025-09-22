@@ -452,7 +452,7 @@ export default function WolfGymLanding() {
                   Wolf Gym - El Mejor Gimnasio de Ica
                 </h1>
                 <h2 className="mx-auto max-w-[700px] text-white md:text-xl font-semibold">
-                  Equipos de Última Tecnología | Entrenadores Expertos | Planes Accesibles
+                  Entrenadores Expertos | Planes Accesibles
                 </h2>
                 <p className="mx-auto max-w-[700px] text-white md:text-lg">
                   Libera tu lobo interior. Únete a la manada y transforma tu
