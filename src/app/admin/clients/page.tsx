@@ -38,6 +38,7 @@ type BiometricResponse = {
   ok: boolean;
   message?: string;
   template?: string;
+  image?: string;
   hasFingerprint?: boolean;
   match?: boolean;
   score?: number;
@@ -649,8 +650,8 @@ export default function ClientsPage() {
 
       // Actualizar animación a "capturando"
       setTimeout(() => {
-        const textElement = document.querySelector('.scanner-text p');
-        const iconElement = document.querySelector('.fingerprint-icon');
+        const textElement = document.querySelector('.scanner-text p') as HTMLElement;
+        const iconElement = document.querySelector('.fingerprint-icon') as HTMLElement;
         if (textElement && iconElement) {
           textElement.innerHTML = '<span class="spinner">🔄</span> Capturando...';
           textElement.style.color = '#007bff';
@@ -663,8 +664,8 @@ export default function ClientsPage() {
       const {template} = await captureOnce();
 
       // Actualizar a "verificando"
-      const textElement = document.querySelector('.scanner-text p');
-      const iconElement = document.querySelector('.fingerprint-icon');
+      const textElement = document.querySelector('.scanner-text p') as HTMLElement;
+      const iconElement = document.querySelector('.fingerprint-icon') as HTMLElement;
       if (textElement && iconElement) {
         textElement.innerHTML = '<span class="spinner">🔍</span> Verificando...';
         textElement.style.color = '#ffc107';

@@ -455,7 +455,7 @@ function ExerciseForm({
           <Label>Nombre del Ejercicio</Label>
           <Input
             value={formData.name}
-            onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+            onChange={(e) => setFormData((prev: any) => ({ ...prev, name: e.target.value }))}
             required
           />
         </div>
@@ -463,7 +463,7 @@ function ExerciseForm({
           <Label>Equipo</Label>
           <Select 
             value={formData.equipment} 
-            onValueChange={(value) => setFormData(prev => ({ ...prev, equipment: value }))}
+            onValueChange={(value) => setFormData((prev: any) => ({ ...prev, equipment: value }))}
           >
             <SelectTrigger>
               <SelectValue placeholder="Seleccionar equipo" />
@@ -481,7 +481,7 @@ function ExerciseForm({
         <Label>Descripción</Label>
         <Textarea
           value={formData.description}
-          onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+          onChange={(e) => setFormData((prev: any) => ({ ...prev, description: e.target.value }))}
           rows={3}
         />
       </div>
@@ -490,7 +490,7 @@ function ExerciseForm({
         <Label>Instrucciones (paso a paso)</Label>
         <Textarea
           value={formData.instructions}
-          onChange={(e) => setFormData(prev => ({ ...prev, instructions: e.target.value }))}
+          onChange={(e) => setFormData((prev: any) => ({ ...prev, instructions: e.target.value }))}
           rows={4}
           placeholder="1. Primer paso&#10;2. Segundo paso&#10;3. Tercer paso..."
         />
@@ -501,7 +501,7 @@ function ExerciseForm({
           <Label>Errores Comunes</Label>
           <Textarea
             value={formData.commonMistakes}
-            onChange={(e) => setFormData(prev => ({ ...prev, commonMistakes: e.target.value }))}
+            onChange={(e) => setFormData((prev: any) => ({ ...prev, commonMistakes: e.target.value }))}
             rows={3}
           />
         </div>
@@ -509,7 +509,7 @@ function ExerciseForm({
           <Label>Consejos</Label>
           <Textarea
             value={formData.tips}
-            onChange={(e) => setFormData(prev => ({ ...prev, tips: e.target.value }))}
+            onChange={(e) => setFormData((prev: any) => ({ ...prev, tips: e.target.value }))}
             rows={3}
           />
         </div>
@@ -520,7 +520,7 @@ function ExerciseForm({
           <Label>Músculo Principal</Label>
           <Select 
             value={formData.primaryMuscle} 
-            onValueChange={(value) => setFormData(prev => ({ ...prev, primaryMuscle: value }))}
+            onValueChange={(value) => setFormData((prev: any) => ({ ...prev, primaryMuscle: value }))}
           >
             <SelectTrigger>
               <SelectValue placeholder="Seleccionar músculo" />
@@ -536,7 +536,7 @@ function ExerciseForm({
           <Label>Nivel</Label>
           <Select 
             value={formData.level} 
-            onValueChange={(value) => setFormData(prev => ({ ...prev, level: value }))}
+            onValueChange={(value) => setFormData((prev: any) => ({ ...prev, level: value }))}
           >
             <SelectTrigger>
               <SelectValue />
@@ -552,7 +552,7 @@ function ExerciseForm({
           <Label>Mecánica</Label>
           <Select 
             value={formData.mechanics} 
-            onValueChange={(value) => setFormData(prev => ({ ...prev, mechanics: value }))}
+            onValueChange={(value) => setFormData((prev: any) => ({ ...prev, mechanics: value }))}
           >
             <SelectTrigger>
               <SelectValue />
@@ -571,7 +571,7 @@ function ExerciseForm({
           <Input
             type="number"
             value={formData.defaultRepMin}
-            onChange={(e) => setFormData(prev => ({ ...prev, defaultRepMin: parseInt(e.target.value) }))}
+            onChange={(e) => setFormData((prev: any) => ({ ...prev, defaultRepMin: parseInt(e.target.value) }))}
             min="1"
           />
         </div>
@@ -580,7 +580,7 @@ function ExerciseForm({
           <Input
             type="number"
             value={formData.defaultRepMax}
-            onChange={(e) => setFormData(prev => ({ ...prev, defaultRepMax: parseInt(e.target.value) }))}
+            onChange={(e) => setFormData((prev: any) => ({ ...prev, defaultRepMax: parseInt(e.target.value) }))}
             min="1"
           />
         </div>
@@ -589,7 +589,7 @@ function ExerciseForm({
           <Input
             type="number"
             value={formData.defaultRestSec}
-            onChange={(e) => setFormData(prev => ({ ...prev, defaultRestSec: parseInt(e.target.value) }))}
+            onChange={(e) => setFormData((prev: any) => ({ ...prev, defaultRestSec: parseInt(e.target.value) }))}
             min="0"
           />
         </div>

@@ -14,18 +14,7 @@ export async function POST(request: NextRequest) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
-        profile: {
-          include: {
-            dailyDebts: {
-              where: {
-                date: {
-                  gte: new Date(new Date().setHours(0, 0, 0, 0)),
-                  lt: new Date(new Date().setHours(23, 59, 59, 999)),
-                },
-              },
-            },
-          },
-        },
+        profile: true,
       },
     });
 
@@ -35,9 +24,9 @@ export async function POST(request: NextRequest) {
 
     const profile = user.profile;
 
-    // Calcular deudas
-    const monthlyDebt = profile.profile_debt || 0;
-    const dailyDebt = profile.dailyDebts?.reduce((sum, debt) => sum + debt.amount, 0) || 0;
+    // Calcular deudas (simplificado para testing)
+    const monthlyDebt = 0; // No hay campo de deuda en el perfil
+    const dailyDebt = 0; // No hay campo de deudas diarias
     const totalDebt = monthlyDebt + dailyDebt;
 
     // Simular minutos en el gimnasio (para testing)

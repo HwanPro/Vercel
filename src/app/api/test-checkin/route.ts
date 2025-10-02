@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     const daysLeft = endDate ? Math.max(0, Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))) : 0;
 
     // Calcular deudas (simplificado para testing)
-    const monthlyDebt = profile.profile_debt || 0;
+    const monthlyDebt = 0; // No hay campo de deuda en el perfil
     const dailyDebt = 0; // No calcular deudas diarias para testing
     const totalDebt = monthlyDebt;
 

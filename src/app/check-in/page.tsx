@@ -382,8 +382,8 @@ export default function CheckInPage() {
       
       // Mostrar animación de captura antes de cada intento
       if (swalContainer) {
-        const textElement = swalContainer.querySelector('.scanner-text p');
-        const fingerprintIcon = swalContainer.querySelector('.fingerprint-icon');
+        const textElement = swalContainer.querySelector('.scanner-text p') as HTMLElement;
+        const fingerprintIcon = swalContainer.querySelector('.fingerprint-icon') as HTMLElement;
         const pulseRings = swalContainer.querySelectorAll('.pulse-ring, .pulse-ring-2');
         
         if (textElement) {
@@ -398,8 +398,9 @@ export default function CheckInPage() {
         
         // Acelerar pulsos durante captura
         pulseRings.forEach(ring => {
-          ring.style.animationDuration = '1s';
-          ring.style.borderColor = '#007bff';
+          const htmlRing = ring as HTMLElement;
+          htmlRing.style.animationDuration = '1s';
+          htmlRing.style.borderColor = '#007bff';
         });
       }
       
@@ -410,8 +411,8 @@ export default function CheckInPage() {
       
       // Actualizar la animación con el progreso
       if (swalContainer) {
-        const textElement = swalContainer.querySelector('.scanner-text p');
-        const iconElement = swalContainer.querySelector('.fingerprint-icon');
+        const textElement = swalContainer.querySelector('.scanner-text p') as HTMLElement;
+        const iconElement = swalContainer.querySelector('.fingerprint-icon') as HTMLElement;
         if (textElement && iconElement) {
           textElement.innerHTML = `<span class="spinner">🔄</span> Verificando... Intento ${attempts}/${maxAttempts}`;
           textElement.style.color = '#ffc107';
@@ -425,8 +426,8 @@ export default function CheckInPage() {
         
         // Mostrar animación de éxito
         if (swalContainer) {
-          const textElement = swalContainer.querySelector('.scanner-text p');
-          const fingerprintIcon = swalContainer.querySelector('.fingerprint-icon');
+          const textElement = swalContainer.querySelector('.scanner-text p') as HTMLElement;
+          const fingerprintIcon = swalContainer.querySelector('.fingerprint-icon') as HTMLElement;
           const pulseRings = swalContainer.querySelectorAll('.pulse-ring, .pulse-ring-2');
           
           if (textElement) {
@@ -442,13 +443,16 @@ export default function CheckInPage() {
           
           // Cambiar anillos a verde
           pulseRings.forEach(ring => {
-            ring.style.borderColor = '#28a745';
-            ring.style.animationDuration = '0.5s';
+            const htmlRing = ring as HTMLElement;
+            htmlRing.style.borderColor = '#28a745';
+            htmlRing.style.animationDuration = '0.5s';
           });
         }
         
         // Feedback háptico y sonoro para éxito
-        vibrate([100, 50, 100]); // Patrón de vibración de éxito
+        if (navigator.vibrate) {
+          navigator.vibrate([100, 50, 100]); // Patrón de vibración de éxito
+        }
         
         // Sonido de éxito (si está disponible)
         try {
@@ -470,14 +474,14 @@ export default function CheckInPage() {
       }
       
       // Contar casos específicos de "no hay dedo"
-      if (res.message && res.message.includes("No hay dedo")) {
+      if (!res.match && !res.userId) {
         noFingerCount++;
         console.log(`⚠️ [ZKT Eco 9500] No hay dedo detectado (${noFingerCount}/${maxNoFingerAttempts})`);
         
         // Actualizar animación para "no hay dedo"
         if (swalContainer) {
-          const textElement = swalContainer.querySelector('.scanner-text p');
-          const fingerprintIcon = swalContainer.querySelector('.fingerprint-icon');
+          const textElement = swalContainer.querySelector('.scanner-text p') as HTMLElement;
+          const fingerprintIcon = swalContainer.querySelector('.fingerprint-icon') as HTMLElement;
           
           if (textElement) {
             textElement.innerHTML = '⚠️ No hay dedo detectado';
@@ -495,8 +499,8 @@ export default function CheckInPage() {
           
           // Animación de fallo
           if (swalContainer) {
-            const textElement = swalContainer.querySelector('.scanner-text p');
-            const fingerprintIcon = swalContainer.querySelector('.fingerprint-icon');
+            const textElement = swalContainer.querySelector('.scanner-text p') as HTMLElement;
+            const fingerprintIcon = swalContainer.querySelector('.fingerprint-icon') as HTMLElement;
             const pulseRings = swalContainer.querySelectorAll('.pulse-ring, .pulse-ring-2');
             
             if (textElement) {
@@ -510,7 +514,8 @@ export default function CheckInPage() {
             }
             
             pulseRings.forEach(ring => {
-              ring.style.borderColor = '#dc3545';
+              const htmlRing = ring as HTMLElement;
+              htmlRing.style.borderColor = '#dc3545';
             });
           }
           
@@ -520,13 +525,13 @@ export default function CheckInPage() {
       }
       
       // Si detectamos "Sin coincidencias" después de 2 intentos
-      if (res.message && res.message.includes("Sin coincidencias") && attempts >= 2) {
+      if (!res.match && !res.userId && attempts >= 2) {
         console.log("🚫 [ZKT Eco 9500] Sin coincidencias después de 2 intentos, saliendo");
         
         // Animación para huella no reconocida
         if (swalContainer) {
-          const textElement = swalContainer.querySelector('.scanner-text p');
-          const fingerprintIcon = swalContainer.querySelector('.fingerprint-icon');
+          const textElement = swalContainer.querySelector('.scanner-text p') as HTMLElement;
+          const fingerprintIcon = swalContainer.querySelector('.fingerprint-icon') as HTMLElement;
           const pulseRings = swalContainer.querySelectorAll('.pulse-ring, .pulse-ring-2');
           
           if (textElement) {
@@ -542,8 +547,9 @@ export default function CheckInPage() {
           }
           
           pulseRings.forEach(ring => {
-            ring.style.borderColor = '#dc3545';
-            ring.style.animationDuration = '0.3s';
+            const htmlRing = ring as HTMLElement;
+            htmlRing.style.borderColor = '#dc3545';
+            htmlRing.style.animationDuration = '0.3s';
           });
         }
         
