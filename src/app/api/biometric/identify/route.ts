@@ -10,7 +10,7 @@ const CAPTURE_BASE =
 const IDENTIFY_BASE =
   process.env.BIOMETRIC_STORE_BASE ||
   process.env.NEXT_PUBLIC_BIOMETRIC_BASE ||
-  "http://127.0.0.1:8001";
+  "http://127.0.0.1:8002";
 
 export const dynamic = "force-dynamic";
 
@@ -59,13 +59,19 @@ export async function POST(req: Request) {
         );
       }
       templateBase64 = capData.template as string;
+      
+      // Cerrar el dispositivo después de la captura
+      await fetch(`${CAPTURE_BASE}/device/close`, {
+        method: "POST",
+        cache: "no-store",
+      }).catch(() => null);
     }
 
-    // 2) Identificar en el servicio Python (1:N)
-    const identifyResp = await fetch(`${IDENTIFY_BASE}/identify-fingerprint`, {
+    // 2) Identificar en el servicio C# (1:N)
+    const identifyResp = await fetch(`${CAPTURE_BASE}/identify`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fingerprint: templateBase64 }),
+      body: JSON.stringify({ templateB64: templateBase64 }),
       cache: "no-store",
     });
     const identifyData = (await identifyResp.json().catch(() => ({}))) as {

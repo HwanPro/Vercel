@@ -660,7 +660,7 @@ export default function ClientsPage() {
       }, 500);
 
       // Capturar una sola vez
-      const template = await captureOnce();
+      const {template} = await captureOnce();
 
       // Actualizar a "verificando"
       const textElement = document.querySelector('.scanner-text p');
