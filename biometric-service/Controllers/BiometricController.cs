@@ -99,6 +99,8 @@ public class BiometricController : ControllerBase
             
             if (!success)
             {
+                // Cerrar el dispositivo si hay error
+                _fingerService.CloseDevice();
                 return Ok(new CaptureResponse(false, null, null, 0, 0, error));
             }
 
@@ -107,6 +109,9 @@ public class BiometricController : ControllerBase
                 : null;
 
             var imageB64 = _fingerService.GetLastCapturedImageBase64();
+
+            // Cerrar el dispositivo después de la captura exitosa
+            _fingerService.CloseDevice();
 
             return Ok(new CaptureResponse(
                 true,
@@ -120,6 +125,8 @@ public class BiometricController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error capturing fingerprint");
+            // Cerrar el dispositivo si hay excepción
+            _fingerService.CloseDevice();
             return Ok(new CaptureResponse(false, null, null, 0, 0, ex.Message));
         }
     }
@@ -146,7 +153,7 @@ public class BiometricController : ControllerBase
             }
 
             // Convertir muestras de base64 a byte arrays
-            var samples = request.SamplesB64.Select(s => zkfp2.Base64ToBlobArray(s)).ToList();
+            var samples = request.SamplesB64.Select(s => Convert.FromBase64String(s)).ToList();
 
             // Validar que las 3 muestras son del mismo dedo usando DBMatch
             // Como en el demo oficial: solo verificar que score > 0 (NO usar threshold específico)
@@ -255,7 +262,7 @@ public class BiometricController : ControllerBase
             }
 
             // Convertir plantilla capturada de base64
-            var capturedTemplate = zkfp2.Base64ToBlobArray(request.TemplateB64);
+            var capturedTemplate = Convert.FromBase64String(request.TemplateB64);
 
             // Verificar usando DBMatch
             var (success, match, score, error) = _fingerService.VerifyTemplate(
@@ -308,7 +315,7 @@ public class BiometricController : ControllerBase
             }
 
             // Convertir plantilla capturada de base64
-            var capturedTemplate = zkfp2.Base64ToBlobArray(request.TemplateB64);
+            var capturedTemplate = Convert.FromBase64String(request.TemplateB64);
 
             // Identificar usando DBMatch contra todas las plantillas
             var templates = allFingerprints.Select(f => f.template).ToList();

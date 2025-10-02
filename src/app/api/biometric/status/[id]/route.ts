@@ -9,7 +9,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   const BASE =
     process.env.BIOMETRIC_STORE_BASE ||
     process.env.NEXT_PUBLIC_BIOMETRIC_BASE ||
-    "http://127.0.0.1:8001";
+    "http://127.0.0.1:8002";
 
   try {
     // 1. Verificar primero en la base de datos

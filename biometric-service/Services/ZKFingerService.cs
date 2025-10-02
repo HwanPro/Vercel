@@ -17,7 +17,7 @@ public class ZKFingerService : IDisposable
     private int _lastTemplateLength = 0;
 
     // Config
-    public int Threshold { get; set; } = 60;   // Score perfecto es 100, threshold ajustado
+    public int Threshold { get; set; } = 30;   // Threshold recomendado para 1:1 según ZKTeco (25-35)
     public int CaptureTimeout { get; set; } = 5000;
     public bool MergeSamples { get; set; } = true;
 

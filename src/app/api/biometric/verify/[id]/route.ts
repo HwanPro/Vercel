@@ -3,15 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-const CAPTURE_BASE =
+const BIOMETRIC_BASE =
   process.env.BIOMETRIC_CAPTURE_BASE ||
   process.env.BIOMETRIC_BASE ||
   process.env.NEXT_PUBLIC_BIOMETRIC_BASE ||
   "http://127.0.0.1:8002";
-const VERIFY_BASE =
-  process.env.BIOMETRIC_VERIFY_BASE ||
-  process.env.NEXT_PUBLIC_BIOMETRIC_BASE ||
-  "http://127.0.0.1:8001";
 const TIMEOUT_MS = 15_000;
 
 function timeoutFetch(input: RequestInfo | URL, init?: RequestInit, ms = TIMEOUT_MS) {
@@ -50,7 +46,7 @@ export async function POST(
       template = body.template;
     } else {
       // Si no viene template, capturar uno nuevo
-      const capRes = await timeoutFetch(`${CAPTURE_BASE}/capture`, {
+      const capRes = await timeoutFetch(`${BIOMETRIC_BASE}/capture`, {
         method: "POST",
         cache: "no-store",
       });
@@ -72,14 +68,15 @@ export async function POST(
       template = capJson.template;
     }
 
-    // Verificar la huella capturada contra el usuario específico
-    // Enviar también el template almacenado si existe (para 1:1 real)
-    // Nota: aquí idealmente deberíamos leer desde Prisma la huella del userId
-    // y pasarla como stored_template. Lo dejaremos opcional hasta conectar BD.
-    const verifyRes = await timeoutFetch(`${VERIFY_BASE}/verify-fingerprint`, {
+    // Verificar la huella capturada contra el usuario específico usando el servicio C#
+    const verifyRes = await timeoutFetch(`${BIOMETRIC_BASE}/verify`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: userId, fingerprint: template }),
+      body: JSON.stringify({ 
+        userId: userId, 
+        templateB64: template,
+        fingerIndex: 0  // Por defecto, dedo índice 0
+      }),
       cache: "no-store",
     });
 
