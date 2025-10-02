@@ -52,25 +52,27 @@ export default function AdminAttendance() {
     return () => clearInterval(timer);
   }, []);
 
-  // ---- estado de huellas por usuario ----
+  // ---- estado de huellas por usuario ---- (DESHABILITADO para evitar spam)
   useEffect(() => {
+    // Deshabilitado: Las peticiones automáticas de status causan spam de requests
+    // Solo se debe verificar el status cuando el usuario lo solicite explícitamente
     const hydrateFp = async () => {
-      const entries = await Promise.allSettled(
-        attendees.map(async (a) => {
-          const uid = a.userId || a.user?.id;
-          const r = await fetch(`/api/biometric/status/${uid}`, { cache: "no-store" });
-          const j = await r.json().catch(() => ({ hasFingerprint: false }));
-          return [uid, !!j?.hasFingerprint] as const;
-        })
-      );
-      const map = Object.fromEntries(
-        entries
-          .filter((e) => e.status === "fulfilled")
-          .map((e) => (e as PromiseFulfilledResult<readonly [string, boolean]>).value)
-      );
-      setHasFp(map);
+      // const entries = await Promise.allSettled(
+      //   attendees.map(async (a) => {
+      //     const uid = a.userId || a.user?.id;
+      //     const r = await fetch(`/api/biometric/status/${uid}`, { cache: "no-store" });
+      //     const j = await r.json().catch(() => ({ hasFingerprint: false }));
+      //     return [uid, !!j?.hasFingerprint] as const;
+      //   })
+      // );
+      // const map = Object.fromEntries(
+      //   entries
+      //     .filter((e) => e.status === "fulfilled")
+      //     .map((e) => (e as PromiseFulfilledResult<readonly [string, boolean]>).value)
+      // );
+      // setHasFp(map);
     };
-    if (attendees.length) hydrateFp();
+    // if (attendees.length) hydrateFp(); // Comentado para evitar spam
   }, [attendees]);
 
   // ---- agrupar por día / mes / año ----

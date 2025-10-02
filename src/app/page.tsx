@@ -452,7 +452,7 @@ export default function WolfGymLanding() {
                   Wolf Gym - El Mejor Gimnasio de Ica
                 </h1>
                 <h2 className="mx-auto max-w-[700px] text-white md:text-xl font-semibold">
-                  Entrenadores Expertos | Planes Accesibles
+                  Equipos de Última Tecnología | Entrenadores Expertos | Planes Accesibles
                 </h2>
                 <p className="mx-auto max-w-[700px] text-white md:text-lg">
                   Libera tu lobo interior. Únete a la manada y transforma tu
@@ -482,11 +482,11 @@ export default function WolfGymLanding() {
                 <CardHeader>
                   <Dumbbell className="w-12 h-12 mb-4 text-yellow-400" />
                   <CardTitle className="text-yellow-400">
-                    Equipos de Última Tecnología
+                    Equipos de Calidad
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p>Máquinas de última generación para cardio, fuerza y entrenamiento funcional en Ica.</p>
+                  <p>Equipos de calidad para cardio, fuerza y entrenamiento funcional. Todo lo necesario para alcanzar tus objetivos de fitness.</p>
                 </CardContent>
               </Card>
               <Card className="bg-black text-white">

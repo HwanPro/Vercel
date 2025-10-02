@@ -6,7 +6,10 @@ export const dynamic = "force-dynamic";
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const BASE = process.env.BIOMETRIC_BASE ?? "http://127.0.0.1:8001";
+  const BASE =
+    process.env.BIOMETRIC_STORE_BASE ||
+    process.env.NEXT_PUBLIC_BIOMETRIC_BASE ||
+    "http://127.0.0.1:8001";
 
   try {
     // 1. Verificar primero en la base de datos

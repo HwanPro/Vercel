@@ -37,21 +37,34 @@ load_dotenv()
 
 ARCH_BITS = 64 if platform.architecture()[0].startswith("64") else 32
 PG_URL = os.environ.get("DATABASE_URL")
-MATCH_THRESHOLD = int(os.environ.get("ZK_MATCH_THRESHOLD", "98"))  # Threshold más estricto
-FORCE_FALLBACK = os.environ.get("ZK_FORCE_FALLBACK", "true").lower() == "true"
+# CONFIGURACIÓN FORZADA (ignorar variables de entorno para debugging)
+MATCH_THRESHOLD = 98  # Valor recomendado por documentación ZKTeco
+print(f"[DEBUG] MATCH_THRESHOLD FORZADO: {MATCH_THRESHOLD}")
+FORCE_FALLBACK = False  # Usar DBMatch, no fallback
+print(f"[DEBUG] FORCE_FALLBACK FORZADO: {FORCE_FALLBACK}")
 
 # Database configuration
 USER_COL = "user_id"
 CREATEDCOL = "created_at"
 UPDATEDCOL = "updated_at"
-HAS_ID = False
+HAS_ID = True
 
 DDL = """
 CREATE TABLE IF NOT EXISTS fingerprints (
-  user_id    TEXT PRIMARY KEY,
+  id         TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   template   BYTEA NOT NULL,
+  user_id    TEXT NOT NULL UNIQUE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS Attendance (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  "checkInTime" TIMESTAMPTZ DEFAULT NOW(),
+  "checkOutTime" TIMESTAMPTZ NULL,
+  duration      NUMERIC NULL,
+  "createdAt"   TIMESTAMPTZ DEFAULT NOW(),
+  "updatedAt"   TIMESTAMPTZ DEFAULT NOW()
 );
 """
 
@@ -163,36 +176,43 @@ def db_get_template(user_id: str) -> Optional[bytes]:
         )
         row = cur.fetchone()
         return row[0] if row else None
-
+        
 def db_upsert_template(user_id: str, tpl: bytes):
-    """Insert or update fingerprint template"""
+    """Insert or update fingerprint template con ON CONFLICT garantizado."""
+    # Preparar nombres (quoted) para conflicto y columnas de timestamp
+    created_col  = '"created_at"' if CREATEDCOL in ('created_at', '"created_at"') else '"createdAt"'
+    updated_col  = '"updated_at"' if UPDATEDCOL in ('updated_at', '"updated_at"') else '"updatedAt"'
+
     with pg_conn() as conn, conn.cursor() as cur:
         try:
             if HAS_ID:
+                # La tabla tiene una PK "id" y user_id como UNIQUE (caso Prisma).
                 gen_id = str(uuid.uuid4())
                 cur.execute(
-                    f"""
-                    INSERT INTO fingerprints (id, {USER_COL}, template, {CREATEDCOL}, {UPDATEDCOL})
+                    f'''
+                    INSERT INTO "fingerprints" ("id", {USER_COL}, "template", {created_col}, {updated_col})
                     VALUES (%s, %s, %s, NOW(), NOW())
-                    ON CONFLICT ({USER_COL})
-                    DO UPDATE SET template = EXCLUDED.template, {UPDATEDCOL} = NOW()
-                    """,
+                    ON CONFLICT ("user_id")
+                    DO UPDATE SET "template" = EXCLUDED."template", {updated_col} = NOW()
+                    ''',
                     (gen_id, user_id, tpl),
                 )
             else:
+                # Tabla creada por el microservicio (PK en user_id)
                 cur.execute(
-                    f"""
-                    INSERT INTO fingerprints ({USER_COL}, template, {CREATEDCOL}, {UPDATEDCOL})
+                    f'''
+                    INSERT INTO "fingerprints" ({USER_COL}, "template", {created_col}, {updated_col})
                     VALUES (%s, %s, NOW(), NOW())
                     ON CONFLICT ({USER_COL})
-                    DO UPDATE SET template = EXCLUDED.template, {UPDATEDCOL} = NOW()
-                    """,
+                    DO UPDATE SET "template" = EXCLUDED."template", {updated_col} = NOW()
+                    ''',
                     (user_id, tpl),
                 )
             conn.commit()
         except (pg_errors.NotNullViolation, pg_errors.ForeignKeyViolation):
             conn.rollback()
             raise
+
 
 def db_all_templates() -> list[tuple[str, bytes]]:
     """Get all fingerprint templates"""
@@ -309,11 +329,40 @@ class ZKDevice:
         return val.value
 
     def open(self, index: int = 0) -> int:
-        """Open device"""
+        """Open device with improved error handling for ZKT Eco 9500"""
+        print(f"[DEBUG] Intentando abrir dispositivo ZKT Eco 9500 índice {index}...")
+        
+        # Cerrar dispositivo previo si existe
+        if self.handle:
+            print("[DEBUG] Cerrando dispositivo previo...")
+            try:
+                self.close()
+            except Exception as e:
+                print(f"[DEBUG] Error cerrando dispositivo previo: {e}")
+        
+        # Verificar que hay dispositivos disponibles
+        count = self.get_count()
+        print(f"[DEBUG] Dispositivos detectados: {count}")
+        if count <= 0:
+            print("[DEBUG] ❌ No se detectaron dispositivos ZKT Eco 9500")
+            return -3  # No devices found
+        
+        # Intentar abrir el dispositivo
         h = self.lib.ZKFPM_OpenDevice(index)
+        print(f"[DEBUG] ZKFPM_OpenDevice({index}) retornó handle: {h}")
+        
         self.handle = h
         if not h:
+            print("[DEBUG] ❌ No se pudo obtener handle del dispositivo")
+            print("[DEBUG] Posibles causas:")
+            print("[DEBUG] - Dispositivo en uso por otro proceso")
+            print("[DEBUG] - Drivers no instalados correctamente") 
+            print("[DEBUG] - Permisos insuficientes")
+            print("[DEBUG] - Dispositivo desconectado")
             return -1
+        
+        print(f"[DEBUG] ✅ Dispositivo abierto exitosamente, handle: {h}")
+        
         try:
             self.width = self._get_int_param(1)
             self.height = self._get_int_param(2)
@@ -352,8 +401,8 @@ class ZKDevice:
             -10: "Timeout",
         }.get(code, f"Error {code}")
 
-    def capture_template(self, timeout_s: float = 8.0):
-        """Capture fingerprint template"""
+    def capture_template(self, timeout_s: float = 3.0):
+        """Capture fingerprint template optimized for ZKT Eco 9500"""
         if not self.handle:
             return False, {"code": -100, "message": "Dispositivo no abierto"}
 
@@ -365,24 +414,50 @@ class ZKDevice:
 
         t0 = time.time()
         last = None
-        while (time.time() - t0) < timeout_s:
+        attempts = 0
+        max_attempts = 15  # Máximo 15 intentos en 3 segundos
+        
+        while (time.time() - t0) < timeout_s and attempts < max_attempts:
+            attempts += 1
+            
             if self.has_acq5:
                 r = self.lib.ZKFPM_AcquireFingerprint(
                     self.handle, img_buf, c_int(IMG_N), tmpl_buf, byref(tmpl_sz)
                 )
+                
                 if r == 0:
                     data = bytes(tmpl_buf[: tmpl_sz.value])
                     b64 = base64.b64encode(data).decode("ascii")
+                    print(f"[DEBUG] Huella capturada exitosamente en intento {attempts}, tamaño: {tmpl_sz.value}")
                     return True, {"template": b64, "len": tmpl_sz.value}
-                last = {"code": r, "message": f"Acquire error {r}: {self._err(r)}"}
-                if r in (-8, -10):
-                    time.sleep(0.12)
+                
+                # Códigos específicos para ZKT Eco 9500
+                if r == -8:  # No finger detected
+                    last = {"code": r, "message": "No hay dedo en el lector"}
+                    time.sleep(0.2)  # Esperar un poco más para ZKT Eco 9500
                     continue
-                break
+                elif r == -10:  # Timeout específico del dispositivo
+                    last = {"code": r, "message": "Timeout del dispositivo"}
+                    time.sleep(0.15)
+                    continue
+                elif r == -5:  # Invalid parameter (puede ser problema de configuración)
+                    last = {"code": r, "message": "Parámetro inválido en dispositivo"}
+                    time.sleep(0.1)
+                    continue
+                else:
+                    # Otros errores, intentar una vez más
+                    last = {"code": r, "message": f"Error de captura {r}: {self._err(r)}"}
+                    time.sleep(0.1)
+                    continue
 
             return False, {"code": -99, "message": "DLL sin métodos de captura soportados"}
 
-        return False, last or {"code": -10, "message": "Timeout"}
+        # Retornar el último error específico si no se logró capturar
+        final_message = last["message"] if last else "Timeout: No se detectó huella"
+        final_code = last["code"] if last else -10
+        
+        print(f"[DEBUG] Captura fallida después de {attempts} intentos: {final_message}")
+        return False, {"code": final_code, "message": final_message}
 
     def _score(self, a: bytes, b: bytes) -> int:
         """Score two templates"""
@@ -546,7 +621,7 @@ def _auto_close_attendance():
 
         with pg_conn() as conn, conn.cursor() as cur:
             cur.execute("""
-                UPDATE attendance
+                UPDATE "Attendance"
                    SET "checkOutTime" = NOW()
                  WHERE "checkOutTime" IS NULL
                    AND "checkInTime" BETWEEN %s AND %s
@@ -584,6 +659,22 @@ def startup_event():
         print(f"[INIT] columnas -> user:{USER_COL} created:{CREATEDCOL} updated:{UPDATEDCOL} has_id:{HAS_ID}")
     except Exception as e:
         print(f"[INIT][WARN] No se pudo preparar/verificar la DB: {e}")
+    # Garantiza UNIQUE sobre la columna correcta (misma DB del microservicio)
+    try:
+        with pg_conn() as conn, conn.cursor() as cur:
+            # Usar el nombre de columna detectado dinámicamente
+            if USER_COL.startswith('"') and USER_COL.endswith('"'):
+                # Si ya tiene quotes, usarlo directamente
+                column_name = USER_COL
+            else:
+                # Si no tiene quotes, agregarlos
+                column_name = f'"{USER_COL}"'
+            
+            cur.execute(f'CREATE UNIQUE INDEX IF NOT EXISTS "fingerprints_{USER_COL.replace('"', '')}_key" ON "fingerprints"({column_name});')
+            conn.commit()
+            print(f'[INIT] UNIQUE({column_name}) garantizado en "fingerprints"')
+    except Exception as e:
+        print(f'[INIT][WARN] No se pudo garantizar UNIQUE({USER_COL}):', e)
 
     # 2) Initialize device
     global device
@@ -613,26 +704,47 @@ def startup_event():
 
 @app.post("/device/open")
 def device_open():
-    """Open fingerprint device"""
+    """Open ZKT Eco 9500 fingerprint device with enhanced diagnostics"""
     global device, _device_inited, _device_opened
     with sdk_lock:
+        print("[DEBUG] === INICIANDO APERTURA DE DISPOSITIVO ZKT ECO 9500 ===")
+        
         device = device or ZKDevice()
         rc = device.init()
         cnt = device.get_count()
-        print(f"[DEBUG] init={rc} count={cnt}")
+        print(f"[DEBUG] ZKT Eco 9500 - init={rc} count={cnt}")
 
         if rc not in (0, 1):
+            print(f"[DEBUG] ❌ Error inicializando SDK: {rc}")
             return {"ok": False, "code": rc, "message": f"Init error {rc}"}
         _device_inited = True
 
         if cnt <= 0:
-            return {"ok": False, "code": -3, "message": "No hay dispositivos"}
+            print("[DEBUG] ❌ No se detectaron dispositivos ZKT Eco 9500")
+            print("[DEBUG] Verificar conexión USB y drivers")
+            return {"ok": False, "code": -3, "message": "No hay dispositivos ZKT Eco 9500 detectados"}
+
+        print(f"[DEBUG] ✅ Detectados {cnt} dispositivos ZKT Eco 9500")
 
         if _device_opened and device.handle:
+            print("[DEBUG] ℹ️ Dispositivo ya está abierto")
             return {"ok": True, "code": 1, "alreadyOpen": True, "message": "Ya abierto"}
 
+        print("[DEBUG] Intentando abrir dispositivo ZKT Eco 9500...")
         rc2 = device.open(0)
         _device_opened = rc2 == 0
+        
+        if rc2 == 0:
+            print("[DEBUG] ✅ ZKT Eco 9500 abierto exitosamente")
+        else:
+            print(f"[DEBUG] ❌ Error abriendo ZKT Eco 9500: {rc2}")
+            if rc2 == -1:
+                print("[DEBUG] Posibles causas del error -1:")
+                print("[DEBUG] - Dispositivo en uso por otro proceso")
+                print("[DEBUG] - Permisos insuficientes (ejecutar como Administrador)")
+                print("[DEBUG] - Drivers ZKTeco no instalados correctamente")
+                print("[DEBUG] - Dispositivo mal conectado")
+        
         return {
             "ok": _device_opened,
             "code": rc2 if rc2 != 0 else 0,
@@ -642,7 +754,7 @@ def device_open():
 
 @app.post("/device/capture")
 def device_capture():
-    """Capture fingerprint"""
+    """Capture fingerprint optimized for ZKT Eco 9500"""
     global device, _device_opened
     with sdk_lock:
         # If device is not open, try to open it automatically
@@ -654,19 +766,35 @@ def device_capture():
             
             cnt = device.get_count()
             if cnt <= 0:
-                return {"ok": False, "code": -3, "message": "No hay dispositivos disponibles"}
+                return {"ok": False, "code": -3, "message": "No hay dispositivos ZKT Eco 9500 disponibles"}
             
             rc2 = device.open(0)
             if rc2 != 0:
-                return {"ok": False, "code": rc2, "message": f"Error abriendo dispositivo: {rc2}"}
+                return {"ok": False, "code": rc2, "message": f"Error abriendo ZKT Eco 9500: {rc2}"}
             
             _device_opened = True
-            print("[DEBUG] Dispositivo abierto automáticamente")
+            print("[DEBUG] ZKT Eco 9500 abierto automáticamente")
         
         ok, data = device.capture_template()
         if ok:
+            print(f"[DEBUG] ZKT Eco 9500 captura exitosa: template size={data['len']}")
             return {"ok": True, "template": data["template"], "size": data["len"]}
-        return {"ok": False, **data}
+        
+        # Manejar códigos de error específicos del ZKT Eco 9500
+        error_code = data.get("code", -99)
+        error_message = data.get("message", "Error desconocido")
+        
+        print(f"[DEBUG] ZKT Eco 9500 captura fallida: code={error_code}, message={error_message}")
+        
+        # Personalizar mensajes para ZKT Eco 9500
+        if error_code == -8:
+            error_message = "No hay dedo en el lector ZKT Eco 9500"
+        elif error_code == -10:
+            error_message = "Timeout del ZKT Eco 9500 - Intenta de nuevo"
+        elif error_code == -5:
+            error_message = "Configuración inválida del ZKT Eco 9500"
+        
+        return {"ok": False, "code": error_code, "message": error_message}
 
 @app.post("/device/close")
 def device_close():
@@ -768,8 +896,10 @@ def register_fingerprint_multi(payload: MultiFingerprintData):
 @app.post("/verify-fingerprint")
 def verify_fingerprint(payload: FingerprintData):
     """Verify fingerprint against stored template"""
+    print(f"[DEBUG] VERIFY START - User: {payload.user_id}")
     stored = db_get_template(payload.user_id)
     if not stored:
+        print(f"[DEBUG] VERIFY - Usuario {payload.user_id} sin huella registrada")
         return {
             "ok": False,
             "match": False,
@@ -796,8 +926,9 @@ def verify_fingerprint(payload: FingerprintData):
         if not device:
             device = ZKDevice()
         
-        # Auto-open device if needed
+        # Auto-open device if needed (optimizado para verify)
         if device.handle is None:
+            print("[DEBUG] VERIFY - Inicializando dispositivo...")
             rc = device.init()
             if rc not in (0, 1):
                 return {
@@ -820,27 +951,33 @@ def verify_fingerprint(payload: FingerprintData):
                 }
             
             _device_opened = True
-            print("[DEBUG] Dispositivo abierto automáticamente para verificación")
+            print("[DEBUG] VERIFY - Dispositivo abierto OK")
         
         lib = device.lib
 
-        # Try to initialize DB matcher
+        # Try to initialize DB matcher (Crítico según documentación ZKTeco)
         db_init_success = False
         if hasattr(lib, "ZKFPM_DBInit") and not FORCE_FALLBACK:
             try:
+                print("[DEBUG] VERIFY - Inicializando ZKFPM_DBInit...")
+                # Según documentación: usar buffer de 8192 para óptimo rendimiento
                 try:
-                    init_rc = lib.ZKFPM_DBInit(2048)
+                    init_rc = lib.ZKFPM_DBInit(8192)  # Buffer mayor según docs
+                    print(f"[DEBUG] VERIFY - ZKFPM_DBInit(8192) retornó: {init_rc}")
                 except TypeError:
                     init_rc = lib.ZKFPM_DBInit()
+                    print(f"[DEBUG] VERIFY - ZKFPM_DBInit() retornó: {init_rc}")
                 
                 if init_rc in (0, 1):
                     db_init_success = True
-                    print(f"[DEBUG] DBInit exitoso: {init_rc}")
+                    print(f"[DEBUG] VERIFY - DBInit exitoso con código: {init_rc}")
                 else:
-                    print(f"[DEBUG] DBInit falló con código: {init_rc}")
+                    print(f"[DEBUG] VERIFY - DBInit falló con código: {init_rc}")
+                    print(f"[DEBUG] VERIFY - Códigos posibles: 0=OK, 1=Ya inicializado, otros=error")
                     
             except Exception as e:
-                print(f"[DEBUG] Excepción en DBInit: {e}")
+                print(f"[DEBUG] VERIFY - Excepción en DBInit: {e}")
+                print(f"[DEBUG] VERIFY - Fallback será usado")
 
         # Use DBMatch if available
         if hasattr(lib, "ZKFPM_DBMatch") and db_init_success and not FORCE_FALLBACK:
@@ -850,12 +987,28 @@ def verify_fingerprint(payload: FingerprintData):
                 ]
                 lib.ZKFPM_DBMatch.restype = c_int
 
+                print(f"[DEBUG] VERIFY - Preparando templates para DBMatch...")
+                print(f"[DEBUG] VERIFY - Template almacenado: {len(stored)} bytes")
+                print(f"[DEBUG] VERIFY - Template capturado: {len(live)} bytes")
+                
                 a = (c_ubyte * len(stored)).from_buffer_copy(stored)
                 b = (c_ubyte * len(live)).from_buffer_copy(live)
+                
+                print(f"[DEBUG] VERIFY - Ejecutando ZKFPM_DBMatch...")
                 score = int(lib.ZKFPM_DBMatch(a, len(stored), b, len(live)))
+                print(f"[DEBUG] VERIFY - DBMatch retornó score: {score}")
 
                 if score >= 0:
                     match = score >= MATCH_THRESHOLD
+                    print(f"[DEBUG] VERIFY - RESULTADO FINAL:")
+                    print(f"[DEBUG] VERIFY - Score: {score}%")
+                    print(f"[DEBUG] VERIFY - Threshold: {MATCH_THRESHOLD}%") 
+                    print(f"[DEBUG] VERIFY - Match: {'✅ SÍ' if match else '❌ NO'}")
+                    
+                    if score < MATCH_THRESHOLD:
+                        print(f"[DEBUG] VERIFY - La huella NO coincide (score {score}% < threshold {MATCH_THRESHOLD}%)")
+                    else:
+                        print(f"[DEBUG] VERIFY - ¡La huella SÍ coincide! (score {score}% >= threshold {MATCH_THRESHOLD}%)")
                     return {
                         "ok": True,
                         "match": bool(match),
@@ -979,8 +1132,8 @@ def identify_fingerprint(payload: IdentifyPayload):
         print(f"[DEBUG] Mejor: {best_user} ({best_score}%), Segundo: {candidates[1][0]} ({second_best_score}%)")
         print(f"[DEBUG] Diferencia: {score_difference}%")
         
-        # Requerir al menos 3% de diferencia para evitar ambigüedad
-        if score_difference < 3:
+        # Requerir al menos 5% de diferencia para evitar ambigüedad
+        if score_difference < 5:
             print("[WARNING] Coincidencias ambiguas detectadas - rechazando identificación")
             return {
                 "ok": True,
@@ -1017,6 +1170,31 @@ def health():
     """Health check endpoint"""
     return {"ok": True, "status": "healthy"}
 
+@app.get("/debug/list-fingerprints")
+def debug_list_fingerprints():
+    """List all registered fingerprints for debugging"""
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT user_id, LENGTH(template) as template_size, created_at FROM fingerprints ORDER BY created_at DESC")
+                rows = cur.fetchall()
+                
+                fingerprints = []
+                for row in rows:
+                    fingerprints.append({
+                        "user_id": row[0],
+                        "template_size": row[1],
+                        "created_at": str(row[2]) if row[2] else None
+                    })
+                
+                return {
+                    "ok": True,
+                    "count": len(fingerprints),
+                    "fingerprints": fingerprints
+                }
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
 @app.get("/debug/info")
 def debug_info():
     """Debug information endpoint"""
@@ -1034,9 +1212,94 @@ def debug_info():
         "width": dev.width,
         "height": dev.height,
         "match_threshold": MATCH_THRESHOLD,
+        "env_threshold": os.environ.get("ZK_MATCH_THRESHOLD", "NOT_FOUND"),
         "force_fallback": FORCE_FALLBACK,
     }
 
+@app.get("/device/diagnose")
+def device_diagnose():
+    """Diagnose ZKT Eco 9500 device connection and status"""
+    global device, _device_opened, _device_inited
+    
+    try:
+        # Crear dispositivo temporal para diagnóstico sin afectar el global
+        temp_device = ZKDevice()
+        init_result = temp_device.init()
+        device_count = temp_device.get_count() if init_result in (0, 1) else 0
+        
+        # Información del estado actual
+        info = {
+            "device_model": "ZKT Eco 9500",
+            "sdk_initialized": init_result in (0, 1),
+            "init_code": init_result,
+            "device_count": device_count,
+            "devices_detected": device_count > 0,
+            "current_device_open": _device_opened,
+            "current_device_inited": _device_inited,
+            "dll_loaded": temp_device.lib is not None,
+            "has_open_function": hasattr(temp_device.lib, "ZKFPM_OpenDevice"),
+            "has_get_count": hasattr(temp_device.lib, "ZKFPM_GetDeviceCount"),
+            "architecture": f"{ARCH_BITS}-bit",
+            "dll_path": getattr(temp_device, 'dll_path', 'Unknown'),
+        }
+        
+        # Diagnóstico detallado y recomendaciones
+        status = "OK"
+        recommendations = []
+        
+        if init_result not in (0, 1):
+            status = "SDK_INIT_FAILED"
+            recommendations.extend([
+                "El SDK ZKTeco no se pudo inicializar",
+                "Verificar que libzkfp.dll esté en System32",
+                "Reinstalar ZKFinger SDK",
+                "Ejecutar como Administrador"
+            ])
+        elif device_count == 0:
+            status = "NO_DEVICES_DETECTED"
+            recommendations.extend([
+                "No se detectan dispositivos ZKT Eco 9500",
+                "Verificar conexión USB del dispositivo",
+                "Comprobar drivers en Device Manager",
+                "Intentar desconectar y reconectar el dispositivo",
+                "Verificar que no esté en uso por otro programa"
+            ])
+        elif not _device_opened:
+            status = "DEVICE_NOT_OPEN"
+            recommendations.extend([
+                f"Se detectan {device_count} dispositivo(s) pero no está abierto",
+                "Intentar llamar a /device/open",
+                "Si da error -1, cerrar otros programas ZKTeco",
+                "Ejecutar como Administrador para permisos elevados"
+            ])
+        else:
+            status = "DEVICE_READY"
+            recommendations.append("Dispositivo ZKT Eco 9500 listo para usar")
+        
+        info["status"] = status
+        info["recommendations"] = recommendations
+        
+        # Limpiar dispositivo temporal
+        try:
+            temp_device.terminate()
+        except:
+            pass
+        
+        return info
+        
+    except Exception as e:
+        return {
+            "error": True,
+            "message": f"Error en diagnóstico: {e}",
+            "status": "ERROR",
+            "recommendations": [
+                "Error crítico en el diagnóstico",
+                "Reinstalar drivers ZKTeco completamente",
+                "Verificar la conexión USB", 
+                "Contactar soporte técnico"
+            ]
+        }
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run(app, host="0.0.0.0", port=8001)  # Puerto temporal para evitar conflictos

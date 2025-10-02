@@ -26,10 +26,10 @@ export default function RootLayout({
             name="viewport"
             content="width=device-width, initial-scale=1.0"
           />
-          <title>Wolf Gym - Gimnasio en Ica | Equipos de Última Tecnología</title>
+          <title>Wolf Gym - Gimnasio en Ica | Equipos de Calidad</title>
           <meta 
             name="description" 
-            content="Wolf Gym en Ica - El mejor gimnasio con equipos de última tecnología, entrenadores expertos y planes accesibles. Libera tu lobo interior. ¡Prohibido rendirse!" 
+            content="Wolf Gym en Ica - El mejor gimnasio con equipos de calidad, entrenadores expertos y planes accesibles. Libera tu lobo interior. ¡Prohibido rendirse!" 
           />
           <meta 
             name="keywords" 
@@ -40,10 +40,10 @@ export default function RootLayout({
           
           {/* Open Graph / Facebook */}
           <meta property="og:type" content="website" />
-          <meta property="og:title" content="Wolf Gym - Gimnasio en Ica | Equipos de Última Tecnología" />
+          <meta property="og:title" content="Wolf Gym - Gimnasio en Ica | Equipos de Calidad" />
           <meta 
             property="og:description" 
-            content="El mejor gimnasio de Ica con equipos de última tecnología, entrenadores expertos y planes accesibles. Libera tu lobo interior." 
+            content="El mejor gimnasio de Ica con equipos de calidad, entrenadores expertos y planes accesibles. Libera tu lobo interior." 
           />
           <meta property="og:image" content="/uploads/images/logo2.jpg" />
           <meta property="og:url" content="https://wolfgym.com" />
@@ -55,25 +55,23 @@ export default function RootLayout({
           <meta name="twitter:title" content="Wolf Gym - Gimnasio en Ica | Equipos de Última Tecnología" />
           <meta 
             name="twitter:description" 
-            content="El mejor gimnasio de Ica con equipos de última tecnología, entrenadores expertos y planes accesibles. Libera tu lobo interior." 
+            content="El mejor gimnasio de Ica con equipos de calidad, entrenadores expertos y planes accesibles. Libera tu lobo interior." 
           />
           <meta name="twitter:image" content="/uploads/images/logo2.jpg" />
           
           {/* Local Business Schema */}
           <script
-            type="application/ld+json"
             dangerouslySetInnerHTML={{
               __html: JSON.stringify({
                 "@context": "https://schema.org",
                 "@type": "Gym",
                 "name": "Wolf Gym",
-                "description": "Gimnasio en Ica con equipos de última tecnología y entrenadores expertos",
+                "description": "Gimnasio en Ica con equipos de calidad y entrenadores expertos",
                 "url": "https://wolfgym.com",
                 "telephone": "+51-XXX-XXX-XXX",
                 "address": {
                   "@type": "PostalAddress",
                   "streetAddress": "Av. Peru 622",
-                  "addressLocality": "Ica",
                   "addressRegion": "Ica",
                   "postalCode": "11003",
                   "addressCountry": "PE"

@@ -30,6 +30,12 @@ model User {
   contacts     UserContact[]        @relation("UserContacts")
   memberships  UserMembershipPlan[]
   fingerprints Fingerprint[]
+  
+  // Relaciones del sistema de rutinas
+  programAssignments    UserProgramAssignment[]  @relation("UserProgramAssignments")
+  routineAssignments    UserRoutineAssignment[]  @relation("UserRoutineAssignments")
+  workoutSessions       WorkoutSession[]         @relation("UserWorkoutSessions")
+  progressSuggestions   ExerciseProgressSuggestion[] @relation("UserProgressSuggestions")
 
   @@map("users")
 }
@@ -201,11 +207,19 @@ model Gallery {
 }
 
 model Fingerprint {
-  id       String @id @default(cuid())
-  template Bytes
-  user_id  String
-  user     User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  id            String   @id @default(cuid())
+  user_id       String   @map("user_id")
+  finger_index  Int      @default(0) @map("finger_index") // 0-9 (10 dedos)
+  template      Bytes    @map("template")
+  version       String?  @map("version") // ANSI/ISO/ZK
+  device_serial String?  @map("device_serial")
+  quality       Int?     @map("quality")
+  template_size Int      @default(0) @map("template_size")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  user          User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
+  @@unique([user_id, finger_index])
   @@map("fingerprints")
 }
 
@@ -284,4 +298,248 @@ enum ProductType {
   PRE_WORKOUT_5
   PRE_WORKOUT_10
   CUSTOM
+}
+
+// ===== SISTEMA DE RUTINAS Y EJERCICIOS =====
+
+model Exercise {
+  id                    String   @id @default(cuid())
+  slug                  String   @unique
+  name                  String
+  description           String?
+  instructions          String?  // Paso a paso
+  commonMistakes        String?  // Errores comunes
+  tips                  String?  // Consejos
+  primaryMuscle         String   // Músculo principal
+  secondaryMuscles      String[] // Músculos secundarios
+  equipment             String   // Equipo necesario
+  level                 String   // beginner/intermediate/advanced
+  mechanics             String   // compound/isolation
+  category              String   // push/pull/legs/core/upper/lower/full-body/stretch/cardio
+  tempo                 String?  // ej: "3-1-1"
+  breathing             String?  // Patrón de respiración
+  defaultRepMin         Int?     // Rango mínimo de repeticiones
+  defaultRepMax         Int?     // Rango máximo de repeticiones
+  defaultRestSec        Int?     // Descanso por defecto en segundos
+  tags                  String[] // Tags para búsqueda
+  isPublished           Boolean  @default(false)
+  isVerified            Boolean  @default(false)
+  createdBy             String?  // ID del usuario que lo creó
+  updatedBy             String?  // ID del usuario que lo actualizó
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  // Relaciones
+  media                 ExerciseMedia[]
+  routineItems          RoutineItem[]
+  workoutExercises      WorkoutExercise[]
+  progressSuggestions   ExerciseProgressSuggestion[]
+
+  @@index([slug])
+  @@index([primaryMuscle])
+  @@index([equipment])
+  @@index([level])
+  @@index([isPublished])
+  @@map("exercises")
+}
+
+model ExerciseMedia {
+  id            String   @id @default(cuid())
+  exerciseId    String
+  type          String   // image/video
+  url           String   // URL del archivo
+  thumbnailUrl  String?  // URL del thumbnail (para videos)
+  title         String?  // Título del media
+  description   String?  // Descripción
+  durationSec   Int?     // Duración en segundos (para videos)
+  order         Int      @default(0) // Orden en la galería
+  isCover       Boolean  @default(false) // Si es la imagen de portada
+  createdAt     DateTime @default(now())
+  
+  // Relaciones
+  exercise      Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@index([exerciseId, order])
+  @@map("exercise_media")
+}
+
+model ProgramTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  goal        String   // strength/hypertrophy/calisthenics/fat-loss
+  level       String   // beginner/intermediate/advanced
+  weeks       Int      // Duración en semanas
+  tags        String[] // Tags para búsqueda
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relaciones
+  routines    RoutineTemplate[]
+  userAssignments UserProgramAssignment[]
+
+  @@index([isPublished])
+  @@map("program_templates")
+}
+
+model RoutineTemplate {
+  id          String   @id @default(cuid())
+  programId   String?  // Opcional, puede ser rutina independiente
+  name        String   // ej: "PUSH", "PULL", "LEGS", "FULL BODY A"
+  description String?
+  goal        String   // strength/hypertrophy/endurance
+  level       String   // beginner/intermediate/advanced
+  dayIndex    Int?     // Orden dentro de la semana (0-6)
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relaciones
+  program     ProgramTemplate? @relation(fields: [programId], references: [id], onDelete: Cascade)
+  items       RoutineItem[]
+  userAssignments UserRoutineAssignment[]
+  workoutSessions WorkoutSession[]
+
+  @@index([programId])
+  @@index([isPublished])
+  @@map("routine_templates")
+}
+
+model RoutineItem {
+  id            String   @id @default(cuid())
+  routineId     String
+  exerciseId    String
+  order         Int      // Orden dentro de la rutina
+  targetRepsMin Int?     // Repeticiones mínimas objetivo
+  targetRepsMax Int?     // Repeticiones máximas objetivo
+  targetSets    Int?     // Series objetivo
+  targetRPE     Float?   // RPE objetivo
+  targetRestSec Int?     // Descanso objetivo en segundos
+  notes         String?  // Notas específicas
+  isOptional    Boolean  @default(false) // Si es ejercicio opcional
+  
+  // Relaciones
+  routine       RoutineTemplate @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  exercise      Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@index([routineId, order])
+  @@map("routine_items")
+}
+
+model UserProgramAssignment {
+  userId    String
+  programId String
+  startDate DateTime
+  endDate   DateTime?
+  active    Boolean  @default(true)
+  notes     String?
+  createdAt DateTime @default(now())
+  
+  // Relaciones
+  user      User @relation("UserProgramAssignments", fields: [userId], references: [id], onDelete: Cascade)
+  program   ProgramTemplate @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@id([userId, programId])
+  @@index([userId, active])
+  @@map("user_program_assignments")
+}
+
+model UserRoutineAssignment {
+  userId           String
+  routineTemplateId String
+  weekDay          Int     // 0-6 (domingo a sábado)
+  active           Boolean @default(true)
+  notes            String?
+  createdAt        DateTime @default(now())
+  
+  // Relaciones
+  user             User @relation("UserRoutineAssignments", fields: [userId], references: [id], onDelete: Cascade)
+  routineTemplate  RoutineTemplate @relation(fields: [routineTemplateId], references: [id], onDelete: Cascade)
+
+  @@id([userId, routineTemplateId, weekDay])
+  @@index([userId, active])
+  @@map("user_routine_assignments")
+}
+
+model WorkoutSession {
+  id                String   @id @default(cuid())
+  userId            String
+  date              DateTime @default(now())
+  startTime         DateTime @default(now())
+  endTime           DateTime?
+  routineTemplateId String?  // Rutina seguida (opcional)
+  notes             String?  // Notas generales de la sesión
+  perceivedIntensity Float?  // RPE/RIR global de la sesión
+  status            String   @default("in-progress") // in-progress/completed
+  totalVolume       Float    @default(0) // Volumen total en kg
+  totalSets         Int      @default(0) // Total de series
+  totalReps         Int      @default(0) // Total de repeticiones
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relaciones
+  user              User @relation("UserWorkoutSessions", fields: [userId], references: [id], onDelete: Cascade)
+  routineTemplate   RoutineTemplate? @relation(fields: [routineTemplateId], references: [id])
+  exercises         WorkoutExercise[]
+
+  @@index([userId, date])
+  @@index([status])
+  @@map("workout_sessions")
+}
+
+model WorkoutExercise {
+  id                String   @id @default(cuid())
+  workoutSessionId  String
+  exerciseId        String
+  order             Int      // Orden dentro de la sesión
+  notes             String?  // Notas específicas del ejercicio
+  targetSets        Int?     // Series objetivo
+  targetRepsMin     Int?     // Repeticiones mínimas objetivo
+  targetRepsMax     Int?     // Repeticiones máximas objetivo
+  targetRestSec     Int?     // Descanso objetivo
+  
+  // Relaciones
+  workoutSession    WorkoutSession @relation(fields: [workoutSessionId], references: [id], onDelete: Cascade)
+  exercise          Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  sets              WorkoutSet[]
+
+  @@index([workoutSessionId, order])
+  @@map("workout_exercises")
+}
+
+model WorkoutSet {
+  id                String   @id @default(cuid())
+  workoutExerciseId String
+  setIndex          Int      // Índice de la serie (1, 2, 3...)
+  weight            Float    // Peso usado en kg
+  reps              Int      // Repeticiones realizadas
+  rpe               Float?   // RPE de la serie
+  isWarmup          Boolean  @default(false) // Si es serie de calentamiento
+  restSec           Int?     // Descanso real tomado
+  note              String?  // Nota específica de la serie
+  completedAt       DateTime @default(now())
+  
+  // Relaciones
+  workoutExercise   WorkoutExercise @relation(fields: [workoutExerciseId], references: [id], onDelete: Cascade)
+
+  @@index([workoutExerciseId, setIndex])
+  @@map("workout_sets")
+}
+
+model ExerciseProgressSuggestion {
+  userId            String
+  exerciseId        String
+  suggestedWeight   Float?   // Peso sugerido
+  suggestedRepsMin  Int?     // Repeticiones mínimas sugeridas
+  suggestedRepsMax  Int?     // Repeticiones máximas sugeridas
+  rationale         String?  // Razón de la sugerencia
+  updatedAt         DateTime @updatedAt
+  
+  // Relaciones
+  user              User @relation("UserProgressSuggestions", fields: [userId], references: [id], onDelete: Cascade)
+  exercise          Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@id([userId, exerciseId])
+  @@map("exercise_progress_suggestions")
 }
