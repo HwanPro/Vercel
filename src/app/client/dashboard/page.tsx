@@ -4,19 +4,16 @@ import { useState, useEffect } from "react";
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { Button } from "@/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/ui/card";
+import { Card, CardContent } from "@/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/tabs";
-import { Badge } from "@/ui/badge";
 import ProfileModal from "@/ui/components/ProfileModal";
-import { Home, Crown, Edit2, LogOut, Trophy } from "lucide-react";
+import { Home, Crown, Edit2, LogOut } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/ui/avatar";
 
-// Importar tus componentes de Rutina, Nutrición, Progreso
+// Importar componentes de Rutina y Nutrición
 import RoutineTab from "@/ui/components/RoutineTab";
 import NutricionTab from "@/ui/components/NutricionTab";
-import ProgressTab from "@/ui/components/ProgressTab";
 
 // Tipos de tu clientData
 interface Membership {
@@ -231,106 +228,79 @@ export default function ClientDashboard() {
           />
         )}
 
-        {/* Plan y Progreso */}
-        <Card className="md:col-span-2 bg-white border-yellow-400">
-          <CardHeader>
-            <CardTitle className="text-yellow-400">Plan y Progreso</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {subscription.active ? (
-              <>
-                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        {/* Estado de Suscripción */}
+        {subscription.active ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="bg-gradient-to-r from-yellow-400 to-yellow-500 text-black">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <Crown className="h-8 w-8" />
                   <div>
-                    <h3 className="font-semibold flex items-center gap-2">
-                      <Crown className="text-yellow-400" />
-                      {subscription.plan}
-                    </h3>
-                    <p className="text-sm text-gray-400">
-                      Válido hasta:{" "}
-                      {subscription.endDate &&
-                        subscription.endDate.toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="flex flex-col md:flex-row items-center gap-2">
-                    <Badge variant="outline" className="text-yellow-400">
-                      {getDaysRemaining()} días restantes
-                    </Badge>
+                    <h3 className="font-bold text-lg">{subscription.plan}</h3>
+                    <p className="text-sm opacity-80">Plan Activo</p>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Progreso semanal</span>
-                    <span className="text-yellow-400">
-                      {getCurrentWeekProgress()}/{weeklyGoal} sesiones
-                    </span>
-                  </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-white">
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-yellow-600">{getDaysRemaining()}</div>
+                  <p className="text-sm text-gray-600">Días restantes</p>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {getCurrentWeekProgress() >= weeklyGoal ? (
-                    <Badge
-                      variant="outline"
-                      className="flex items-center justify-center gap-2 py-2"
-                    >
-                      <Trophy className="h-4 w-4 text-yellow-400" />
-                      ¡Objetivo alcanzado!
-                    </Badge>
-                  ) : (
-                    <Badge
-                      variant="outline"
-                      className="flex items-center justify-center gap-2 py-2"
-                    >
-                      <Trophy className="h-4 w-4 text-yellow-400" />
-                      Sigue esforzándote
-                    </Badge>
-                  )}
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-white">
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">{getCurrentWeekProgress()}/{weeklyGoal}</div>
+                  <p className="text-sm text-gray-600">Entrenamientos esta semana</p>
                 </div>
-              </>
-            ) : (
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          <Card className="bg-red-50 border-red-200">
+            <CardContent className="pt-6">
               <div className="text-center space-y-4">
-                <p className="text-yellow-400">
-                  No tienes una suscripción activa.
+                <h3 className="text-xl font-bold text-red-600">Sin Suscripción Activa</h3>
+                <p className="text-red-700">
+                  Necesitas una suscripción activa para acceder a las funciones de entrenamiento.
                 </p>
                 <Link
                   href="/#pricing"
-                  className="inline-block bg-yellow-400 text-black px-4 py-2 rounded hover:bg-yellow-500"
+                  className="inline-block bg-yellow-400 text-black px-6 py-3 rounded-lg hover:bg-yellow-500 font-semibold"
                 >
                   ¡Adquiere un plan ahora!
                 </Link>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
-        {/* Pestañas de funciones */}
-        <Card className="md:col-span-3 bg-white border-yellow-400">
-          <CardContent className="pt-6">
-            <Tabs defaultValue="routines" className="w-full">
-              <TabsList className="grid grid-cols-3 bg-white">
-                <TabsTrigger
-                  value="routines"
-                  disabled={!subscription.active}
-                  className="data-[state=active]:bg-yellow-400 data-[state=active]:text-black disabled:opacity-50"
-                >
-                  Rutinas
-                </TabsTrigger>
-                <TabsTrigger
-                  value="nutrition"
-                  disabled={!subscription.active}
-                  className="data-[state=active]:bg-yellow-400 data-[state=active]:text-black disabled:opacity-50"
-                >
-                  Nutrición
-                </TabsTrigger>
-                <TabsTrigger
-                  value="progress"
-                  disabled={!subscription.active}
-                  className="data-[state=active]:bg-yellow-400 data-[state=active]:text-black disabled:opacity-50"
-                >
-                  Progreso
-                </TabsTrigger>
-              </TabsList>
+        {/* Contenido Principal */}
+        {subscription.active ? (
+          <Card className="bg-white shadow-lg">
+            <CardContent className="p-0">
+              <Tabs defaultValue="routines" className="w-full">
+                <TabsList className="grid grid-cols-2 bg-gray-50 rounded-t-lg">
+                  <TabsTrigger
+                    value="routines"
+                    className="data-[state=active]:bg-yellow-400 data-[state=active]:text-black font-semibold"
+                  >
+                    🏋️‍♂️ Entrenamientos
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="nutrition"
+                    className="data-[state=active]:bg-yellow-400 data-[state=active]:text-black font-semibold"
+                  >
+                    🥗 Nutrición
+                  </TabsTrigger>
+                </TabsList>
 
-              <TabsContent value="routines">
-                {subscription.active ? (
+                <TabsContent value="routines" className="mt-0">
                   <RoutineTab
                     gender={clientData.profile?.gender || "male"}
                     fitnessGoal={fitnessGoal}
@@ -338,103 +308,21 @@ export default function ClientDashboard() {
                     setFitnessGoal={setFitnessGoal}
                     setBodyFocus={setBodyFocus}
                   />
-                ) : (
-                  <p className="text-center text-red-500">
-                    Debes tener un plan activo para acceder a las Rutinas.
-                  </p>
-                )}
-              </TabsContent>
+                </TabsContent>
 
-              <TabsContent value="nutrition">
-                {subscription.active ? (
+                <TabsContent value="nutrition" className="mt-0 p-6">
                   <NutricionTab gender={clientData.profile?.gender || "male"} />
-                ) : (
-                  <p className="text-center text-red-500">
-                    Debes tener un plan activo para acceder a Nutrición.
-                  </p>
-                )}
-              </TabsContent>
-
-              <TabsContent value="progress">
-                <div className="relative">
-                  {/* Marca de agua */}
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <span className="text-4xl text-gray-300 opacity-40">
-                      En Construcción
-                    </span>
-                  </div>
-                  {subscription.active ? (
-                    <ProgressTab
-                      attendances={clientData.attendances}
-                      weeklyGoal={weeklyGoal}
-                      measurements={{
-                        weight: [],
-                        arms: [],
-                        waist: [],
-                        hips: [],
-                      }}
-                    />
-                  ) : (
-                    <p className="text-center text-red-500">
-                      Debes tener un plan activo para acceder a Progreso.
-                    </p>
-                  )}
-                </div>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-
-        {/* Productos Recomendados */}
-        <Card className="md:col-span-2 bg-white border-yellow-400">
-          <CardHeader>
-            <CardTitle className="text-yellow-400">
-              Productos Recomendados
-            </CardTitle>
-          </CardHeader>
-          <section className="my-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 w-full">
-              {/* Add state for products */}
-              {[].length > 0 ? (
-                [].map(
-                  (product: {
-                    item_id: string;
-                    item_name: string;
-                    item_description: string;
-                    item_price: number;
-                    item_image_url?: string;
-                  }) => (
-                    <div
-                      key={product.item_id}
-                      className="bg-gray-900 text-white rounded-lg p-4 shadow-lg flex flex-col items-center border border-yellow-400 h-full"
-                    >
-                      <Image
-                        src={product.item_image_url || "/placeholder.png"}
-                        alt={product.item_name}
-                        width={100}
-                        height={100}
-                        className="mb-4 rounded-lg object-cover w-full h-32"
-                      />
-                      <h4 className="font-bold text-lg text-center">
-                        {product.item_name}
-                      </h4>
-                      <p className="text-sm text-gray-400 text-center">
-                        {product.item_description}
-                      </p>
-                      <p className="text-yellow-400 font-bold mt-2">
-                        S/. {product.item_price.toFixed(2)}
-                      </p>
-                    </div>
-                  )
-                )
-              ) : (
-                <p className="text-gray-400 m-4 text-center">
-                  No hay productos disponibles en este momento.
-                </p>
-              )}
-            </div>
-          </section>
-        </Card>
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="text-center py-12">
+            <p className="text-gray-400 text-lg">
+              Activa tu suscripción para acceder a todas las funciones de entrenamiento.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

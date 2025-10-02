@@ -255,6 +255,12 @@ export default function AdminDashboard() {
             Asistencia
           </Link>
           <Link
+            href="/admin/routines"
+            className="block text-sm font-medium text-white hover:text-yellow-400 no-underline"
+          >
+            Rutinas
+          </Link>
+          <Link
             href="/admin/Edit"
             className="block text-sm font-medium text-white hover:text-yellow-400 no-underline"
           >

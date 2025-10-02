@@ -50,12 +50,7 @@ interface SwalBase {
   confirmButtonColor: string;
 }
 
-type ApiUser = {
-  id?: string;
-  role?: string;
-  username?: string;
-  createdAt?: string | Date;
-};
+// Removed unused ApiUser type
 
 interface Client {
   id: string;
@@ -155,7 +150,7 @@ export default function ClientsPage() {
     setBusy((b) => ({ ...b, [userId]: true }));
     try {
       const res = await fetch(`/api/biometric/delete/${userId}`, {
-        method: "POST",
+        method: "DELETE",
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.ok === false) {
@@ -215,9 +210,9 @@ export default function ClientsPage() {
     });
   };
 
-  const cmp = (a: Client, b: Client, key: SortKey) => {
-    const va = (a as any)[key] ?? "";
-    const vb = (b as any)[key] ?? "";
+  const cmp = useMemo(() => (a: Client, b: Client, key: SortKey) => {
+    const va = a[key] ?? "";
+    const vb = b[key] ?? "";
     if (
       key === "membershipStart" ||
       key === "membershipEnd" ||
@@ -228,7 +223,7 @@ export default function ClientsPage() {
       return da - db;
     }
     return String(va).localeCompare(String(vb), "es", { sensitivity: "base" });
-  };
+  }, []);
 
   // Define Client type for the new client data
   interface NewClientData
@@ -322,24 +317,58 @@ export default function ClientsPage() {
     setFilteredClients(base);
   }, [searchQuery, clients, sortBy, sortDir]);
 
-  const ENABLE_AUTO_STATUS = false;
+  const ENABLE_AUTO_STATUS = true; // Habilitado con control de frecuencia
 
-  // ---- estado de huellas por cliente (userId) ----
+  // ---- estado de huellas por cliente (userId) ---- (con límite de frecuencia)
   useEffect(() => {
     if (!ENABLE_AUTO_STATUS) return;
+    
+    // Evitar verificaciones muy frecuentes
+    const lastCheck = localStorage.getItem('lastFingerprintCheck');
+    const now = Date.now();
+    if (lastCheck && (now - parseInt(lastCheck)) < 30000) { // 30 segundos mínimo
+      console.log('[DEBUG] Verificación de huellas omitida (muy frecuente)');
+      return;
+    }
+    
     const hydrate = async () => {
-      const entries = await Promise.allSettled(
-        clients.map(async (c) => {
-          const r = await fetch(`/api/biometric/status/${c.userId}`, {
-            cache: "no-store",
-          });
-          const j = await r.json().catch(() => ({ hasFingerprint: false }));
-          return [c.userId, !!j?.hasFingerprint] as const;
-        })
-      );
+      console.log(`[DEBUG] Verificando status de huellas para ${clients.length} clientes...`);
+      
+      // Procesar en lotes para evitar sobrecarga
+      const batchSize = 5;
+      const batches = [];
+      for (let i = 0; i < clients.length; i += batchSize) {
+        batches.push(clients.slice(i, i + batchSize));
+      }
+      
+      const allResults = [];
+      for (const batch of batches) {
+        const entries = await Promise.allSettled(
+          batch.map(async (c) => {
+            try {
+              const r = await fetch(`/api/biometric/status/${c.userId}`, {
+                cache: "no-store",
+              });
+              const j = await r.json().catch(() => ({ hasFingerprint: false }));
+              console.log(`[DEBUG] Status ${c.userId}: ${j?.hasFingerprint ? '✅' : '❌'} (${j?.message || 'N/A'})`);
+              return [c.userId, !!j?.hasFingerprint] as const;
+            } catch (error) {
+              console.error(`[DEBUG] Error verificando ${c.userId}:`, error);
+              return [c.userId, false] as const;
+            }
+          })
+        );
+        allResults.push(...entries);
+        
+        // Pequeña pausa entre lotes
+        if (batches.indexOf(batch) < batches.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
+      
       setFpStatus(
         Object.fromEntries(
-          entries
+          allResults
             .filter((e) => e.status === "fulfilled")
             .map(
               (e) =>
@@ -347,7 +376,10 @@ export default function ClientsPage() {
             )
         )
       );
+      localStorage.setItem('lastFingerprintCheck', now.toString());
+      console.log(`[DEBUG] Status actualizado para ${allResults.length} clientes`);
     };
+    
     if (clients.length) hydrate();
   }, [ENABLE_AUTO_STATUS, clients]);
 
@@ -393,7 +425,7 @@ export default function ClientsPage() {
   );
 
   // ---- helpers biométricos ----
-  const captureOnce = async (): Promise<string> => {
+  const captureOnce = async (): Promise<{template: string; image?: string}> => {
     try {
       const response = await fetch("/api/biometric/capture", {
         method: "POST",
@@ -410,7 +442,10 @@ export default function ClientsPage() {
         throw new Error("Formato de plantilla de huella inválido");
       }
 
-      return data.template;
+      return {
+        template: data.template,
+        image: data.image
+      };
     } catch (error) {
       console.error("Error en captura de huella:", error);
       throw error instanceof Error
@@ -462,10 +497,10 @@ export default function ClientsPage() {
           title: `Coloca tu dedo (${i}/3)`,
           text:
             i === 1
-              ? "Manténlo firme hasta que termine"
-              : "Retira y vuelve a colocar",
+              ? "Manténlo firme hasta que termine la captura"
+              : "Retira el dedo y vuelve a colocarlo firmemente",
           icon: "info",
-          timer: 850,
+          timer: 2500,
           showConfirmButton: false,
           allowOutsideClick: false,
         });
@@ -479,21 +514,27 @@ export default function ClientsPage() {
         });
 
         try {
-          const tpl = await captureOnce();
-          templates.push(tpl);
+          const {template, image} = await captureOnce();
+          templates.push(template);
 
+          // Mostrar imagen de huella capturada si está disponible
           await Swal.fire({
             ...swalBase,
-            title: "Muestra capturada",
-            timer: 450,
+            title: "✓ Muestra capturada correctamente",
+            html: image 
+              ? `<img src="data:image/bmp;base64,${image}" style="max-width:250px; margin:10px auto; display:block; border:2px solid #22c55e; border-radius:8px;" alt="Huella capturada"/>`
+              : undefined,
+            text: !image && i < 3 ? "Prepárate para la siguiente captura" : !image ? "Procesando todas las muestras..." : "",
+            icon: "success",
+            timer: image ? 2000 : 1200,
             showConfirmButton: false,
           });
         } catch (error) {
           const errorMessage =
-            error instanceof Error ? error.message : "No se pudo capturar";
+            error instanceof Error ? error.message : "No se pudo capturar la huella";
           await Swal.fire({
             ...swalBase,
-            title: "Error en captura",
+            title: "❌ Error al capturar huella",
             text: errorMessage,
             icon: "error" as const,
           });
@@ -501,40 +542,50 @@ export default function ClientsPage() {
         }
       }
 
-      Swal.fire({
-        ...swalBase,
-        title: "Guardando huella…",
-        allowOutsideClick: false,
-        showConfirmButton: false,
-        didOpen: () => Swal.showLoading(),
-      });
+        Swal.fire({
+          ...swalBase,
+          title: "Guardando huella…",
+          allowOutsideClick: false,
+          showConfirmButton: false,
+          didOpen: () => Swal.showLoading(),
+        });
 
-      const res = await fetch(`/api/biometric/register/${userId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ templates }),
-      });
-      const jr: RegisterFingerprintResponse = await res
-        .json()
-        .catch(() => ({ ok: false }));
+        const res = await fetch(`/api/biometric/register/${userId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ templates }),
+        });
+        const jr: RegisterFingerprintResponse = await res
+          .json()
+          .catch(() => ({ ok: false }));
 
-      if (!res.ok || !jr?.ok) {
+        if (!res.ok || !jr?.ok) {
+          return Swal.fire({
+            ...swalBase,
+            title: "❌ Error al registrar huella",
+            text: jr?.message || "No se pudo completar el registro. Por favor, inténtalo nuevamente.",
+            icon: "error",
+          });
+        }
+
+        setFpStatus((s) => ({ ...s, [userId]: true }));
         return Swal.fire({
           ...swalBase,
-          title: "Error en registro",
-          text: jr?.message || "No se pudo registrar",
-          icon: "error",
+          title: "✅ " + (jr?.message || "Huella registrada exitosamente"),
+          text: "El cliente puede ahora usar su huella para registrar asistencia",
+          icon: "success",
+          timer: 2500,
+          showConfirmButton: false,
         });
-      }
-
-      setFpStatus((s) => ({ ...s, [userId]: true }));
-      return Swal.fire({
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Error desconocido al procesar la huella";
+      await Swal.fire({
         ...swalBase,
-        title: jr?.message || "Huella registrada",
-        icon: "success",
-        timer: 1100,
-        showConfirmButton: false,
+        title: "❌ Error al procesar huella",
+        text: errorMessage,
+        icon: "error" as const,
       });
+      return;
     } finally {
       setBusy((b) => ({ ...b, [userId]: false }));
     }
@@ -549,10 +600,78 @@ export default function ClientsPage() {
     setBusy((b) => ({ ...b, [userId]: true }));
 
     try {
-      // Primero capturamos la huella
+      // Mostrar animación de verificación
+      Swal.fire({
+        ...swalBase,
+        title: "🔍 Verificando Huella",
+        html: `
+          <div class="fingerprint-scanner">
+            <div class="scanner-animation">
+              <div class="pulse-ring"></div>
+              <div class="pulse-ring-2"></div>
+              <div class="fingerprint-icon">👆</div>
+            </div>
+            <div class="scanner-text">
+              <p style="margin: 15px 0 5px 0; font-size: 16px; color: #333;">Coloca tu dedo para verificar</p>
+              <small style="opacity: 0.7; font-size: 13px;">Presiona firmemente y mantén quieto</small>
+            </div>
+          </div>
+          <style>
+            .fingerprint-scanner { text-align: center; padding: 10px; }
+            .scanner-animation { position: relative; display: inline-block; margin: 10px 0 20px 0; }
+            .pulse-ring, .pulse-ring-2 {
+              position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+              width: 80px; height: 80px; border: 3px solid #007bff; border-radius: 50%;
+              animation: pulse 2s infinite;
+            }
+            .pulse-ring-2 { animation-delay: 1s; border-color: #28a745; }
+            .fingerprint-icon { font-size: 40px; z-index: 10; position: relative; animation: bounce 1.5s infinite; }
+            @keyframes pulse {
+              0% { transform: translate(-50%, -50%) scale(0.8); opacity: 1; }
+              100% { transform: translate(-50%, -50%) scale(1.8); opacity: 0; }
+            }
+            @keyframes bounce {
+              0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+              40% { transform: translateY(-10px); }
+              60% { transform: translateY(-5px); }
+            }
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+            .spinner { display: inline-block; animation: spin 1s linear infinite; margin-right: 8px; }
+          </style>
+        `,
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        customClass: { popup: 'fingerprint-popup' }
+      });
+
+      // Actualizar animación a "capturando"
+      setTimeout(() => {
+        const textElement = document.querySelector('.scanner-text p');
+        const iconElement = document.querySelector('.fingerprint-icon');
+        if (textElement && iconElement) {
+          textElement.innerHTML = '<span class="spinner">🔄</span> Capturando...';
+          textElement.style.color = '#007bff';
+          iconElement.innerHTML = '🔄';
+          iconElement.style.animation = 'spin 1s linear infinite';
+        }
+      }, 500);
+
+      // Capturar una sola vez
       const template = await captureOnce();
 
-      // Luego la verificamos
+      // Actualizar a "verificando"
+      const textElement = document.querySelector('.scanner-text p');
+      const iconElement = document.querySelector('.fingerprint-icon');
+      if (textElement && iconElement) {
+        textElement.innerHTML = '<span class="spinner">🔍</span> Verificando...';
+        textElement.style.color = '#ffc107';
+        iconElement.innerHTML = '🔍';
+      }
+
+      // Verificar una sola vez
       const response = await fetch(`/api/biometric/verify/${userId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -567,8 +686,10 @@ export default function ClientsPage() {
         message?: string;
       };
 
-      const isError =
-        data.ok === false && typeof data.score === "number" && data.score < 0;
+      // Cerrar animación
+      Swal.close();
+
+      const isError = data.ok === false && typeof data.score === "number" && data.score < 0;
       const baseMsg = data?.message || "";
       const extra = Number.isFinite(data?.score)
         ? ` (score=${data.score}, thr=${data?.threshold ?? "?"})`
@@ -577,18 +698,19 @@ export default function ClientsPage() {
       await Swal.fire({
         ...swalBase,
         title: data?.match
-          ? "Huella verificada"
+          ? "✅ Huella verificada"
           : isError
-            ? "Error del lector"
-            : "No coincide",
+            ? "❌ Error del lector"
+            : "❌ No coincide",
         text: `${baseMsg}${extra}`,
         icon: data?.match ? "success" : "error",
-        timer: 1300,
+        timer: 1800,
         showConfirmButton: false,
       });
 
       return data;
     } catch (error) {
+      Swal.close();
       console.error("Error en verificación de huella:", error);
       toast.error("Error al verificar la huella. Intente nuevamente.");
       throw error;
@@ -679,12 +801,24 @@ export default function ClientsPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button className="bg-yellow-400 text-black hover:bg-yellow-500 w-full md:w-auto">
-                Añadir Cliente
-              </Button>
-            </DialogTrigger>
+          <div className="flex gap-2 w-full md:w-auto">
+            <Button 
+              onClick={async () => {
+                console.log('[DEBUG] Refrescando estados de huellas manualmente...');
+                localStorage.removeItem('lastFingerprintCheck'); // Forzar refresh
+                window.location.reload(); // Recargar para aplicar cambios
+              }}
+              variant="outline" 
+              className="flex-1 md:flex-none"
+            >
+              🔄 Refrescar Estados
+            </Button>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button className="bg-yellow-400 text-black hover:bg-yellow-500 flex-1 md:flex-none">
+                  Añadir Cliente
+                </Button>
+              </DialogTrigger>
             <DialogContent className="w-[calc(100vw-2rem)] max-w-xl sm:max-w-2xl max-h-[90vh] overflow-y-auto p-0">
               <DialogTitle className="sr-only">...</DialogTitle>
               <div className="p-4">
@@ -697,7 +831,8 @@ export default function ClientsPage() {
                 />
               </div>
             </DialogContent>
-          </Dialog>
+            </Dialog>
+          </div>
         </div>
       </section>
 

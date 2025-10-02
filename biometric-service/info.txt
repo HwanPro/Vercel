@@ -1,0 +1,60 @@
+# Lo esencial (con fuentes)
+
+* **SDK correcto**: usa *ZKFinger SDK for Windows* (compatible con ZK9500) que trae drivers, docs y demos. ([ZKTeco][1])
+* **Flujo API oficial (C#/C)**:
+
+  * `ZKFPM_Init` → `ZKFPM_GetDeviceCount` → `ZKFPM_OpenDevice`
+  * `GetParameters(dev, 1/2, …)` para **ancho (1)** y **alto (2)** de la imagen. ([studylib.net][2])
+  * `AcquireFingerprint(dev, img, tpl, ref len)` devuelve **imagen (width*height)** y **template** (preasignar 2048 bytes; `len` es la longitud real). ([studylib.net][2])
+  * **Matcher**: `DBInit()` → (`DBMerge` si enrolas 3 muestras) → `DBMatch(db, tpl1, tpl2)` o `DBIdentify`. **DBMatch devuelve un score ≥ 0**; **DEBES** decidir un umbral. ([studylib.net][2])
+* **Umbrales recomendados (referencia ZKTeco)**: para biometría, ZKTeco publica tablas de *match threshold* por tipo de comparación (1:N más alto que 1:1). Ejemplo de guía con rangos por nivel de seguridad (ilustra que 1:N exige valores más altos que 1:1). Úsalo como criterio para empezar (p.ej. 1:1 ≈ 25–35; 1:N ≈ 35–45) y ajusta con tus FRR/FAR reales. ([ZKTeco][3])
+* **Errores típicos que explican tus síntomas**:
+
+  * **“Database not initialized”**: olvido de `DBInit()` antes de `DBMatch/DBMerge`. (La guía señala `DBInit/DBFree` como cache/manejador requerido). ([studylib.net][2])
+  * **“Matchea cualquier dedo”**:
+
+    1. Usar un *fallback* casero (p. ej., Hamming sobre bytes) en vez del matcher del SDK. Debes usar **`DBMatch`**. ([studylib.net][2])
+    2. Guardar el template como texto/UTF-8 o truncarlo: guarda **bytes crudos** en base64 y respeta **`len`** que retorna el SDK. ([studylib.net][2])
+    3. En 1:N, no filtrar por **umbral** ni exigir diferencia mínima entre 1º y 2º (p. ej., ≥3 puntos) → “ambigüos” pasan como match (tuviste este bug; mantenlo).
+* **Imagen en vivo**: puedes mostrar la **imagen cruda** devolviendo `width*height` bytes y convertirlos a BMP/JPEG (SDK también expone `AcquireFingerprintImage`). ([studylib.net][2])
+* **DLLs y error `libzkfpcsharp`**:
+
+  * La demo C# requiere **`libzkfpcsharp.dll`** (wrapper). ZKTeco dice que la encontrarás en `System32` (x64) o `SysWOW64` (x86) tras instalar el driver; **agrega referencia** y asegúrate de arquitectura correcta (todo x64 o todo x86) y copiar junto al `.exe`. ([Debuggers Hub][4])
+  * Si el EXE no encuentra la DLL → copia `libzkfpcsharp.dll` (y `libzkfp.dll` si procede) al mismo folder del ejecutable o marca **Copy Local**. (Buenas prácticas de .NET para *FileNotFound/Copy Local*). ([Stack Overflow][5])
+* **Ejemplos completos**: guía oficial C# (con firmas exactas y códigos de error) y manual C API, ambos con el mismo contrato de funciones. ([studylib.net][2])
+  Ejemplo comunitario para ZK4500/9500 en C#: ([GitHub][6])
+
+# Receta “que no falla” (aplícalo tal cual)
+
+1. **Driver + SDK**: instala ZKFinger SDK (Windows). Verifica que Windows detecta el ZK9500 y que la demo oficial reconoce el sensor. ([ZKTeco][1])
+2. **Arquitectura**: si tu app es **x64**, compila todo x64 y usa las DLL x64; si es x86, todo x86. (Mezclar causa `FileNotFound/BadImageFormat`). ([Debuggers Hub][4])
+3. **Inicialización**:
+   `zkfp2.Init()` → si OK/ALREADY_INIT ⇒ `OpenDevice(0)` ⇒ `DBInit()` ⇒ `GetParameters(1/2)` para **W/H**. ([studylib.net][2])
+4. **Enrolamiento seguro**:
+
+   * Captura **3 muestras** (`AcquireFingerprint`) respetando **`len`**.
+   * Combina con **`DBMerge(db, t1, t2, t3, regTpl, ref regLen)`**. ([studylib.net][2])
+   * Guarda **`regTpl[0..regLen]`** en **BLOB (bytea)** o **base64** (sin transformaciones de texto).
+5. **Verificación 1:1**:
+
+   * Decodifica base64 a **bytes**.
+   * `score = DBMatch(db, liveTpl, storedTpl)`; **umbral inicial** 1:1 ≈ **25–35** y ajústalo en producción según FRR/FAR. ([ZKTeco][3])
+6. **Identificación 1:N**:
+
+   * Pre-filtra por **umbral** (p. ej., ≥ **40–45** para empezar) y exige **diferencia ≥ 3** contra el segundo mejor para evitar falsos positivos. ([ZKTeco][3])
+7. **Imagen en vivo**: muestra el raw (`width*height`) como BMP/JPEG; la guía confirma que el tamaño del buffer es exactamente **W×H**. ([studylib.net][2])
+8. **Cierre**: `DBFree(db)` → `CloseDevice(dev)` → `Terminate()` para liberar recursos. ([studylib.net][2])
+9. **Logging**: nunca imprimas templates/base64 en logs (te aparecía un “muro” de texto en consola); filtra esos campos para evitar leaks y caídas por tamaño.
+
+# Dónde te estaba fallando (ligado a tus logs)
+
+* El “**Database not initialized**” se explica por usar `DBMatch/DBMerge` sin `DBInit()` o perder el handle entre capturas. La guía detalla que `DBInit` es requisito. ([studylib.net][2])
+* El “**fetch failed**” y el servicio que se cierra suelen venir de excepciones no controladas (por ejemplo, imprimir base64 gigante y agotar consola o un *FileNotFound* de `libzkfpcsharp.dll`). Revisa presencia/arquitectura de la DLL y corta el logging. ([Debuggers Hub][4])
+
+
+[1]: https://www.zkteco.com/en/Biometrics_Module_SDK/ZKFinger-SDK-for-Windows?utm_source=chatgpt.com "ZKFinger SDK for Windows"
+[2]: https://studylib.net/doc/25696818/zkfinger-reader-sdk-c%23-en-v2 "ZKFinger Reader SDK Development Guide C#"
+[3]: https://zkteco.co.za/downloads/user-manuals/profac_user_manual.pdf?utm_source=chatgpt.com "USER MANUAL"
+[4]: https://www.debuggershub.com/c-zkteco-fingerprint-scanner-implementation-zk4500-slk20m-slk20r-zk9500/?utm_source=chatgpt.com "C# ZKTeco Fingerprint Scanner Implementation (ZK4500, ..."
+[5]: https://stackoverflow.com/questions/4469929/could-not-load-file-or-assembly-or-one-of-its-dependencies/37116063?utm_source=chatgpt.com "Could not load file or assembly or one of its dependencies"
+[6]: https://github.com/MuhammadSalmanSiddiqui/zkteco-4500-9500-implementation?utm_source=chatgpt.com "Demo project for the implementation of zkteco 4500/9500 ..."

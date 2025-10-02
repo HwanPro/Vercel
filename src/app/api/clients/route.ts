@@ -17,6 +17,7 @@ const ProfileSchema = z.object({
   emergencyPhone: z.preprocess((v) => (v === "" ? null : v ?? null), z.string().nullable()),
   address: z.string().default(""),
   social: z.string().default(""),
+  debt: z.number().min(0).default(0),
 });
 
 const BodySchema = z.object({
@@ -87,6 +88,7 @@ export async function POST(request: NextRequest) {
           emergencyPhone: raw.profile?.emergencyPhone,
           address: raw.profile?.address ?? "",
           social: raw.profile?.social ?? "",
+          debt: Number(raw.profile?.debt ?? 0),
         }
       : {
           plan: raw?.plan,
@@ -95,6 +97,7 @@ export async function POST(request: NextRequest) {
           emergencyPhone: raw?.emergencyPhone,
           address: raw?.address ?? raw?.profile_address ?? "",
           social: raw?.social ?? raw?.profile_social ?? "",
+          debt: Number(raw?.debt ?? 0),
         };
 
     const plan = PlanEnum.options.includes(baseProfile.plan as any)
@@ -164,6 +167,7 @@ export async function POST(request: NextRequest) {
           profile_emergency_phone: emergencyE164,
           profile_address: body.profile.address ?? "",
           profile_social: body.profile.social ?? "",
+          debt: body.profile.debt,
         },
       });
 

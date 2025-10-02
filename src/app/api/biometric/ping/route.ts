@@ -1,5 +1,5 @@
 // app/api/biometric/ping/route.ts
-const BASE = process.env.BIOMETRIC_BASE || "http://127.0.0.1:8001";
+const BASE = process.env.BIOMETRIC_BASE || "http://127.0.0.1:8002";
 export const dynamic = "force-dynamic";
 
 export async function GET() {

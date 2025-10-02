@@ -39,3 +39,5 @@ PRODUCTS_UNIFICATION_SUMMARY.md
 
 # Python Services (separate repository)
 python-services/
+biometric-service/
+zkteco-4500-9500-implementation/
