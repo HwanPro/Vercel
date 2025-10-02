@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 
-import { Home, Bell, Menu, X } from "lucide-react";
+import { Home, Bell, Menu, X, Image } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import {
@@ -25,18 +25,23 @@ export default function AdminDashboard() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications] = useState<{ id: string; message: string }[]>([]);
 
-  // Ejemplo de datos de Dashboard
+  // Datos de Dashboard en tiempo real
   const [dashboardData, setDashboardData] = useState({
     totalIncome: 0,
     newClients: 0,
     productSales: 0,
     classAttendance: 0,
+    todayAttendance: 0,
+    activeMemberships: 0,
+    lowStockProducts: 0,
+    lastUpdated: new Date().toISOString()
   });
 
   async function fetchDashboard() {
     try {
-      const res = await fetch("/api/admin/summary", {
+      const res = await fetch("/api/admin/metrics", {
         credentials: "include",
+        cache: "no-store"
       });
       if (!res.ok) {
         if (res.status === 401) {
@@ -44,17 +49,29 @@ export default function AdminDashboard() {
           window.location.href = "/auth/login";
           return;
         }
+        throw new Error("Error al obtener métricas");
       }
       const data = await res.json();
       setDashboardData(data);
     } catch (error) {
       console.error("Error fetchDashboard:", error);
+      toast.error("Error al cargar métricas del dashboard");
     }
   }
 
   useEffect(() => {
     fetchDashboard();
-    // also fetchRecentClients(), fetchProducts(), etc.
+    fetchRecentClients();
+    fetchProducts();
+    
+    // Actualizar datos cada 30 segundos
+    const interval = setInterval(() => {
+      fetchDashboard();
+      fetchRecentClients();
+      fetchProducts();
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, []);
   // Clientes y productos
   const [recentClients, setRecentClients] = useState<
@@ -237,6 +254,12 @@ export default function AdminDashboard() {
             Productos
           </Link>
           <Link
+            href="/admin/images"
+            className="block text-sm font-medium text-white hover:text-yellow-400 no-underline"
+          >
+            Imágenes
+          </Link>
+          <Link
             href="/admin/reportes"
             className="block text-sm font-medium text-white hover:text-yellow-400 no-underline"
           >
@@ -298,28 +321,58 @@ export default function AdminDashboard() {
         </h1>
 
         {/* Resumen Dashboard */}
-        <section className="mb-10 grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white text-black rounded-md shadow p-4">
-            <p className="text-sm font-medium">Ingresos Totales</p>
-            <h3 className="text-2xl font-bold">
-              S/. {dashboardData.totalIncome}
+        <section className="mb-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-white text-black rounded-md shadow p-4 hover:shadow-lg transition-shadow">
+            <p className="text-sm font-medium text-gray-600">Ingresos Totales</p>
+            <h3 className="text-2xl font-bold text-green-600">
+              S/. {Number(dashboardData.totalIncome).toFixed(2)}
             </h3>
+            <p className="text-xs text-gray-500 mt-1">Todos los pagos</p>
           </div>
-          <div className="bg-white text-black rounded-md shadow p-4">
-            <p className="text-sm font-medium">Nuevos Clientes</p>
-            <h3 className="text-2xl font-bold">{dashboardData.newClients}</h3>
+          <div className="bg-white text-black rounded-md shadow p-4 hover:shadow-lg transition-shadow">
+            <p className="text-sm font-medium text-gray-600">Nuevos Clientes</p>
+            <h3 className="text-2xl font-bold text-blue-600">{dashboardData.newClients}</h3>
+            <p className="text-xs text-gray-500 mt-1">Últimos 30 días</p>
           </div>
-          <div className="bg-white text-black rounded-md shadow p-4">
-            <p className="text-sm font-medium">Ventas de Productos</p>
-            <h3 className="text-2xl font-bold">{dashboardData.productSales}</h3>
+          <div className="bg-white text-black rounded-md shadow p-4 hover:shadow-lg transition-shadow">
+            <p className="text-sm font-medium text-gray-600">Asistencia Hoy</p>
+            <h3 className="text-2xl font-bold text-yellow-600">{dashboardData.todayAttendance}</h3>
+            <p className="text-xs text-gray-500 mt-1">Check-ins de hoy</p>
           </div>
-          <div className="bg-white text-black rounded-md shadow p-4">
-            <p className="text-sm font-medium">Asistencia a Clases</p>
-            <h3 className="text-2xl font-bold">
-              {dashboardData.classAttendance}
-            </h3>
+          <div className="bg-white text-black rounded-md shadow p-4 hover:shadow-lg transition-shadow">
+            <p className="text-sm font-medium text-gray-600">Membresías Activas</p>
+            <h3 className="text-2xl font-bold text-purple-600">{dashboardData.activeMemberships}</h3>
+            <p className="text-xs text-gray-500 mt-1">Clientes activos</p>
           </div>
         </section>
+
+        {/* Métricas Adicionales */}
+        <section className="mb-10 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white text-black rounded-md shadow p-4 hover:shadow-lg transition-shadow">
+            <p className="text-sm font-medium text-gray-600">Asistencia Semanal</p>
+            <h3 className="text-2xl font-bold text-indigo-600">{dashboardData.classAttendance}</h3>
+            <p className="text-xs text-gray-500 mt-1">Últimos 7 días</p>
+          </div>
+          <div className="bg-white text-black rounded-md shadow p-4 hover:shadow-lg transition-shadow">
+            <p className="text-sm font-medium text-gray-600">Ventas de Productos</p>
+            <h3 className="text-2xl font-bold text-orange-600">
+              S/. {Number(dashboardData.productSales).toFixed(2)}
+            </h3>
+            <p className="text-xs text-gray-500 mt-1">Total vendido</p>
+          </div>
+          <div className="bg-white text-black rounded-md shadow p-4 hover:shadow-lg transition-shadow">
+            <p className="text-sm font-medium text-gray-600">Stock Bajo</p>
+            <h3 className="text-2xl font-bold text-red-600">{dashboardData.lowStockProducts}</h3>
+            <p className="text-xs text-gray-500 mt-1">Productos ≤ 10 unidades</p>
+          </div>
+        </section>
+
+        {/* Indicador de última actualización */}
+        <div className="mb-6 text-center">
+          <p className="text-sm text-gray-400">
+            Última actualización: {new Date(dashboardData.lastUpdated).toLocaleString('es-ES')}
+          </p>
+        </div>
 
         {/* Clientes Recientes */}
         <section className="mb-10">
@@ -406,6 +459,21 @@ export default function AdminDashboard() {
         <ProfileModal
           isOpen={showProfileModal}
           onClose={() => setShowProfileModal(false)}
+          onSuccess={async () => {
+            // Recargar datos del usuario después de actualizar perfil
+            if (session?.user?.id) {
+              try {
+                const response = await fetch("/api/user/me");
+                if (response.ok) {
+                  const userData = await response.json();
+                  // Actualizar la sesión si es necesario
+                  window.location.reload();
+                }
+              } catch (error) {
+                console.error("Error al recargar datos del usuario:", error);
+              }
+            }
+          }}
           userName={session?.user?.name ?? ""}
           firstName={session?.user?.firstName ?? ""}
           userLastName={session?.user?.lastName ?? ""}

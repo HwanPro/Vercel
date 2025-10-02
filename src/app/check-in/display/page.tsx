@@ -25,6 +25,31 @@ function CheckInDisplayContent() {
   const [currentUser, setCurrentUser] = useState<ActivityLog | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Cargar historial del día desde localStorage al montar
+  useEffect(() => {
+    const today = new Date().toDateString();
+    const savedLog = localStorage.getItem(`activityLog_${today}`);
+    if (savedLog) {
+      try {
+        const parsedLog = JSON.parse(savedLog).map((item: ActivityLog & { timestamp: string }) => ({
+          ...item,
+          timestamp: new Date(item.timestamp)
+        }));
+        setActivityLog(parsedLog);
+      } catch (error) {
+        console.error("Error al cargar historial del día:", error);
+      }
+    }
+  }, []);
+
+  // Guardar historial del día en localStorage cuando cambie
+  useEffect(() => {
+    if (activityLog.length > 0) {
+      const today = new Date().toDateString();
+      localStorage.setItem(`activityLog_${today}`, JSON.stringify(activityLog));
+    }
+  }, [activityLog]);
+
   // Cargar historial inicial
   useEffect(() => {
     const loadHistory = async () => {

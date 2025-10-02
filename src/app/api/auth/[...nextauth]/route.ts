@@ -49,7 +49,7 @@ export const authOptions: AuthOptions = {
           role: user.role,
           firstName: user.firstName,
           lastName: user.lastName,
-          // image, si la tuvieras
+          image: user.image,
         };
       },
     }),
@@ -59,7 +59,7 @@ export const authOptions: AuthOptions = {
     maxAge: 30 * 24 * 60 * 60, // 30 días
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       // Si es la primera vez (login inicial), "user" no es undefined
       if (user) {
         token.id = user.id;
@@ -68,8 +68,29 @@ export const authOptions: AuthOptions = {
         // añadimos los nuevos campos
         token.firstName = (user as { firstName?: string }).firstName || "";
         token.lastName = (user as { lastName?: string }).lastName || "";
-        // token.image = user.image; si tuvieras
+        token.image = (user as { image?: string }).image || null;
       }
+      
+      // Si se actualiza la sesión, refrescar datos del usuario
+      if (trigger === "update") {
+        const updatedUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: {
+            firstName: true,
+            lastName: true,
+            image: true,
+            phoneNumber: true,
+          },
+        });
+        
+        if (updatedUser) {
+          token.firstName = updatedUser.firstName || "";
+          token.lastName = updatedUser.lastName || "";
+          token.image = updatedUser.image || null;
+          token.phoneNumber = updatedUser.phoneNumber || "";
+        }
+      }
+      
       return token;
     },
     async session({ session, token }) {
@@ -91,7 +112,7 @@ export const authOptions: AuthOptions = {
             lastName: (token as { lastName?: string }).lastName as string,
           }),
         };
-        // session.user.image = token.image as string;
+        session.user.image = (token as { image?: string }).image || null;
       }
       return session;
     },

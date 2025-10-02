@@ -55,6 +55,33 @@ export default function CheckInPage() {
   const [showDebtDialog, setShowDebtDialog] = useState(false);
   const [selectedClient, setSelectedClient] = useState<RegisterResult | null>(null);
 
+  // Cargar historial del día desde localStorage al montar
+  useEffect(() => {
+    if (mounted && session?.user?.role === "admin") {
+      const today = new Date().toDateString();
+      const savedLog = localStorage.getItem(`activityLog_${today}`);
+      if (savedLog) {
+        try {
+          const parsedLog = JSON.parse(savedLog).map((item: ActivityLog & { timestamp: string }) => ({
+            ...item,
+            timestamp: new Date(item.timestamp)
+          }));
+          setActivityLog(parsedLog);
+        } catch (error) {
+          console.error("Error al cargar historial del día:", error);
+        }
+      }
+    }
+  }, [mounted, session?.user?.role]);
+
+  // Guardar historial del día en localStorage cuando cambie
+  useEffect(() => {
+    if (mounted && session?.user?.role === "admin" && activityLog.length > 0) {
+      const today = new Date().toDateString();
+      localStorage.setItem(`activityLog_${today}`, JSON.stringify(activityLog));
+    }
+  }, [activityLog, mounted, session?.user?.role]);
+
   useEffect(() => {
     setMounted(true);
     const sp = new URLSearchParams(window.location.search);
@@ -158,8 +185,8 @@ export default function CheckInPage() {
       body: JSON.stringify(payload),
       cache: "no-store",
     });
-    const j = (await r.json().catch(() => ({}))) as RegisterResult;
-    if (!r.ok) throw new Error((j as any)?.message || "No se pudo registrar la asistencia");
+    const j = (await r.json().catch(() => ({} as RegisterResult))) as RegisterResult;
+    if (!r.ok) throw new Error((j as RegisterResult & { message?: string })?.message || "No se pudo registrar la asistencia");
     return j;
   };
 
@@ -614,33 +641,366 @@ export default function CheckInPage() {
   };
 
   const forceCheckout = async () => {
+    if (scanningRef.current) return;
+    scanningRef.current = true;
     setLoading(true);
-    try {
-      await Swal.fire({
-        ...swalBase,
-        title: "Identificando para registrar salida…",
-        allowOutsideClick: true,
-        showConfirmButton: false,
-        didOpen: () => Swal.showLoading(),
-      });
-      const res = await identifyOnce();
-      Swal.close();
 
-      let data: RegisterResult;
-      if (res.match && res.userId) {
-        data = await register({ userId: res.userId, intent: "checkout" });
-        await showCard(data, res.name);
+    // Mostrar diálogo de escaneo con animación mejorada para salida
+    Swal.fire({
+      ...swalBase,
+      title: "🔍 Verificando Huella para Salida",
+      html: `
+        <div class="fingerprint-scanner">
+          <div class="scanner-animation">
+            <div class="pulse-ring"></div>
+            <div class="pulse-ring-2"></div>
+            <div class="fingerprint-icon">👆</div>
+          </div>
+          <div class="scanner-text">
+            <p style="margin: 15px 0 5px 0; font-size: 16px; color: #333;">Coloca tu dedo en el ZKT Eco 9500</p>
+            <small style="opacity: 0.7; font-size: 13px;">Presiona firmemente y mantén quieto</small>
+          </div>
+        </div>
+        <style>
+          .fingerprint-scanner {
+            text-align: center;
+            padding: 10px;
+          }
+          .scanner-animation {
+            position: relative;
+            display: inline-block;
+            margin: 10px 0 20px 0;
+          }
+          .pulse-ring, .pulse-ring-2 {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80px;
+            height: 80px;
+            border: 3px solid #dc3545;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+          }
+          .pulse-ring-2 {
+            animation-delay: 1s;
+            border-color: #ff6b6b;
+          }
+          .fingerprint-icon {
+            font-size: 40px;
+            z-index: 10;
+            position: relative;
+            animation: bounce 1.5s infinite;
+          }
+          @keyframes pulse {
+            0% {
+              transform: translate(-50%, -50%) scale(0.8);
+              opacity: 1;
+            }
+            100% {
+              transform: translate(-50%, -50%) scale(1.8);
+              opacity: 0;
+            }
+          }
+          @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+              transform: translateY(0);
+            }
+            40% {
+              transform: translateY(-10px);
+            }
+            60% {
+              transform: translateY(-5px);
+            }
+          }
+          @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+          }
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          .spinner {
+            display: inline-block;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+          }
+          .fingerprint-popup {
+            border-radius: 15px !important;
+            box-shadow: 0 8px 25px rgba(220,53,69,0.15) !important;
+          }
+          .swal2-confirm-custom {
+            background-color: #dc3545 !important;
+            border-color: #dc3545 !important;
+            font-weight: bold !important;
+            border-radius: 25px !important;
+            padding: 10px 20px !important;
+          }
+          .swal2-confirm-custom:hover {
+            background-color: #c82333 !important;
+            border-color: #bd2130 !important;
+          }
+        </style>
+      `,
+      allowOutsideClick: true,
+      showConfirmButton: true,
+      confirmButtonText: "🛑 Detener",
+      showCancelButton: false,
+      customClass: {
+        popup: 'fingerprint-popup',
+        confirmButton: 'swal2-confirm-custom'
+      },
+      didOpen: () => {
+        // Configurar evento para el botón de detener
+        const confirmButton = document.querySelector('.swal2-confirm');
+        if (confirmButton) {
+          confirmButton.addEventListener('click', () => {
+            scanningRef.current = false;
+            setLoading(false);
+            Swal.close();
+          });
+        }
+      },
+    });
+
+    let matched: IdentifyResult | null = null;
+    let attempts = 0;
+    const maxAttempts = 4;
+    let noFingerCount = 0;
+    const maxNoFingerAttempts = 3;
+    
+    // Timeout optimizado para ZKT Eco 9500
+    const timeoutId = setTimeout(() => {
+      console.log("[ZKT Eco 9500] Timeout alcanzado (8s), deteniendo escaneo de salida");
+      scanningRef.current = false;
+      Swal.close();
+    }, 8000);
+    
+    while (scanningRef.current && attempts < maxAttempts) {
+      if (!scanningRef.current) break;
+      
+      // Obtener referencia al contenedor una sola vez
+      const swalContainer = document.querySelector('.fingerprint-scanner');
+      
+      // Mostrar animación de captura antes de cada intento
+      if (swalContainer) {
+        const textElement = swalContainer.querySelector('.scanner-text p') as HTMLElement;
+        const fingerprintIcon = swalContainer.querySelector('.fingerprint-icon') as HTMLElement;
+        const pulseRings = swalContainer.querySelectorAll('.pulse-ring, .pulse-ring-2');
+        
+        if (textElement) {
+          textElement.innerHTML = '🔄 Capturando huella para salida...';
+          textElement.style.color = '#dc3545';
+        }
+        
+        if (fingerprintIcon) {
+          fingerprintIcon.innerHTML = '🔄';
+          fingerprintIcon.style.animation = 'spin 1s linear infinite';
+        }
+        
+        // Acelerar pulsos durante captura
+        pulseRings.forEach(ring => {
+          const htmlRing = ring as HTMLElement;
+          htmlRing.style.animationDuration = '1s';
+          htmlRing.style.borderColor = '#dc3545';
+        });
+      }
+      
+      const res = await identifyOnce();
+      attempts++;
+      
+      console.log(`[ZKT Eco 9500] Intento de salida ${attempts}/${maxAttempts}:`, res);
+      
+      // Actualizar la animación con el progreso
+      if (swalContainer) {
+        const textElement = swalContainer.querySelector('.scanner-text p') as HTMLElement;
+        const iconElement = swalContainer.querySelector('.fingerprint-icon') as HTMLElement;
+        if (textElement && iconElement) {
+          textElement.innerHTML = `<span class="spinner">🔄</span> Verificando salida... Intento ${attempts}/${maxAttempts}`;
+          textElement.style.color = '#ffc107';
+          iconElement.innerHTML = '🔍';
+          iconElement.style.animation = 'spin 1s linear infinite';
+        }
+      }
+      
+      if (res.match && res.userId) { 
+        console.log("✅ [ZKT Eco 9500] Usuario identificado para salida!", res);
+        
+        // Mostrar animación de éxito
+        if (swalContainer) {
+          const textElement = swalContainer.querySelector('.scanner-text p') as HTMLElement;
+          const fingerprintIcon = swalContainer.querySelector('.fingerprint-icon') as HTMLElement;
+          const pulseRings = swalContainer.querySelectorAll('.pulse-ring, .pulse-ring-2');
+          
+          if (textElement) {
+            textElement.innerHTML = '✅ ¡Huella Reconocida para Salida!';
+            textElement.style.color = '#28a745';
+            textElement.style.fontWeight = 'bold';
+          }
+          
+          if (fingerprintIcon) {
+            fingerprintIcon.innerHTML = '✅';
+            fingerprintIcon.style.color = '#28a745';
+          }
+          
+          // Cambiar anillos a verde
+          pulseRings.forEach(ring => {
+            const htmlRing = ring as HTMLElement;
+            htmlRing.style.borderColor = '#28a745';
+            htmlRing.style.animationDuration = '0.5s';
+          });
+        }
+        
+        // Feedback háptico y sonoro para éxito
+        if (navigator.vibrate) {
+          navigator.vibrate([100, 50, 100]);
+        }
+        
+        // Esperar un poco para mostrar la animación de éxito
+        await new Promise(r => setTimeout(r, 800));
+        matched = res; 
+        break; 
+      }
+      
+      // Si hay un error real (no solo "no hay dedo"), salir del bucle
+      if (!res.ok) {
+        console.error("❌ [ZKT Eco 9500] Error en identificación de salida:", res);
+        break;
+      }
+      
+      // Contar casos específicos de "no hay dedo"
+      if (!res.match && !res.userId) {
+        noFingerCount++;
+        console.log(`⚠️ [ZKT Eco 9500] No hay dedo detectado para salida (${noFingerCount}/${maxNoFingerAttempts})`);
+        
+        // Actualizar animación para "no hay dedo"
+        if (swalContainer) {
+          const textElement = swalContainer.querySelector('.scanner-text p') as HTMLElement;
+          const fingerprintIcon = swalContainer.querySelector('.fingerprint-icon') as HTMLElement;
+          
+          if (textElement) {
+            textElement.innerHTML = '⚠️ No hay dedo detectado';
+            textElement.style.color = '#ffc107';
+          }
+          
+          if (fingerprintIcon) {
+            fingerprintIcon.innerHTML = '👆';
+            fingerprintIcon.style.animation = 'shake 0.5s ease-in-out';
+          }
+        }
+        
+        if (noFingerCount >= maxNoFingerAttempts) {
+          console.log("🚫 [ZKT Eco 9500] Demasiados intentos sin dedo para salida, saliendo");
+          
+          // Animación de fallo
+          if (swalContainer) {
+            const textElement = swalContainer.querySelector('.scanner-text p') as HTMLElement;
+            const fingerprintIcon = swalContainer.querySelector('.fingerprint-icon') as HTMLElement;
+            const pulseRings = swalContainer.querySelectorAll('.pulse-ring, .pulse-ring-2');
+            
+            if (textElement) {
+              textElement.innerHTML = '❌ Sin dedo detectado';
+              textElement.style.color = '#dc3545';
+            }
+            
+            if (fingerprintIcon) {
+              fingerprintIcon.innerHTML = '❌';
+              fingerprintIcon.style.color = '#dc3545';
+            }
+            
+            pulseRings.forEach(ring => {
+              const htmlRing = ring as HTMLElement;
+              htmlRing.style.borderColor = '#dc3545';
+            });
+          }
+          
+          scanningRef.current = false;
+          break;
+        }
+      }
+      
+      // Si detectamos "Sin coincidencias" después de 2 intentos
+      if (!res.match && !res.userId && attempts >= 2) {
+        console.log("🚫 [ZKT Eco 9500] Sin coincidencias para salida después de 2 intentos, saliendo");
+        
+        // Animación para huella no reconocida
+        if (swalContainer) {
+          const textElement = swalContainer.querySelector('.scanner-text p') as HTMLElement;
+          const fingerprintIcon = swalContainer.querySelector('.fingerprint-icon') as HTMLElement;
+          const pulseRings = swalContainer.querySelectorAll('.pulse-ring, .pulse-ring-2');
+          
+          if (textElement) {
+            textElement.innerHTML = '🚫 Huella no reconocida para salida';
+            textElement.style.color = '#dc3545';
+            textElement.style.fontWeight = 'bold';
+          }
+          
+          if (fingerprintIcon) {
+            fingerprintIcon.innerHTML = '🚫';
+            fingerprintIcon.style.color = '#dc3545';
+            fingerprintIcon.style.animation = 'shake 0.6s ease-in-out 2';
+          }
+          
+          pulseRings.forEach(ring => {
+            const htmlRing = ring as HTMLElement;
+            htmlRing.style.borderColor = '#dc3545';
+            htmlRing.style.animationDuration = '0.3s';
+          });
+        }
+        
+        // Esperar un poco para mostrar la animación de error
+        await new Promise(r => setTimeout(r, 1000));
+        
+        scanningRef.current = false;
+        break;
+      }
+      
+      // Salir después de 3 intentos sin coincidencias
+      if (attempts >= 3 && !matched) {
+        console.log("🚫 [ZKT Eco 9500] 3 intentos sin coincidencias para salida, saliendo automáticamente");
+        scanningRef.current = false;
+        break;
+      }
+      
+      // Espera optimizada para ZKT Eco 9500
+      await new Promise(r => setTimeout(r, 1200));
+    }
+    
+    // Limpiar el timeout
+    clearTimeout(timeoutId);
+    
+    // Cerrar el diálogo de escaneo
+    Swal.close();
+
+    try {
+      if (matched?.match && matched.userId) {
+        console.log("Usuario identificado para salida:", matched);
+        const data = await register({ userId: matched.userId, intent: "checkout" });
+        console.log("Datos de registro de salida:", data);
+        vibrate(200);
+        await showCard(data, matched.name);
       } else {
-        const p = await askPhone("No te reconocimos. Salida por teléfono");
-        if (!p) return;
-        data = await register({ phone: p, intent: "checkout" });
+        console.log("No se identificó usuario para salida, solicitando teléfono");
+        const phone = await askPhone("No te reconocimos. Salida por teléfono");
+        if (!phone) {
+          console.log("Usuario canceló el ingreso de teléfono para salida");
+          return;
+        }
+        const data = await register({ phone, intent: "checkout" });
+        console.log("Datos de registro de salida por teléfono:", data);
+        vibrate(200);
         await showCard(data);
       }
-      vibrate(200);
     } catch (e: any) {
+      console.error("Error en registro de salida:", e);
+      vibrate(60);
       await Swal.fire({ ...swalBase, icon: "error", title: "No se pudo registrar la salida", text: e?.message || "Inténtalo de nuevo." });
     } finally {
+      console.log("Finalizando proceso de escaneo de salida");
       setLoading(false);
+      scanningRef.current = false;
       abortRef.current?.abort();
     }
   };
@@ -794,90 +1154,6 @@ export default function CheckInPage() {
                   📱 Registrar por Teléfono
                 </button>
                 
-                {/* Botones de prueba - Solo para testing */}
-                <button
-                  onClick={async () => {
-                    try {
-                      // Usar endpoint especial para testing que ignora límites
-                      const response = await fetch("/api/test-checkin", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ userId: "cmfxljw690000umis78qjuwdy" }),
-                      });
-                      
-                      const data = await response.json();
-                      
-                      if (!data.ok) {
-                        throw new Error(data.message);
-                      }
-                      
-                      vibrate(200);
-                      await showCard(data, "Prueba Prueba");
-                    } catch (e: any) {
-                      console.error("Error en modo prueba:", e);
-                      await Swal.fire({ ...swalBase, icon: "error", title: "Error en modo prueba", text: e?.message || "Inténtalo de nuevo." });
-                    }
-                  }}
-                  className="bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-700"
-                >
-                  🧪 Modo Prueba
-                </button>
-                
-                <button
-                  onClick={async () => {
-                    try {
-                      // Probar con Luis Calle (otro usuario)
-                      const response = await fetch("/api/test-checkin", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ userId: "cm9d6f9dn0000l1046fjqc0fq" }),
-                      });
-                      
-                      const data = await response.json();
-                      
-                      if (!data.ok) {
-                        throw new Error(data.message);
-                      }
-                      
-                      vibrate(200);
-                      await showCard(data, data.fullName);
-                    } catch (e: any) {
-                      console.error("Error en modo prueba Luis:", e);
-                      await Swal.fire({ ...swalBase, icon: "error", title: "Error en modo prueba", text: e?.message || "Inténtalo de nuevo." });
-                    }
-                  }}
-                  className="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700"
-                >
-                  👤 Prueba Luis
-                </button>
-                
-                <button
-                  onClick={async () => {
-                    try {
-                      // Probar checkout con usuario de prueba
-                      const response = await fetch("/api/test-checkout", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ userId: "cmfxljw690000umis78qjuwdy" }),
-                      });
-                      
-                      const data = await response.json();
-                      
-                      if (!data.ok) {
-                        throw new Error(data.message);
-                      }
-                      
-                      vibrate(200);
-                      await showCard(data, "Prueba Prueba");
-                    } catch (e: any) {
-                      console.error("Error en modo prueba checkout:", e);
-                      await Swal.fire({ ...swalBase, icon: "error", title: "Error en modo prueba", text: e?.message || "Inténtalo de nuevo." });
-                    }
-                  }}
-                  className="bg-orange-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-700"
-                >
-                  🚪 Prueba Salida
-                </button>
               </div>
 
               {/* Generador de link para pantalla de visualización */}
@@ -979,7 +1255,7 @@ export default function CheckInPage() {
                               {log.action === "checkin" ? "Entrada" : "Salida"}
                             </span>
                             {log.daysLeft !== undefined && (
-                              <span className="ml-2 text-blue-400">
+                              <span className="ml-2 text-gray-300">
                                 {log.daysLeft} días restantes
                               </span>
                             )}

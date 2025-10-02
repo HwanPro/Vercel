@@ -64,7 +64,10 @@ export default function ClientDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch("/api/user/me", { credentials: "include" });
+        const res = await fetch("/api/user/me", { 
+          credentials: "include",
+          cache: "no-store"
+        });
         const data = await res.json();
         console.log("👤 Cliente cargado:", data);
         if (!res.ok) {
@@ -83,7 +86,13 @@ export default function ClientDashboard() {
         );
       }
     };
+    
     fetchData();
+    
+    // Actualizar datos cada 30 segundos
+    const interval = setInterval(fetchData, 30000);
+    
+    return () => clearInterval(interval);
   }, [router]);
 
   // Manejamos estados de carga o error
@@ -149,9 +158,13 @@ export default function ClientDashboard() {
   // Para recargar una vez que guarde
   const reloadClientData = async () => {
     try {
-      const res = await fetch("/api/user/me");
+      const res = await fetch("/api/user/me", {
+        cache: "no-store"
+      });
       if (!res.ok) throw new Error("Error al recargar datos del cliente");
-      setClientData(await res.json());
+      const newData = await res.json();
+      setClientData(newData);
+      console.log("✅ Datos del cliente recargados:", newData);
     } catch (error) {
       console.error("❌ Error al recargar datos:", error);
     }
@@ -168,13 +181,22 @@ export default function ClientDashboard() {
         {/* Encabezado */}
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between">
           <div className="flex items-center gap-4">
-            <Avatar className="w-24 h-24 border-2 border-yellow-400">
-              <AvatarImage src={clientData.image || "/placeholder.svg"} />
-              <AvatarFallback className="bg-yellow-400 text-black text-xl">
-                {clientData.name?.charAt(0)}
-                {clientData.lastName?.charAt(0)}
-              </AvatarFallback>
-            </Avatar>
+            <div className="w-24 h-24 border-2 border-yellow-400 rounded-full overflow-hidden bg-yellow-400 flex items-center justify-center">
+              {clientData.image ? (
+                <img 
+                  src={clientData.image} 
+                  alt="Imagen de perfil"
+                  className="w-full h-full object-cover"
+                  onLoad={() => console.log("🖼️ Avatar del dashboard cargado:", clientData.image)}
+                  onError={() => console.log("❌ Error cargando avatar del dashboard:", clientData.image)}
+                />
+              ) : (
+                <div className="bg-yellow-400 text-black text-xl font-bold">
+                  {clientData.name?.charAt(0) || "U"}
+                  {clientData.lastName?.charAt(0) || "N"}
+                </div>
+              )}
+            </div>
             <div>
               <h1 className="text-2xl font-bold">
                 {displayName} {displayLastName}
