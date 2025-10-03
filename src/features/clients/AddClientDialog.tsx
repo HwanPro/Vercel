@@ -24,13 +24,16 @@ interface NewClientData {
   firstName: string;
   lastName: string;
   username: string;
-  plan: string;
-  membershipStart: string;
-  membershipEnd: string;
-  phone: string;
-  emergencyPhone: string;
-  address: string;
-  social: string;
+  phoneNumber: string;
+  profile: {
+    plan: string;
+    startDate: string;
+    endDate: string;
+    emergencyPhone: string;
+    address: string;
+    social: string;
+    debt: number;
+  };
 }
 
 export default function AddClientDialog({
@@ -162,14 +165,16 @@ export default function AddClientDialog({
       firstName: name.trim(),
       lastName: lastName.trim(),
       username,
-      plan: plan || "Mensual",
-      membershipStart: membershipStart || "",
-      membershipEnd: membershipEnd || "",
-      phone: normalizePhone(phone),
-      emergencyPhone: normalizePhone(emergencyPhone) || "",
-      address: address || "",
-      social: social || "", // ← COMA AQUÍ
-      debt: debtValue, // ← ya viaja al backend
+      phoneNumber: normalizePhone(phone),
+      profile: {
+        plan: plan || "Mensual",
+        startDate: membershipStart || "",
+        endDate: membershipEnd || "",
+        emergencyPhone: normalizePhone(emergencyPhone) || "",
+        address: address || "",
+        social: social || "",
+        debt: debtValue,
+      },
     };
 
     try {

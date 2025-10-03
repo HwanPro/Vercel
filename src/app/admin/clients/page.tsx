@@ -227,35 +227,20 @@ export default function ClientsPage() {
   }, []);
 
   // Define Client type for the new client data
-  interface NewClientData
-    extends Omit<
-      Client,
-      | "id"
-      | "userId"
-      | "userName"
-      | "firstName"
-      | "lastName"
-      | "plan"
-      | "membershipStart"
-      | "membershipEnd"
-      | "phone"
-      | "emergencyPhone"
-      | "prodfile_adress"
-      | "profile_social"
-      | "hasPaid"
-    > {
-    userId?: string;
-    userName?: string;
-    firstName?: string;
-    lastName?: string;
-    plan?: string;
-    membershipStart?: string;
-    membershipEnd?: string;
-    phone?: string;
-    emergencyPhone?: string;
-    prodfile_adress?: string;
-    profile_social?: string;
-    hasPaid?: boolean;
+  interface NewClientData {
+    firstName: string;
+    lastName: string;
+    username: string;
+    phoneNumber: string;
+    profile: {
+      plan: string;
+      startDate: string;
+      endDate: string;
+      emergencyPhone: string;
+      address: string;
+      social: string;
+      debt: number;
+    };
   }
 
   const [pendingCredentials, setPendingCredentials] = useState<
