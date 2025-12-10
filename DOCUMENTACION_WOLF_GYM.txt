@@ -376,3 +376,4 @@ FIN DEL DOCUMENTO
 Fecha de generación: Enero 2025
 Versión: 1.0
 Proyecto: Wolf Gym - Sistema de Gestión de Gimnasio con Biometría
+
