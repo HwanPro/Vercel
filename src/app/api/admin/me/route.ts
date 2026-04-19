@@ -10,10 +10,23 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    // Busca el usuario admin con su profile, etc.
+    // Busca el usuario admin con profile y solo campos seguros
     const admin = await prisma.user.findUnique({
       where: { id: token.id },
-      include: { profile: true },
+      select: {
+        id: true,
+        username: true,
+        firstName: true,
+        lastName: true,
+        phoneNumber: true,
+        image: true,
+        role: true,
+        profile: {
+          select: {
+            profile_emergency_phone: true,
+          },
+        },
+      },
     });
     if (!admin) {
       return NextResponse.json(

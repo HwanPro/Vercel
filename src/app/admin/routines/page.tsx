@@ -54,11 +54,17 @@ export default function AdminRoutinesPage() {
         <h1 className="text-2xl font-bold text-yellow-400 flex items-center gap-2">
           <Dumbbell className="h-5 w-5" /> Biblioteca de ejercicios
         </h1>
-        <Link href="#" className="no-underline">
-          <Button className="bg-yellow-400 text-black hover:bg-yellow-500">
+        <div className="flex items-center gap-3">
+          <Button type="button" className="bg-yellow-400 text-black hover:bg-yellow-500">
             <Plus className="h-4 w-4 mr-2" /> Nuevo ejercicio (próximo)
           </Button>
-        </Link>
+          <Link
+            href="/admin/dashboard"
+            className="rounded border border-yellow-400 px-4 py-2 text-center text-yellow-400 hover:bg-yellow-400 hover:text-black"
+          >
+            Volver al Dashboard
+          </Link>
+        </div>
       </div>
 
       {/* Filtros */}

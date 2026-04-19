@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Home, RefreshCw } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 type Severity = "high" | "medium" | "low";
 
@@ -69,10 +70,18 @@ function severityStyles(severity: Severity) {
 }
 
 export default function AdminReportes() {
+  const router = useRouter();
+  const isRedirecting = useRef(false);
   const [report, setReport] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const redirectToLogin = () => {
+    if (isRedirecting.current) return;
+    isRedirecting.current = true;
+    router.replace("/auth/login");
+  };
 
   const fetchReport = async (silent = false) => {
     if (silent) setRefreshing(true);
@@ -85,7 +94,7 @@ export default function AdminReportes() {
       });
 
       if (response.status === 401) {
-        window.location.href = "/auth/login";
+        redirectToLogin();
         return;
       }
 
@@ -110,10 +119,25 @@ export default function AdminReportes() {
 
     const interval = setInterval(() => {
       fetchReport(true);
-    }, 120000);
+    }, 300000);
 
     return () => clearInterval(interval);
   }, []);
+
+  const downloadReportJson = () => {
+    if (!report) return;
+    const blob = new Blob([JSON.stringify(report, null, 2)], {
+      type: "application/json;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `wolf-gym-report-${new Date(report.generatedAt).toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
 
   const maxIncome = useMemo(() => {
     if (!report?.trends.incomeTrend.length) return 1;
@@ -142,6 +166,20 @@ export default function AdminReportes() {
             <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
             Actualizar
           </button>
+          <button
+            type="button"
+            onClick={downloadReportJson}
+            disabled={!report}
+            className="rounded border border-zinc-600 px-3 py-2 text-sm text-zinc-200 transition hover:border-yellow-400 hover:text-yellow-400 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Exportar JSON
+          </button>
+          <Link
+            href="/admin/profile"
+            className="rounded border border-yellow-400 px-4 py-2 text-center text-yellow-400 hover:bg-yellow-400 hover:text-black"
+          >
+            Perfil Admin
+          </Link>
           <Link
             href="/admin/dashboard"
             className="rounded bg-yellow-400 px-4 py-2 text-center text-black hover:bg-yellow-500"

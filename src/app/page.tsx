@@ -378,18 +378,6 @@ export default function WolfGymLanding() {
         onLoad={() => setCulqiReady(true)}
       />
       <StickyButtons />
-      <header className="flex flex-col items-center justify-center px-4 pb-2 pt-6 sm:pt-8 md:pt-10">
-        <Image
-          src="/uploads/images/logo2.jpg"
-          alt="Wolf Gym Logo"
-          width={500}
-          height={500}
-          priority
-          sizes="(max-width: 640px) 78vw, (max-width: 1024px) 55vw, 500px"
-          className="h-auto w-[min(78vw,420px)] sm:w-[min(62vw,480px)]"
-        />
-      </header>
-
       {showEditPlanModal && modalPlan && (
         <Dialog
           open={showEditPlanModal}
@@ -441,25 +429,73 @@ export default function WolfGymLanding() {
       )}
 
       <main className="flex-1">
-        <section className="w-full bg-black py-8 sm:py-12 md:py-16 lg:py-20" role="banner">
-          <div className="container px-4 md:px-6 mx-auto">
-            <div className="flex flex-col items-center space-y-4 text-center">
-              <div className="space-y-2">
-                <h1 className="text-balance text-3xl font-bold tracking-tight text-yellow-400 sm:text-4xl md:text-5xl lg:text-6xl">
-                  Wolf Gym - El Mejor Gimnasio de Ica
-                </h1>
-                <h2 className="mx-auto max-w-[700px] text-white md:text-xl font-semibold">
-                  Equipos de Última Tecnología | Entrenadores Expertos | Planes Accesibles
-                </h2>
-                <p className="mx-auto max-w-[700px] text-white md:text-lg">
-                  Libera tu lobo interior. Únete a la manada y transforma tu
-                  cuerpo y mente en el gimnasio más completo de Ica.
-                </p>
-                <p className="mx-auto max-w-[700px] text-yellow-400 md:text-xl font-bold">
-                  Prohibido Rendirse
-                </p>
-              </div>
+        <section
+          className="relative isolate flex min-h-[88dvh] w-full items-center justify-center overflow-hidden bg-black px-4 py-12 sm:px-6 sm:py-16 md:min-h-[92dvh]"
+          role="banner"
+        >
+          <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-6 text-center sm:gap-8">
+            <Image
+              src="/uploads/images/logo2.jpg"
+              alt="Wolf Gym Logo"
+              width={500}
+              height={500}
+              priority
+              sizes="(max-width: 640px) 80vw, (max-width: 1024px) 48vw, 420px"
+              className="h-auto w-[min(80vw,360px)] sm:w-[min(58vw,420px)]"
+            />
+            <div className="space-y-3">
+              <h1 className="text-balance text-3xl font-bold tracking-tight text-yellow-400 sm:text-4xl md:text-5xl lg:text-6xl">
+                Wolf Gym - El Mejor Gimnasio de Ica
+              </h1>
+              <h2 className="mx-auto max-w-[760px] text-base font-semibold text-white sm:text-lg md:text-xl">
+                Equipos de Última Tecnología | Entrenadores Expertos | Planes Accesibles
+              </h2>
+              <p className="mx-auto max-w-[760px] text-sm text-zinc-200 sm:text-base md:text-lg">
+                Libera tu lobo interior. Únete a la manada y transforma tu cuerpo y mente en el gimnasio más completo de Ica.
+              </p>
+              <p className="mx-auto max-w-[760px] text-lg font-bold text-yellow-400 md:text-xl">
+                Prohibido Rendirse
+              </p>
             </div>
+            <div className="flex w-full flex-wrap items-center justify-center gap-3 sm:gap-4">
+              <Button
+                type="button"
+                className="bg-yellow-400 text-black hover:bg-yellow-500"
+                onClick={() => setModalAbierto(true)}
+              >
+                Comenzar
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="border-yellow-400 bg-black text-yellow-400 hover:bg-yellow-400 hover:text-black"
+                onClick={handleProducts}
+              >
+                Ver Productos
+              </Button>
+              {session ? (
+                <Button
+                  type="button"
+                  className="bg-yellow-400 text-black hover:bg-yellow-500"
+                  onClick={() =>
+                    session.user.role === "admin"
+                      ? router.push("/admin/dashboard")
+                      : router.push("/client/dashboard")
+                  }
+                >
+                  {session.user.role === "admin" ? "Panel Admin" : "Mi Perfil"}
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  className="border border-yellow-400 bg-black text-yellow-400 hover:bg-yellow-400 hover:text-black"
+                  onClick={handleLogin}
+                >
+                  Inicia sesión
+                </Button>
+              )}
+            </div>
+            <div className="h-px w-full max-w-xl bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent" />
           </div>
         </section>
 

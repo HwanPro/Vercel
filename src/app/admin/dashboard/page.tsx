@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Home, Bell, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import {
   Table,
   TableHeader,
@@ -18,6 +19,8 @@ import ProfileModal from "@/ui/components/ProfileModal";
 
 export default function AdminDashboard() {
   const { data: session } = useSession();
+  const router = useRouter();
+  const isRedirecting = useRef(false);
 
   // Estados para menú, notificaciones, etc.
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -37,6 +40,13 @@ export default function AdminDashboard() {
   });
   const [refreshing, setRefreshing] = useState(false);
 
+  const redirectToLogin = () => {
+    if (isRedirecting.current) return;
+    isRedirecting.current = true;
+    toast.error("Sesión expirada. Redirigiendo a login...");
+    router.replace("/auth/login");
+  };
+
   async function fetchDashboard(silent = false) {
     try {
       const res = await fetch("/api/admin/metrics", {
@@ -45,8 +55,7 @@ export default function AdminDashboard() {
       });
       if (!res.ok) {
         if (res.status === 401) {
-          toast.error("No autorizado. Redirigiendo a login...");
-          window.location.href = "/auth/login";
+          redirectToLogin();
           return;
         }
         throw new Error("Error al obtener métricas");
@@ -89,8 +98,7 @@ export default function AdminDashboard() {
       const response = await fetch("/api/clients", { credentials: "include" });
       if (!response.ok) {
         if (response.status === 401) {
-          toast.error("No autorizado. Redirigiendo a login...");
-          window.location.href = "/auth/login";
+          redirectToLogin();
           return;
         }
         throw new Error("Error al obtener los clientes recientes");
@@ -161,8 +169,7 @@ export default function AdminDashboard() {
       const response = await fetch("/api/products", { credentials: "include" });
       if (!response.ok) {
         if (response.status === 401) {
-          toast.error("No autorizado. Por favor inicia sesión.");
-          window.location.href = "/auth/login";
+          redirectToLogin();
           return;
         }
         throw new Error("Error al obtener los productos");
@@ -180,26 +187,22 @@ export default function AdminDashboard() {
     }
   };
 
-  useEffect(() => {
-    const loadInitial = async () => {
-      await Promise.all([
-        fetchDashboard(false),
-        fetchRecentClients(false),
-        fetchProducts(false),
-      ]);
-    };
+  const refreshAll = async (silent = false) => {
+    if (silent) setRefreshing(true);
+    await Promise.all([
+      fetchDashboard(silent),
+      fetchRecentClients(silent),
+      fetchProducts(silent),
+    ]);
+    if (silent) setRefreshing(false);
+  };
 
-    loadInitial();
+  useEffect(() => {
+    refreshAll(false);
 
     const interval = setInterval(async () => {
-      setRefreshing(true);
-      await Promise.all([
-        fetchDashboard(true),
-        fetchRecentClients(true),
-        fetchProducts(true),
-      ]);
-      setRefreshing(false);
-    }, 60000);
+      await refreshAll(true);
+    }, 300000);
 
     return () => clearInterval(interval);
   }, []);
@@ -221,6 +224,7 @@ export default function AdminDashboard() {
         <div className="ml-auto flex items-center gap-4">
           {/* Botón campanita */}
           <button
+            type="button"
             className="relative text-yellow-400 w-8"
             onClick={() => setNotificationsOpen((prev) => !prev)}
           >
@@ -234,6 +238,7 @@ export default function AdminDashboard() {
 
           {/* Menú hamburguesa */}
           <button
+            type="button"
             className="lg:hidden text-yellow-400"
             onClick={() => setIsMenuOpen((prev) => !prev)}
           >
@@ -276,6 +281,12 @@ export default function AdminDashboard() {
             Reportes
           </Link>
           <Link
+            href="/admin/profile"
+            className="block text-sm font-medium text-white hover:text-yellow-400 no-underline"
+          >
+            Perfil Admin
+          </Link>
+          <Link
             href="/admin/attendence"
             className="block text-sm font-medium text-white hover:text-yellow-400 no-underline"
           >
@@ -300,6 +311,7 @@ export default function AdminDashboard() {
             Editar
           </Link>
           <button
+            type="button"
             onClick={() => setShowProfileModal(true)}
             className="block text-sm font-medium text-white hover:text-yellow-400"
           >
@@ -382,6 +394,14 @@ export default function AdminDashboard() {
           <p className="text-sm text-gray-400">
             Última actualización: {new Date(dashboardData.lastUpdated).toLocaleString('es-ES')}
           </p>
+          <button
+            type="button"
+            onClick={() => refreshAll(true)}
+            disabled={refreshing}
+            className="mt-3 rounded border border-yellow-400 px-4 py-1.5 text-xs text-yellow-400 transition hover:bg-yellow-400 hover:text-black disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {refreshing ? "Actualizando..." : "Actualizar ahora"}
+          </button>
           {refreshing && (
             <p className="mt-1 text-xs text-yellow-400">Actualizando datos...</p>
           )}
@@ -473,19 +493,7 @@ export default function AdminDashboard() {
           isOpen={showProfileModal}
           onClose={() => setShowProfileModal(false)}
           onSuccess={async () => {
-            // Recargar datos del usuario después de actualizar perfil
-            if (session?.user?.id) {
-              try {
-                const response = await fetch("/api/user/me");
-                if (response.ok) {
-                  const userData = await response.json();
-                  // Actualizar la sesión si es necesario
-                  window.location.reload();
-                }
-              } catch (error) {
-                console.error("Error al recargar datos del usuario:", error);
-              }
-            }
+            await refreshAll(true);
           }}
           userName={session?.user?.name ?? ""}
           firstName={session?.user?.firstName ?? ""}

@@ -43,13 +43,19 @@ export default function AdminAttendance() {
       }
     };
 
+    setCurrentTime(new Date().toLocaleString());
     fetchAttendance();
-    const timer = setInterval(() => {
+    const clock = setInterval(() => {
       setCurrentTime(new Date().toLocaleString());
+    }, 30000);
+    const timer = setInterval(() => {
       fetchAttendance();
-    }, 10000);
+    }, 60000);
 
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(clock);
+      clearInterval(timer);
+    };
   }, []);
 
   // ---- estado de huellas por usuario ---- (DESHABILITADO para evitar spam)
