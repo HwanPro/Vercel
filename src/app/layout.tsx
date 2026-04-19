@@ -1,110 +1,89 @@
-"use client";
-
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { SessionProvider } from "next-auth/react";
-import Script from "next/script";
-import { useEffect } from "react";
-import { usePathname } from "next/navigation";
+import Providers from "./providers";
+
+export const metadata: Metadata = {
+  metadataBase: new URL("https://wolfgym.com"),
+  title: "Wolf Gym - Gimnasio en Ica | Equipos de Calidad",
+  description:
+    "Wolf Gym en Ica - El mejor gimnasio con equipos de calidad, entrenadores expertos y planes accesibles. Libera tu lobo interior.",
+  keywords: [
+    "gimnasio Ica",
+    "Wolf Gym",
+    "fitness Ica",
+    "entrenamiento personal",
+    "membresias gimnasio",
+    "gym Ica Peru",
+  ],
+  authors: [{ name: "Wolf Gym" }],
+  robots: { index: true, follow: true },
+  openGraph: {
+    type: "website",
+    title: "Wolf Gym - Gimnasio en Ica | Equipos de Calidad",
+    description:
+      "El mejor gimnasio de Ica con equipos de calidad, entrenadores expertos y planes accesibles.",
+    siteName: "Wolf Gym",
+    locale: "es_PE",
+    url: "https://wolfgym.com",
+    images: [{ url: "/uploads/images/logo2.jpg" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Wolf Gym - Gimnasio en Ica | Equipos de Calidad",
+    description:
+      "El mejor gimnasio de Ica con equipos de calidad, entrenadores expertos y planes accesibles.",
+    images: ["/uploads/images/logo2.jpg"],
+  },
+  icons: { icon: "/favicon.ico" },
+  alternates: { canonical: "https://wolfgym.com" },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
 
 export default function RootLayout({
   children,
-}: {
-  children: React.ReactNode;
-}) {
-  const pathname = usePathname();
-
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [pathname]);
+}: Readonly<{ children: React.ReactNode }>) {
+  const localBusinessJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Gym",
+    name: "Wolf Gym",
+    description:
+      "Gimnasio en Ica con equipos de calidad y entrenadores expertos",
+    url: "https://wolfgym.com",
+    telephone: "+51-XXX-XXX-XXX",
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: "Av. Peru 622",
+      addressRegion: "Ica",
+      postalCode: "11003",
+      addressCountry: "PE",
+    },
+    geo: {
+      "@type": "GeoCoordinates",
+      latitude: -14.0678,
+      longitude: -75.7286,
+    },
+    openingHours: ["Mo-Fr 06:00-21:00", "Sa 06:00-20:00"],
+    priceRange: "S/60 - S/350",
+    image: "/uploads/images/logo2.jpg",
+    sameAs: [
+      "https://www.facebook.com/wolfgym",
+      "https://www.instagram.com/wolfgym",
+    ],
+  };
 
   return (
-    <SessionProvider>
-      <html lang="es">
-        <head>
-          <meta charSet="UTF-8" />
-          <meta
-            name="viewport"
-            content="width=device-width, initial-scale=1.0"
-          />
-          <title>Wolf Gym - Gimnasio en Ica | Equipos de Calidad</title>
-          <meta 
-            name="description" 
-            content="Wolf Gym en Ica - El mejor gimnasio con equipos de calidad, entrenadores expertos y planes accesibles. Libera tu lobo interior. ¡Prohibido rendirse!" 
-          />
-          <meta 
-            name="keywords" 
-            content="gimnasio Ica, Wolf Gym, fitness Ica, entrenamiento personal, equipos gimnasio, membresías gimnasio, gym Ica Peru" 
-          />
-          <meta name="author" content="Wolf Gym" />
-          <meta name="robots" content="index, follow" />
-          
-          {/* Open Graph / Facebook */}
-          <meta property="og:type" content="website" />
-          <meta property="og:title" content="Wolf Gym - Gimnasio en Ica | Equipos de Calidad" />
-          <meta 
-            property="og:description" 
-            content="El mejor gimnasio de Ica con equipos de calidad, entrenadores expertos y planes accesibles. Libera tu lobo interior." 
-          />
-          <meta property="og:image" content="/uploads/images/logo2.jpg" />
-          <meta property="og:url" content="https://wolfgym.com" />
-          <meta property="og:site_name" content="Wolf Gym" />
-          <meta property="og:locale" content="es_PE" />
-          
-          {/* Twitter */}
-          <meta name="twitter:card" content="summary_large_image" />
-          <meta name="twitter:title" content="Wolf Gym - Gimnasio en Ica | Equipos de Última Tecnología" />
-          <meta 
-            name="twitter:description" 
-            content="El mejor gimnasio de Ica con equipos de calidad, entrenadores expertos y planes accesibles. Libera tu lobo interior." 
-          />
-          <meta name="twitter:image" content="/uploads/images/logo2.jpg" />
-          
-          {/* Local Business Schema */}
-          <script
-            dangerouslySetInnerHTML={{
-              __html: JSON.stringify({
-                "@context": "https://schema.org",
-                "@type": "Gym",
-                "name": "Wolf Gym",
-                "description": "Gimnasio en Ica con equipos de calidad y entrenadores expertos",
-                "url": "https://wolfgym.com",
-                "telephone": "+51-XXX-XXX-XXX",
-                "address": {
-                  "@type": "PostalAddress",
-                  "streetAddress": "Av. Peru 622",
-                  "addressRegion": "Ica",
-                  "postalCode": "11003",
-                  "addressCountry": "PE"
-                },
-                "geo": {
-                  "@type": "GeoCoordinates",
-                  "latitude": -14.0678,
-                  "longitude": -75.7286
-                },
-                "openingHours": [
-                  "Mo-Fr 06:00-21:00",
-                  "Sa 06:00-20:00"
-                ],
-                "priceRange": "S/60 - S/350",
-                "image": "/uploads/images/logo2.jpg",
-                "sameAs": [
-                  "https://www.facebook.com/wolfgym",
-                  "https://www.instagram.com/wolfgym"
-                ]
-              })
-            }}
-          />
-          
-          <link rel="icon" href="/favicon.ico" />
-          <link rel="canonical" href="https://wolfgym.com" />
-          
-          <Script
-            src="https://checkout.culqi.com/js/v4"
-            strategy="beforeInteractive"
-          />
-        </head>
-        <body className="bg-gray-100 text-black">{children}</body>
-      </html>
-    </SessionProvider>
+    <html lang="es">
+      <body className="min-h-dvh bg-black text-white antialiased overflow-x-hidden">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessJsonLd) }}
+        />
+        <Providers>{children}</Providers>
+      </body>
+    </html>
   );
 }

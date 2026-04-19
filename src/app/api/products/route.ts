@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/infrastructure/prisma/prisma";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { v4 as uuidv4 } from "uuid";
+import { getToken } from "next-auth/jwt";
 
 // AWS S3 configuration
 const s3Client = new S3Client({
@@ -14,7 +15,16 @@ const s3Client = new S3Client({
 });
 
 // GET: Retrieve products
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const token = await getToken({
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET,
+  });
+
+  if (!token || token.role !== "admin") {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
   try {
     const products = await prisma.inventoryItem.findMany();
     return NextResponse.json(products, { status: 200 });
@@ -26,6 +36,15 @@ export async function GET() {
 
 // POST: Create a new product
 export async function POST(req: NextRequest) {
+  const token = await getToken({
+    req,
+    secret: process.env.NEXTAUTH_SECRET,
+  });
+
+  if (!token || token.role !== "admin") {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
   try {
     const data = await req.formData();
 

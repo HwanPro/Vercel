@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { FaFacebook, FaInstagram, FaTwitter } from "react-icons/fa";
 import Image from "next/image";
+import Script from "next/script";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useSession, signIn } from "next-auth/react";
@@ -199,6 +200,7 @@ function EditGalleryForm({
 export default function WolfGymLanding() {
   const [modalAbierto, setModalAbierto] = useState(false);
   const [showSticky, setShowSticky] = useState(false);
+  const [culqiReady, setCulqiReady] = useState(false);
 
   // Estados para editar planes y galería (admin)
   const [showEditPlanModal, setShowEditPlanModal] = useState(false);
@@ -219,7 +221,7 @@ export default function WolfGymLanding() {
       try {
         const res = await fetch("/api/plans");
         const data = await res.json();
-        setMembershipPlans(data); // <-- guardas en el estado
+        setMembershipPlans(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Error al cargar planes:", err);
       }
@@ -249,8 +251,8 @@ export default function WolfGymLanding() {
       signIn();
       return;
     }
-    if (!window.Culqi) {
-      alert("Culqi aún no está disponible. Revisa la carga del script.");
+    if (!culqiReady || !window.Culqi) {
+      toast.error("Pasarela de pago no disponible. Intenta nuevamente.");
       return;
     }
     window.Culqi.publicKey = process.env.NEXT_PUBLIC_CULQI_PUBLIC_KEY!;
@@ -297,27 +299,13 @@ export default function WolfGymLanding() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Cargar script de Culqi
-  useEffect(() => {
-    const script = document.createElement("script");
-    script.src = "https://checkout.culqi.com/js/v4";
-    script.async = true;
-    script.onload = () => {
-      console.log("✅ Culqi script cargado correctamente");
-    };
-    document.body.appendChild(script);
-    return () => {
-      document.body.removeChild(script);
-    };
-  }, []);
-
   // Cargar la galería (se asume endpoint /api/gallery retorna [{ id, imageUrl }])
   const fetchGalleryItems = async () => {
     try {
       const res = await fetch("/api/gallery");
       if (!res.ok) throw new Error("Error al cargar galería");
       const data = await res.json();
-      setGalleryItems(data);
+      setGalleryItems(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error(error);
       toast.error("Error al cargar la galería.");
@@ -332,18 +320,19 @@ export default function WolfGymLanding() {
   function StickyButtons() {
     if (!showSticky) return null;
     return (
-      <div className="fixed top-0 left-0 right-0 bg-black p-3 flex items-center justify-between container mx-auto z-50">
-        <h1 className="text-yellow-400 text-base font-bold">Wolf Gym</h1>
-        <div className="flex gap-3">
+      <div className="fixed top-0 left-0 right-0 z-50 border-b border-yellow-400/20 bg-black/95 backdrop-blur supports-[backdrop-filter]:bg-black/85">
+        <div className="mx-auto flex w-full max-w-screen-2xl flex-wrap items-center justify-between gap-2 px-3 py-3 sm:px-4">
+          <h1 className="text-sm font-bold text-yellow-400 sm:text-base">Wolf Gym</h1>
+          <div className="flex flex-wrap items-center justify-end gap-2">
           <Button
-            className="bg-yellow-400 text-black hover:bg-yellow-500 text-xs px-3 py-1"
+            className="bg-yellow-400 px-3 py-1 text-xs text-black hover:bg-yellow-500"
             onClick={() => setModalAbierto(true)}
           >
             Comenzar
           </Button>
           <Button
             variant="outline"
-            className="text-yellow-400 border-yellow-400 bg-black hover:bg-yellow-400 hover:text-black text-xs px-3 py-1"
+            className="border-yellow-400 bg-black px-3 py-1 text-xs text-yellow-400 hover:bg-yellow-400 hover:text-black"
             onClick={handleProducts}
           >
             Ver Productos
@@ -355,19 +344,20 @@ export default function WolfGymLanding() {
                   ? router.push("/admin/dashboard")
                   : router.push("/client/dashboard")
               }
-              className="bg-yellow-400 text-black hover:bg-yellow-500 text-xs px-3 py-1"
+              className="bg-yellow-400 px-3 py-1 text-xs text-black hover:bg-yellow-500"
             >
               {session.user.role === "admin" ? "Panel Admin" : "Mi Perfil"}
             </Button>
           ) : (
             <Button
               onClick={handleLogin}
-              className="border border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black text-xs px-3 py-1"
+              className="border border-yellow-400 px-3 py-1 text-xs text-yellow-400 hover:bg-yellow-400 hover:text-black"
             >
               Inicia sesión
             </Button>
           )}
         </div>
+      </div>
       </div>
     );
   }
@@ -381,15 +371,22 @@ export default function WolfGymLanding() {
   };
 
   return (
-    <div className="bg-black min-h-screen text-white">
+    <div className="min-h-dvh bg-black text-white">
+      <Script
+        src="https://checkout.culqi.com/js/v4"
+        strategy="afterInteractive"
+        onLoad={() => setCulqiReady(true)}
+      />
       <StickyButtons />
-      <header className="flex flex-col items-center justify-center py-6">
+      <header className="flex flex-col items-center justify-center px-4 pb-2 pt-6 sm:pt-8 md:pt-10">
         <Image
           src="/uploads/images/logo2.jpg"
           alt="Wolf Gym Logo"
           width={500}
           height={500}
           priority
+          sizes="(max-width: 640px) 78vw, (max-width: 1024px) 55vw, 500px"
+          className="h-auto w-[min(78vw,420px)] sm:w-[min(62vw,480px)]"
         />
       </header>
 
@@ -444,11 +441,11 @@ export default function WolfGymLanding() {
       )}
 
       <main className="flex-1">
-        <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48 bg-black" role="banner">
+        <section className="w-full bg-black py-8 sm:py-12 md:py-16 lg:py-20" role="banner">
           <div className="container px-4 md:px-6 mx-auto">
             <div className="flex flex-col items-center space-y-4 text-center">
               <div className="space-y-2">
-                <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl text-yellow-400">
+                <h1 className="text-balance text-3xl font-bold tracking-tight text-yellow-400 sm:text-4xl md:text-5xl lg:text-6xl">
                   Wolf Gym - El Mejor Gimnasio de Ica
                 </h1>
                 <h2 className="mx-auto max-w-[700px] text-white md:text-xl font-semibold">
@@ -534,9 +531,9 @@ export default function WolfGymLanding() {
           </div>
         </section>
 
-        <section id="pricing" className="py-10 md:py-20 lg:py-28 bg-black" aria-labelledby="pricing-heading">
+        <section id="pricing" className="bg-black py-10 md:py-20 lg:py-28" aria-labelledby="pricing-heading">
           <div className="container px-4 md:px-6 mx-auto">
-            <h2 id="pricing-heading" className="text-5xl text-yellow-400 font-bold text-center mb-12">
+            <h2 id="pricing-heading" className="mb-12 text-center text-3xl font-bold text-yellow-400 sm:text-4xl md:text-5xl">
               Planes de Membresía - Gimnasio en Ica
             </h2>
             <p className="text-center text-white text-lg mb-8 max-w-2xl mx-auto">

@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-
-import { Home, Bell, Menu, X, Image } from "lucide-react";
+import { Home, Bell, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import {
@@ -36,8 +35,9 @@ export default function AdminDashboard() {
     lowStockProducts: 0,
     lastUpdated: new Date().toISOString()
   });
+  const [refreshing, setRefreshing] = useState(false);
 
-  async function fetchDashboard() {
+  async function fetchDashboard(silent = false) {
     try {
       const res = await fetch("/api/admin/metrics", {
         credentials: "include",
@@ -55,24 +55,11 @@ export default function AdminDashboard() {
       setDashboardData(data);
     } catch (error) {
       console.error("Error fetchDashboard:", error);
-      toast.error("Error al cargar métricas del dashboard");
+      if (!silent) {
+        toast.error("Error al cargar métricas del dashboard");
+      }
     }
   }
-
-  useEffect(() => {
-    fetchDashboard();
-    fetchRecentClients();
-    fetchProducts();
-    
-    // Actualizar datos cada 30 segundos
-    const interval = setInterval(() => {
-      fetchDashboard();
-      fetchRecentClients();
-      fetchProducts();
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, []);
   // Clientes y productos
   const [recentClients, setRecentClients] = useState<
     {
@@ -96,8 +83,8 @@ export default function AdminDashboard() {
   const [showProfileModal, setShowProfileModal] = useState(false);
 
   // Carga de clientes
-  const fetchRecentClients = async () => {
-    setLoadingClients(true);
+  const fetchRecentClients = async (silent = false) => {
+    if (!silent) setLoadingClients(true);
     try {
       const response = await fetch("/api/clients", { credentials: "include" });
       if (!response.ok) {
@@ -160,14 +147,16 @@ export default function AdminDashboard() {
       setRecentClients(processed);
     } catch (error) {
       console.error("Error fetching recent clients:", error);
-      toast.error("Error al obtener los clientes recientes");
+      if (!silent) {
+        toast.error("Error al obtener los clientes recientes");
+      }
     } finally {
-      setLoadingClients(false);
+      if (!silent) setLoadingClients(false);
     }
   };
 
-  const fetchProducts = async () => {
-    setLoadingProducts(true);
+  const fetchProducts = async (silent = false) => {
+    if (!silent) setLoadingProducts(true);
     try {
       const response = await fetch("/api/products", { credentials: "include" });
       if (!response.ok) {
@@ -183,15 +172,36 @@ export default function AdminDashboard() {
       setProducts(data);
     } catch (error) {
       console.error("Error al obtener los productos:", error);
-      toast.error("Error al obtener los productos");
+      if (!silent) {
+        toast.error("Error al obtener los productos");
+      }
     } finally {
-      setLoadingProducts(false);
+      if (!silent) setLoadingProducts(false);
     }
   };
 
   useEffect(() => {
-    fetchProducts();
-    fetchRecentClients();
+    const loadInitial = async () => {
+      await Promise.all([
+        fetchDashboard(false),
+        fetchRecentClients(false),
+        fetchProducts(false),
+      ]);
+    };
+
+    loadInitial();
+
+    const interval = setInterval(async () => {
+      setRefreshing(true);
+      await Promise.all([
+        fetchDashboard(true),
+        fetchRecentClients(true),
+        fetchProducts(true),
+      ]);
+      setRefreshing(false);
+    }, 60000);
+
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -372,6 +382,9 @@ export default function AdminDashboard() {
           <p className="text-sm text-gray-400">
             Última actualización: {new Date(dashboardData.lastUpdated).toLocaleString('es-ES')}
           </p>
+          {refreshing && (
+            <p className="mt-1 text-xs text-yellow-400">Actualizando datos...</p>
+          )}
         </div>
 
         {/* Clientes Recientes */}
