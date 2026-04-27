@@ -180,6 +180,7 @@ set BIOMETRIC_CAPTURE_BASE=http://127.0.0.1:8001
 set BIOMETRIC_STORE_BASE=http://127.0.0.1:8001
 set NEXT_PUBLIC_BIOMETRIC_BASE=http://127.0.0.1:8001
 set NEXT_PUBLIC_KIOSK=1
+set NEXTAUTH_URL=http://127.0.0.1:3000
 start "" /min /D "%~dp0webapp" cmd /c "npm.cmd run start"
 
 REM Esperar que levante

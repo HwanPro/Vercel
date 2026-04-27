@@ -129,6 +129,7 @@ internal static class Program
         psi.Environment["BIOMETRIC_STORE_BASE"] = "http://127.0.0.1:8001";
         psi.Environment["NEXT_PUBLIC_BIOMETRIC_BASE"] = "http://127.0.0.1:8001";
         psi.Environment["NEXT_PUBLIC_KIOSK"] = "1";
+        psi.Environment["NEXTAUTH_URL"] = "http://127.0.0.1:3000";
     }
 
     private static async Task<bool> WaitFor(string label, string url, TimeSpan timeout)
