@@ -62,14 +62,38 @@ if (Test-Path $prodConfig) {
 Write-Host "Compilando app web (Next.js)..." -ForegroundColor Cyan
 Push-Location $ROOT
 try {
-    # Generar Prisma client
-    & npx prisma generate
+    Write-Host "  Instalando dependencias del proyecto..." -ForegroundColor Yellow
+    if (Test-Path (Join-Path $ROOT "package-lock.json")) {
+        & npm ci --ignore-scripts
+    } else {
+        & npm install --ignore-scripts
+    }
+    if ($LASTEXITCODE -ne 0) { throw "npm install fallo" }
+
+    # Prisma 7 cambia el formato del schema. Usar siempre el Prisma local fijado en package-lock.
+    # Variables dummy para generar el cliente sin conectarse a la base durante el empaquetado.
+    if ([string]::IsNullOrWhiteSpace($env:DATABASE_URL)) {
+        $env:DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/wolfgym?schema=public"
+    }
+    if ([string]::IsNullOrWhiteSpace($env:SHADOW_DATABASE_URL)) {
+        $env:SHADOW_DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/wolfgym_shadow?schema=public"
+    }
+
+    $npmBin = Join-Path $ROOT "node_modules\.bin"
+    $prismaCmd = Join-Path $npmBin "prisma.cmd"
+    $nextCmd = Join-Path $npmBin "next.cmd"
+
+    if (-not (Test-Path $prismaCmd)) { throw "No se encontro Prisma local en node_modules. Revise npm install." }
+    if (-not (Test-Path $nextCmd)) { throw "No se encontro Next local en node_modules. Revise npm install." }
+
+    # Generar Prisma client con la version local del proyecto.
+    & $prismaCmd generate
     if ($LASTEXITCODE -ne 0) { throw "prisma generate falló" }
 
-    # Build de producción
+    # Build de producción sin ejecutar migraciones.
     $env:NODE_ENV = "production"
-    & npm run build
-    if ($LASTEXITCODE -ne 0) { throw "npm build falló" }
+    & $nextCmd build
+    if ($LASTEXITCODE -ne 0) { throw "next build falló" }
 } finally {
     Pop-Location
 }
