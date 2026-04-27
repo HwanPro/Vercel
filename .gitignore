@@ -37,6 +37,11 @@ check-in-ui.png
 # Generated launchers/build artifacts
 WolfGymLauncher.exe
 WolfGymLauncher.ico
+!launcher/Assets/WolfGymLauncher.ico
+launcher/bin/
+launcher/obj/
+launcher/publish/
+launcher/publish-test/
 Tarea.md
 REPORTE-PRUEBAS-CORREO.md
 DEBT_SYSTEM_README.md

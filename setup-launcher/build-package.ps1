@@ -19,6 +19,7 @@ $BIO_SRC = Join-Path $ROOT "biometric-service"
 $BIO_DEST = Join-Path $DIST "biometric"
 $WEB_DEST = Join-Path $DIST "webapp"
 $SETUP_SRC = Join-Path $ROOT "setup-launcher"
+$LAUNCHER_SRC = Join-Path $ROOT "launcher"
 
 Write-Host "=== WolfGym Package Builder ===" -ForegroundColor Green
 Write-Host "Destino: $DIST" -ForegroundColor Cyan
@@ -100,7 +101,7 @@ try {
 
 # Copiar archivos necesarios para next start. El lockfile evita que npm resuelva
 # dependencias distintas dentro del paquete final y dispare conflictos ERESOLVE.
-$itemsToCopy = @(".next", "public", "package.json", "package-lock.json", "next.config.cjs", "next.config.ts", "prisma")
+$itemsToCopy = @(".next", "public", "package.json", "package-lock.json", "next.config.cjs", "prisma", ".env", ".env.local")
 foreach ($item in $itemsToCopy) {
     $src = Join-Path $ROOT $item
     $dst = Join-Path $WEB_DEST $item
@@ -108,6 +109,10 @@ foreach ($item in $itemsToCopy) {
         Copy-Item $src $dst -Recurse -Force
     }
 }
+
+# Next guarda el baseUrl del tsconfig en el build. En Windows, next start valida
+# que webapp\src exista aunque el paquete no necesite el codigo fuente TS.
+New-Item (Join-Path $WEB_DEST "src") -ItemType Directory -Force | Out-Null
 
 # Copiar node_modules (solo producción)
 Write-Host "  Instalando dependencias de producción..." -ForegroundColor Yellow
@@ -164,15 +169,18 @@ if errorlevel 1 (
 
 REM Iniciar servicio biometrico en background
 echo [1/2] Iniciando lector de huellas...
-start "" /min "%~dp0biometric\WolfGym.BiometricService.exe"
+start "" /min /D "%~dp0biometric" "%~dp0biometric\WolfGym.BiometricService.exe"
 
 REM Esperar 3 segundos
 timeout /t 3 /nobreak >nul
 
 REM Iniciar app web
 echo [2/2] Iniciando aplicacion web...
-cd /d "%~dp0webapp"
-start "" /min node node_modules\.bin\next start -p 3000
+set BIOMETRIC_CAPTURE_BASE=http://127.0.0.1:8001
+set BIOMETRIC_STORE_BASE=http://127.0.0.1:8001
+set NEXT_PUBLIC_BIOMETRIC_BASE=http://127.0.0.1:8001
+set NEXT_PUBLIC_KIOSK=1
+start "" /min /D "%~dp0webapp" cmd /c "npm.cmd run start"
 
 REM Esperar que levante
 timeout /t 5 /nobreak >nul
@@ -192,6 +200,25 @@ taskkill /im "node.exe" /f >nul 2>&1
 '@
 
 Set-Content (Join-Path $DIST "WolfGym.bat") $batContent -Encoding UTF8
+
+# ── 4b. Compilar lanzador .exe ────────────────────────────────────────────────
+$launcherProject = Join-Path $LAUNCHER_SRC "WolfGymLauncher.csproj"
+if (Test-Path $launcherProject) {
+    Write-Host "Compilando WolfGymLauncher.exe..." -ForegroundColor Cyan
+    dotnet publish $launcherProject `
+        -c Release `
+        -r win-x64 `
+        --self-contained true `
+        -p:PublishSingleFile=true `
+        -p:IncludeNativeLibrariesForSelfExtract=true `
+        -p:EnableCompressionInSingleFile=true `
+        -o $DIST
+
+    if ($LASTEXITCODE -ne 0) { throw "WolfGymLauncher.exe no pudo compilarse" }
+    Write-Host "  WolfGymLauncher.exe compilado OK" -ForegroundColor Green
+} else {
+    Write-Host "  ADVERTENCIA: no se encontro launcher\WolfGymLauncher.csproj; se deja solo WolfGym.bat" -ForegroundColor Yellow
+}
 
 # ── 5. Buscar DLLs de ZKTeco y copiarlas al paquete ──────────────────────────
 Write-Host "Buscando DLLs de ZKTeco para incluir en el paquete..." -ForegroundColor Cyan
@@ -272,8 +299,11 @@ $readme = @(
     "",
     "COMO INICIAR:",
     "  1. Conecte el lector de huellas USB",
-    "  2. Doble clic en WolfGym.bat",
+    "  2. Doble clic en WolfGymLauncher.exe",
     "  3. El navegador se abre automaticamente en http://localhost:3000",
+    "",
+    "RESPALDO:",
+    "  Si el launcher no abre, use WolfGym.bat y revise la carpeta logs.",
     "",
     "ACCESO DESDE OTRA PC EN LA RED:",
     "  Abrir en el navegador: http://IP_DE_ESTA_PC:3000",
