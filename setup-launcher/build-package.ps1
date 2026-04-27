@@ -98,8 +98,9 @@ try {
     Pop-Location
 }
 
-# Copiar archivos necesarios para next start
-$itemsToCopy = @(".next", "public", "package.json", "next.config.cjs", "prisma")
+# Copiar archivos necesarios para next start. El lockfile evita que npm resuelva
+# dependencias distintas dentro del paquete final y dispare conflictos ERESOLVE.
+$itemsToCopy = @(".next", "public", "package.json", "package-lock.json", "next.config.cjs", "next.config.ts", "prisma")
 foreach ($item in $itemsToCopy) {
     $src = Join-Path $ROOT $item
     $dst = Join-Path $WEB_DEST $item
@@ -112,9 +113,28 @@ foreach ($item in $itemsToCopy) {
 Write-Host "  Instalando dependencias de producción..." -ForegroundColor Yellow
 Push-Location $WEB_DEST
 try {
-    & npm install --omit=dev --ignore-scripts 2>&1 | Out-Null
+    if (Test-Path (Join-Path $WEB_DEST "package-lock.json")) {
+        & npm ci --omit=dev --ignore-scripts --legacy-peer-deps
+    } else {
+        & npm install --omit=dev --ignore-scripts --legacy-peer-deps
+    }
+    if ($LASTEXITCODE -ne 0) { throw "npm install de producción falló" }
 } finally {
     Pop-Location
+}
+
+# npm se ejecuta con --ignore-scripts, asi que copiamos el cliente Prisma ya generado
+# durante el build raiz para que next start funcione sin postinstall.
+$prismaRuntimeSrc = Join-Path $ROOT "node_modules\.prisma"
+$prismaRuntimeDst = Join-Path $WEB_DEST "node_modules\.prisma"
+if (Test-Path $prismaRuntimeSrc) {
+    Copy-Item $prismaRuntimeSrc $prismaRuntimeDst -Recurse -Force
+}
+
+$prismaClientSrc = Join-Path $ROOT "node_modules\@prisma\client"
+$prismaClientDst = Join-Path $WEB_DEST "node_modules\@prisma\client"
+if (Test-Path $prismaClientSrc) {
+    Copy-Item $prismaClientSrc $prismaClientDst -Recurse -Force
 }
 
 Write-Host "  App web compilada OK" -ForegroundColor Green
