@@ -14,6 +14,7 @@ dist/
 # Tests/build/coverage
 coverage/
 *.log
+*.tsbuildinfo
 
 # Prisma
 prisma/dev.db
@@ -27,6 +28,15 @@ prisma/dev.db-journal
 # Uploads locales (si no quieres versionarlas)
 public/uploads/*
 !public/uploads/.gitkeep
+
+# Local agent/tooling artifacts
+.claude/
+.playwright-mcp/
+check-in-ui.png
+
+# Generated launchers/build artifacts
+WolfGymLauncher.exe
+WolfGymLauncher.ico
 Tarea.md
 REPORTE-PRUEBAS-CORREO.md
 DEBT_SYSTEM_README.md

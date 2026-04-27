@@ -3,6 +3,7 @@
 
 import ConfirmDialog from "@/ui/components/ConfirmDialog";
 import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import useSWR from "swr";
 import { Button } from "@/ui/button";
 
@@ -32,6 +33,20 @@ import EditClientDialog from "@/features/clients/EditClientDialog";
 import DebtManagement from "@/features/clients/DebtManagement";
 import Swal from "sweetalert2";
 import "sweetalert2/dist/sweetalert2.min.css";
+import {
+  Activity,
+  ArrowLeft,
+  BadgeDollarSign,
+  Fingerprint,
+  Loader2,
+  Plus,
+  RefreshCcw,
+  Search,
+  ShieldCheck,
+  Trash2,
+  UserRound,
+  Users,
+} from "lucide-react";
 
 // Type definitions
 type BiometricResponse = {
@@ -49,6 +64,10 @@ interface SwalBase {
   background: string;
   color: string;
   confirmButtonColor: string;
+  customClass: {
+    confirmButton: string;
+    cancelButton: string;
+  };
 }
 
 // Removed unused ApiUser type
@@ -68,6 +87,7 @@ interface Client {
   profile_social: string;
   hasPaid: boolean;
   password?: string;
+  hasFingerprint?: boolean;
 
   // 👇 NUEVO (para ordenar por fecha de registro)
   createdAt?: string; // 'YYYY-MM-DD'
@@ -81,6 +101,7 @@ interface ApiClient {
     role?: string;
     username?: string;
     createdAt?: string | Date; 
+    fingerprints?: Array<{ id: string }>;
   };
   profile_username?: string;
   profile_first_name?: string;
@@ -125,6 +146,7 @@ export default function ClientsPage() {
           createdAt: c.user?.createdAt
             ? new Date(c.user.createdAt).toISOString().split("T")[0]
             : "",
+          hasFingerprint: Boolean(c.user?.fingerprints?.length),
         }));
     },
     {
@@ -190,6 +212,19 @@ export default function ClientsPage() {
 
   // Use clientsData directly from SWR instead of local state
   const clients = clientsData;
+  const totalClients = clients.length;
+  const activePlans = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return clients.filter((client) => {
+      if (!client.membershipEnd) return false;
+      return new Date(client.membershipEnd).getTime() >= today.getTime();
+    }).length;
+  }, [clients]);
+  const fingerprintCount = useMemo(
+    () => clients.filter((client) => client.hasFingerprint || fpStatus[client.userId]).length,
+    [clients, fpStatus],
+  );
   type SortKey =
     | "firstName"
     | "lastName"
@@ -252,6 +287,10 @@ export default function ClientsPage() {
       background: "#000",
       color: "#fff",
       confirmButtonColor: "#facc15",
+      customClass: {
+        confirmButton: "swal-confirm-black",
+        cancelButton: "swal-cancel-contrast",
+      },
     }),
     []
   );
@@ -303,71 +342,12 @@ export default function ClientsPage() {
     setFilteredClients(base);
   }, [searchQuery, clients, sortBy, sortDir]);
 
-  const ENABLE_AUTO_STATUS = true; // Habilitado con control de frecuencia
-
-  // ---- estado de huellas por cliente (userId) ---- (con límite de frecuencia)
   useEffect(() => {
-    if (!ENABLE_AUTO_STATUS) return;
-    
-    // Evitar verificaciones muy frecuentes
-    const lastCheck = localStorage.getItem('lastFingerprintCheck');
-    const now = Date.now();
-    if (lastCheck && (now - parseInt(lastCheck)) < 30000) { // 30 segundos mínimo
-      console.log('[DEBUG] Verificación de huellas omitida (muy frecuente)');
-      return;
-    }
-    
-    const hydrate = async () => {
-      console.log(`[DEBUG] Verificando status de huellas para ${clients.length} clientes...`);
-      
-      // Procesar en lotes para evitar sobrecarga
-      const batchSize = 5;
-      const batches = [];
-      for (let i = 0; i < clients.length; i += batchSize) {
-        batches.push(clients.slice(i, i + batchSize));
-      }
-      
-      const allResults = [];
-      for (const batch of batches) {
-        const entries = await Promise.allSettled(
-          batch.map(async (c) => {
-            try {
-              const r = await fetch(`/api/biometric/status/${c.userId}`, {
-                cache: "no-store",
-              });
-              const j = await r.json().catch(() => ({ hasFingerprint: false }));
-              console.log(`[DEBUG] Status ${c.userId}: ${j?.hasFingerprint ? '✅' : '❌'} (${j?.message || 'N/A'})`);
-              return [c.userId, !!j?.hasFingerprint] as const;
-            } catch (error) {
-              console.error(`[DEBUG] Error verificando ${c.userId}:`, error);
-              return [c.userId, false] as const;
-            }
-          })
-        );
-        allResults.push(...entries);
-        
-        // Pequeña pausa entre lotes
-        if (batches.indexOf(batch) < batches.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 200));
-        }
-      }
-      
-      setFpStatus(
-        Object.fromEntries(
-          allResults
-            .filter((e) => e.status === "fulfilled")
-            .map(
-              (e) =>
-                (e as PromiseFulfilledResult<readonly [string, boolean]>).value
-            )
-        )
-      );
-      localStorage.setItem('lastFingerprintCheck', now.toString());
-      console.log(`[DEBUG] Status actualizado para ${allResults.length} clientes`);
-    };
-    
-    if (clients.length) hydrate();
-  }, [ENABLE_AUTO_STATUS, clients]);
+    if (!clients.length) return;
+    setFpStatus(
+      Object.fromEntries(clients.map((client) => [client.userId, Boolean(client.hasFingerprint)])),
+    );
+  }, [clients]);
 
   // Manejar la adición de un nuevo cliente
   // Handle add client function - used in the component
@@ -758,51 +738,72 @@ export default function ClientsPage() {
   }
 
   return (
-    <div className="p-6 bg-black min-h-screen text-white">
+    <div className="min-h-screen bg-black text-white">
       <ToastContainer />
 
-      {/* ENCABEZADO */}
-      <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
-        <h1 className="text-2xl md:text-3xl font-bold text-yellow-400">
-          Gestión de Clientes
-        </h1>
-        <Link
-          href="/admin/dashboard"
-          className="bg-yellow-400 text-black px-4 py-2 rounded hover:bg-yellow-500 w-full md:w-auto text-center"
-        >
-          Volver al Dashboard
-        </Link>
-      </div>
+      <header className="border-b border-zinc-800 bg-black px-4 py-4 md:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="flex items-center gap-3 text-yellow-400">
+              <Users className="h-7 w-7" />
+              <h1 className="text-2xl font-black md:text-3xl">Clientes y membresías</h1>
+            </div>
+            <p className="mt-1 text-sm text-zinc-400">
+              Registro, planes, deudas y huellas de clientes activos.
+            </p>
+          </div>
+          <Link
+            href="/admin/dashboard"
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-yellow-400 px-4 py-2.5 font-semibold text-black transition hover:bg-yellow-300"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Dashboard
+          </Link>
+        </div>
+      </header>
 
-      {/* BLOQUE: Búsqueda + Alta */}
-      <section className="mb-6 border border-yellow-400/40 rounded-xl p-4">
-        <h2 className="text-xl font-semibold text-yellow-400 mb-3">
-          Administración
-        </h2>
-        <div className="flex flex-col md:flex-row items-center gap-4">
-          <input
-            type="text"
-            className="p-2 rounded border w-full md:max-w-sm text-black"
-            placeholder="Buscar por nombre, apellido o usuario"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          <div className="flex gap-2 w-full md:w-auto">
+      <main className="mx-auto grid max-w-7xl gap-6 p-4 md:p-8">
+        <section className="grid gap-3 md:grid-cols-4">
+          <ClientMetric icon={<Users className="h-4 w-4" />} label="Clientes" value={totalClients} />
+          <ClientMetric icon={<ShieldCheck className="h-4 w-4" />} label="Planes vigentes" value={activePlans} tone="yellow" />
+          <ClientMetric icon={<Fingerprint className="h-4 w-4" />} label="Con huella" value={fingerprintCount} />
+          <ClientMetric icon={<Activity className="h-4 w-4" />} label="Mostrando" value={filteredClients.length} />
+        </section>
+
+        <section className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+          <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-yellow-400">Búsqueda y acciones</h2>
+              <p className="text-sm text-zinc-500">Filtra por nombre, apellido, usuario o teléfono.</p>
+            </div>
+            <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
+              <div className="relative w-full md:w-80">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                <input
+                  type="text"
+                  className="h-10 w-full rounded-md border border-zinc-800 bg-black pl-9 pr-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-yellow-400"
+                  placeholder="Buscar cliente"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-2">
             <Button 
               onClick={async () => {
-                console.log('[DEBUG] Refrescando estados de huellas manualmente...');
-                localStorage.removeItem('lastFingerprintCheck'); // Forzar refresh
-                window.location.reload(); // Recargar para aplicar cambios
+                await mutate();
+                toast.success("Listado actualizado");
               }}
               variant="outline" 
-              className="flex-1 md:flex-none"
+              className="inline-flex flex-1 items-center gap-2 !border-zinc-700 !bg-zinc-900 !text-white hover:!bg-zinc-800 md:flex-none"
             >
-              🔄 Refrescar Estados
+              <RefreshCcw className="h-4 w-4" />
+              Refrescar
             </Button>
             <Dialog>
               <DialogTrigger asChild>
-                <Button className="bg-yellow-400 text-black hover:bg-yellow-500 flex-1 md:flex-none">
-                  Añadir Cliente
+                <Button className="inline-flex flex-1 items-center gap-2 bg-yellow-400 text-black hover:bg-yellow-300 md:flex-none">
+                  <Plus className="h-4 w-4" />
+                  Nuevo cliente
                 </Button>
               </DialogTrigger>
             <DialogContent className="w-[calc(100vw-2rem)] max-w-xl sm:max-w-2xl max-h-[90vh] overflow-y-auto p-0">
@@ -818,24 +819,24 @@ export default function ClientsPage() {
               </div>
             </DialogContent>
             </Dialog>
+              </div>
+            </div>
           </div>
+        </section>
+
+      <section className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950">
+        <div className="border-b border-zinc-800 bg-black px-4 py-3">
+          <h2 className="text-lg font-bold text-yellow-400">Directorio de clientes</h2>
+          <p className="text-sm text-zinc-500">Vista operativa para pagos, huellas y edición de perfiles.</p>
         </div>
-      </section>
 
-      {/* BLOQUE: Tabla */}
-      <section className="border border-yellow-400/40 rounded-xl">
-        <h2 className="text-xl font-semibold text-yellow-400 mb-3 p-4">
-          Listado
-        </h2>
-
-        <div className="overflow-x-auto px-4 pb-4">
-          {/* Contenedor con altura fija y scroll vertical */}
-          <div className="max-h-[50vh] overflow-y-auto rounded-lg">
+        <div className="overflow-x-auto">
+          <div className="max-h-[58vh] overflow-y-auto">
             <Table className="table-auto w-full border-collapse">
               {/* Encabezado sticky */}
-              <TableHeader className="sticky top-0 bg-black z-10">
-                <TableRow>
-                  <TableHead className="text-yellow-400">
+              <TableHeader className="sticky top-0 z-10 !bg-zinc-950">
+                <TableRow className="border-zinc-800 !bg-zinc-950">
+                  <TableHead className="text-xs uppercase tracking-wide !text-yellow-300">
                     <button
                       onClick={() => toggleSort("firstName")}
                       className="flex items-center gap-1"
@@ -848,7 +849,7 @@ export default function ClientsPage() {
                         : ""}
                     </button>
                   </TableHead>
-                  <TableHead className="text-yellow-400">
+                  <TableHead className="text-xs uppercase tracking-wide !text-yellow-300">
                     <button
                       onClick={() => toggleSort("lastName")}
                       className="flex items-center gap-1"
@@ -861,7 +862,7 @@ export default function ClientsPage() {
                         : ""}
                     </button>
                   </TableHead>
-                  <TableHead className="text-yellow-400">
+                  <TableHead className="text-xs uppercase tracking-wide !text-yellow-300">
                     <button
                       onClick={() => toggleSort("plan")}
                       className="flex items-center gap-1"
@@ -870,7 +871,7 @@ export default function ClientsPage() {
                       {sortBy === "plan" ? (sortDir === "asc" ? "▲" : "▼") : ""}
                     </button>
                   </TableHead>
-                  <TableHead className="text-yellow-400">
+                  <TableHead className="text-xs uppercase tracking-wide !text-yellow-300">
                     <button
                       onClick={() => toggleSort("membershipStart")}
                       className="flex items-center gap-1"
@@ -883,7 +884,7 @@ export default function ClientsPage() {
                         : ""}
                     </button>
                   </TableHead>
-                  <TableHead className="text-yellow-400">
+                  <TableHead className="text-xs uppercase tracking-wide !text-yellow-300">
                     <button
                       onClick={() => toggleSort("membershipEnd")}
                       className="flex items-center gap-1"
@@ -898,7 +899,7 @@ export default function ClientsPage() {
                   </TableHead>
 
                   {/* Columna opcional: Fecha de registro (si API la expone) */}
-                  <TableHead className="text-yellow-400">
+                  <TableHead className="text-xs uppercase tracking-wide !text-yellow-300">
                     <button
                       onClick={() => toggleSort("createdAt")}
                       className="flex items-center gap-1"
@@ -912,9 +913,9 @@ export default function ClientsPage() {
                     </button>
                   </TableHead>
 
-                  <TableHead className="text-yellow-400">Deudas</TableHead>
-                  <TableHead className="text-yellow-400">Huella</TableHead>
-                  <TableHead className="text-yellow-400">Acción</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wide !text-yellow-300">Cobros</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wide !text-yellow-300">Huella</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wide !text-yellow-300">Operaciones</TableHead>
                 </TableRow>
               </TableHeader>
 
@@ -922,18 +923,27 @@ export default function ClientsPage() {
                 {filteredClients.length > 0 ? (
                   filteredClients.map((client) => {
                     const uid = client.userId || client.id;
-                    const has = !!fpStatus[uid];
+                    const has = fpStatus[uid] ?? Boolean(client.hasFingerprint);
                     return (
                       <TableRow
                         key={client.id}
-                        className="hover:bg-gray-800/40"
+                        className="border-zinc-900 hover:bg-zinc-900/70"
                       >
-                        <TableCell>{client.firstName}</TableCell>
-                        <TableCell>{client.lastName}</TableCell>
-                        <TableCell>{client.plan}</TableCell>
-                        <TableCell>{client.membershipStart || "—"}</TableCell>
-                        <TableCell>{client.membershipEnd || "—"}</TableCell>
-                        <TableCell>{client.createdAt || "—"}</TableCell>
+                        <TableCell className="font-semibold text-white">
+                          <div className="flex items-center gap-2">
+                            <UserRound className="h-4 w-4 text-yellow-400" />
+                            {client.firstName}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-zinc-300">{client.lastName}</TableCell>
+                        <TableCell>
+                          <span className="inline-flex rounded-md border border-zinc-800 bg-black px-2 py-1 text-xs font-semibold text-zinc-200">
+                            {client.plan}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-zinc-300">{client.membershipStart || "—"}</TableCell>
+                        <TableCell className="text-zinc-300">{client.membershipEnd || "—"}</TableCell>
+                        <TableCell className="text-zinc-400">{client.createdAt || "—"}</TableCell>
                         <TableCell>
                           <Button
                             onClick={() => {
@@ -944,9 +954,10 @@ export default function ClientsPage() {
                               });
                               setShowDebtDialog(true);
                             }}
-                            className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1"
+                            className="inline-flex items-center gap-2 bg-blue-600 px-2 py-1 text-xs text-white hover:bg-blue-500"
                           >
-                            Gestionar
+                            <BadgeDollarSign className="h-3.5 w-3.5" />
+                            Cobros
                           </Button>
                         </TableCell>
                         <TableCell>
@@ -968,15 +979,16 @@ export default function ClientsPage() {
                         <TableCell>
                           <div className="flex flex-wrap gap-2">
                             <Button
-                              className={`${busy[uid] ? "opacity-50 cursor-not-allowed" : "hover:bg-yellow-500"} bg-yellow-400 text-black`}
+                              className={`${busy[uid] ? "opacity-50 cursor-not-allowed" : "hover:bg-yellow-300"} bg-yellow-400 text-black`}
                               onClick={() => registerFingerprint(uid)}
                               disabled={!!busy[uid] || !!deleting[uid]}
                             >
+                              {busy[uid] ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                               {has ? "Reemplazar huella" : "Registrar huella"}
                             </Button>
 
                             <Button
-                              className={`border border-yellow-400 text-yellow-600 hover:bg-yellow-500 hover:text-black ${
+                              className={`!border-yellow-400 !bg-zinc-950 !text-yellow-300 hover:!bg-yellow-400 hover:!text-black ${
                                 busy[uid] ? "opacity-50 cursor-not-allowed" : ""
                               }`}
                               onClick={() => verifyFingerprint(uid)}
@@ -1003,7 +1015,7 @@ export default function ClientsPage() {
                             />
 
                             <Button
-                              className="bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="inline-flex items-center gap-2 bg-red-500 text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
                               onClick={() => handleDeleteClick(client.id)}
                               disabled={!!deleting[client.id] || isPageLoading}
                             >
@@ -1012,12 +1024,15 @@ export default function ClientsPage() {
                                   <BtnSpinner /> Eliminando…
                                 </span>
                               ) : (
-                                "Eliminar"
+                                <>
+                                  <Trash2 className="h-4 w-4" />
+                                  Eliminar
+                                </>
                               )}
                             </Button>
 
                             <Button
-                              className={`border border-red-500 text-red-400 hover:bg-red-600 hover:text-white ${
+                              className={`!border-red-500 !bg-zinc-950 !text-red-300 hover:!bg-red-600 hover:!text-white ${
                                 busy[uid] ? "opacity-50 cursor-not-allowed" : ""
                               }`}
                               onClick={() => deleteFingerprint(uid)}
@@ -1033,7 +1048,7 @@ export default function ClientsPage() {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center">
+                    <TableCell colSpan={9} className="py-10 text-center text-zinc-500">
                       No hay clientes disponibles
                     </TableCell>
                   </TableRow>
@@ -1043,24 +1058,22 @@ export default function ClientsPage() {
           </div>
         </div>
       </section>
-      {/* BLOQUE: Credenciales pendientes */}
-      <section className="mt-8 p-4 border border-yellow-400/40 rounded-xl bg-gray-100 text-black">
-        <h2 className="text-xl font-bold mb-4">Credenciales Pendientes</h2>
+      <section className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+        <div className="mb-4 flex items-center gap-2 text-yellow-400">
+          <UserRound className="h-5 w-5" />
+          <h2 className="text-lg font-bold">Accesos pendientes</h2>
+        </div>
         {pendingCredentials.length > 0 ? (
           pendingCredentials.map((cred, index) => (
-            <div key={index} className="mb-2 p-2 border rounded">
-              <p>
-                <span className="font-bold">Usuario:</span> {cred.username}
-              </p>
-              <p>
-                <span className="font-bold">Contraseña:</span> {cred.password}
-              </p>
-              <p>
-                <span className="font-bold">Teléfono:</span> {cred.phone}
-              </p>
-              <div className="flex gap-2 mt-1">
+            <div key={index} className="mb-3 rounded-lg border border-zinc-800 bg-black p-3">
+              <div className="grid gap-1 text-sm text-zinc-300 md:grid-cols-3">
+                <p><span className="text-zinc-500">Usuario</span><br />{cred.username}</p>
+                <p><span className="text-zinc-500">Contraseña</span><br />{cred.password}</p>
+                <p><span className="text-zinc-500">Teléfono</span><br />{cred.phone}</p>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
                 <Button
-                  className="bg-green-600 text-white text-xs"
+                  className="bg-yellow-400 text-black hover:bg-yellow-300"
                   onClick={() => {
                     navigator.clipboard.writeText(
                       `Usuario: ${cred.username}\nContraseña: ${cred.password}\nTeléfono: ${cred.phone}`
@@ -1071,7 +1084,7 @@ export default function ClientsPage() {
                   Copiar
                 </Button>
                 <Button
-                  className="bg-green-600 text-white"
+                  className="bg-green-600 text-white hover:bg-green-500"
                   onClick={() =>
                     window.open(`https://wa.me/${cred.phone}`, "_blank")
                   }
@@ -1079,7 +1092,7 @@ export default function ClientsPage() {
                   Abrir chat en WhatsApp
                 </Button>
                 <Button
-                  className="bg-red-500 text-white text-xs"
+                  className="bg-red-500 text-white hover:bg-red-600"
                   onClick={() => {
                     const updated = pendingCredentials.filter(
                       (_, i) => i !== index
@@ -1097,13 +1110,12 @@ export default function ClientsPage() {
             </div>
           ))
         ) : (
-          <p>No hay credenciales pendientes.</p>
+          <p className="rounded-md border border-dashed border-zinc-800 p-4 text-sm text-zinc-500">
+            No hay accesos pendientes.
+          </p>
         )}
-        <p className="mt-4 text-center italic">
-          &ldquo;El éxito es la suma de pequeños esfuerzos repetidos día tras
-          día.&rdquo;
-        </p>
       </section>
+      </main>
       {isPageLoading && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center">
           <div className="flex items-center gap-3 bg-black/80 text-white px-4 py-3 rounded-lg border border-yellow-400">
@@ -1133,6 +1145,28 @@ export default function ClientsPage() {
           profileId={selectedClientForDebt.profileId}
         />
       )}
+    </div>
+  );
+}
+
+function ClientMetric({
+  icon,
+  label,
+  value,
+  tone = "default",
+}: {
+  icon: ReactNode;
+  label: string;
+  value: number | string;
+  tone?: "default" | "yellow";
+}) {
+  return (
+    <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+      <div className={`flex items-center gap-2 text-sm ${tone === "yellow" ? "text-yellow-400" : "text-zinc-400"}`}>
+        {icon}
+        {label}
+      </div>
+      <div className="mt-3 text-2xl font-black text-white">{value}</div>
     </div>
   );
 }

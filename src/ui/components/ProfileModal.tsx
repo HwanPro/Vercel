@@ -14,7 +14,6 @@ import {
   DialogTitle,
 } from "@/ui/dialog";
 import { Phone, Lock, Camera } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/ui/avatar";
 import { useState, useRef, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import "react-toastify/dist/ReactToastify.css";
@@ -209,10 +208,10 @@ export default function ProfileModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-white border-yellow-400 max-w-lg">
+      <DialogContent className="max-h-[92vh] max-w-lg overflow-y-auto border border-zinc-800 bg-zinc-950 text-white shadow-2xl">
         <DialogHeader>
-          <DialogTitle className="text-yellow-400">Mi Perfil</DialogTitle>
-          <DialogDescription>Gestiona tu información personal</DialogDescription>
+          <DialogTitle className="text-yellow-300">Mi Perfil</DialogTitle>
+          <DialogDescription className="text-zinc-400">Gestiona tu información personal</DialogDescription>
         </DialogHeader>
 
         <div className="flex items-center gap-4">
@@ -257,10 +256,10 @@ export default function ProfileModal({
 
           {/* Nombre y rol */}
           <div>
-            <h1 className="text-2xl font-bold text-black">
+            <h1 className="text-2xl font-bold text-white">
               {firstNameLocal} {lastName}
             </h1>
-            <p className="text-gray-500">{userRole || "Usuario"}</p>
+            <p className="text-zinc-400">{userRole || "Usuario"}</p>
           </div>
         </div>
 
@@ -268,48 +267,48 @@ export default function ProfileModal({
         <div className="space-y-4 mt-4">
           {/* Nombre de Usuario */}
           <div className="space-y-2">
-            <Label htmlFor="username">Nombre de Usuario</Label>
+            <Label htmlFor="username" className="text-zinc-200">Nombre de Usuario</Label>
             <Input
               id="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="bg-white"
+              className="border border-zinc-700 bg-black text-white"
             />
           </div>
 
           {/* Nombre real */}
           <div className="space-y-2">
-            <Label htmlFor="firstName">Nombre</Label>
+            <Label htmlFor="firstName" className="text-zinc-200">Nombre</Label>
             <Input
               id="firstName"
               value={firstNameLocal}
               onChange={(e) => setFirstNameLocal(e.target.value)}
-              className="bg-white"
+              className="border border-zinc-700 bg-black text-white"
             />
           </div>
 
           {/* Apellidos */}
           <div className="space-y-2">
-            <Label htmlFor="lastName">Apellidos</Label>
+            <Label htmlFor="lastName" className="text-zinc-200">Apellidos</Label>
             <Input
               id="lastName"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
-              className="bg-white"
+              className="border border-zinc-700 bg-black text-white"
             />
           </div>
 
           {/* Teléfono principal */}
           <div className="space-y-2">
-            <Label htmlFor="phone">Teléfono</Label>
+            <Label htmlFor="phone" className="text-zinc-200">Teléfono</Label>
             <div className="flex gap-2">
               <Input
                 id="phone"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="bg-white"
+                className="border border-zinc-700 bg-black text-white"
               />
-              <Button size="icon" variant="outline" className="shrink-0">
+              <Button size="icon" variant="outline" className="shrink-0 !border-zinc-700 !bg-zinc-900 !text-yellow-300 hover:!bg-zinc-800">
                 <Phone className="h-4 w-4" />
               </Button>
             </div>
@@ -317,15 +316,15 @@ export default function ProfileModal({
 
           {/* Teléfono de emergencia */}
           <div className="space-y-2">
-            <Label htmlFor="emergencyPhone">Teléfono de emergencia</Label>
+            <Label htmlFor="emergencyPhone" className="text-zinc-200">Teléfono de emergencia</Label>
             <div className="flex gap-2">
               <Input
                 id="emergencyPhone"
                 value={emergencyPhone}
                 onChange={(e) => setEmergencyPhone(e.target.value)}
-                className="bg-white"
+                className="border border-zinc-700 bg-black text-white"
               />
-              <Button size="icon" variant="outline" className="shrink-0">
+              <Button size="icon" variant="outline" className="shrink-0 !border-zinc-700 !bg-zinc-900 !text-yellow-300 hover:!bg-zinc-800">
                 <Phone className="h-4 w-4" />
               </Button>
             </div>
@@ -333,7 +332,7 @@ export default function ProfileModal({
 
           {/* Botón guardar */}
           <Button
-            className="w-full bg-yellow-400 text-black hover:bg-yellow-500"
+            className="w-full bg-yellow-400 font-semibold text-black hover:bg-yellow-300"
             onClick={handleSubmit}
             disabled={isSubmitting}
           >
@@ -342,7 +341,7 @@ export default function ProfileModal({
 
           {/* Cambiar contraseña - DESACTIVADO */}
           <Button
-            className="w-full bg-gray-200 text-gray-500 cursor-not-allowed"
+            className="w-full cursor-not-allowed bg-zinc-800 text-zinc-400"
             disabled
           >
             Cambiar contraseña (Próximamente)

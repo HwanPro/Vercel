@@ -7,7 +7,7 @@ const BIOMETRIC_BASE =
   process.env.BIOMETRIC_CAPTURE_BASE ||
   process.env.BIOMETRIC_BASE ||
   process.env.NEXT_PUBLIC_BIOMETRIC_BASE ||
-  "http://127.0.0.1:8002";
+  "http://127.0.0.1:8001";
 const TIMEOUT_MS = 15_000;
 
 function timeoutFetch(input: RequestInfo | URL, init?: RequestInit, ms = TIMEOUT_MS) {
@@ -30,11 +30,20 @@ export async function POST(
   try {
     const { id: userId } = await ctx.params;
     const body = await req.json().catch(() => ({}));
+    const rawFingerIndex = body.fingerIndex ?? body.finger_index ?? 0;
+    const fingerIndex = Number.isInteger(Number(rawFingerIndex)) ? Number(rawFingerIndex) : 0;
 
     // Validación básica del id (cuid ~ 25 chars)
     if (!userId || userId.length < 10) {
       return NextResponse.json(
         { ok: false, message: "ID de usuario inválido." },
+        { status: 400 }
+      );
+    }
+
+    if (fingerIndex < 0 || fingerIndex > 9) {
+      return NextResponse.json(
+        { ok: false, message: "fingerIndex debe estar entre 0 y 9" },
         { status: 400 }
       );
     }
@@ -75,7 +84,7 @@ export async function POST(
       body: JSON.stringify({ 
         userId: userId, 
         templateB64: template,
-        fingerIndex: 0  // Por defecto, dedo índice 0
+        fingerIndex
       }),
       cache: "no-store",
     });

@@ -193,7 +193,7 @@ export default function EditClientDialog({
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   variant="outline"
-                  className="text-sm"
+                  className="!border-zinc-300 !bg-white text-sm !text-zinc-900 hover:!bg-zinc-100"
                 >
                   {imagePreview ? 'Cambiar Foto' : 'Subir Foto'}
                 </Button>
@@ -338,7 +338,7 @@ export default function EditClientDialog({
           "flex flex-col sm:flex-row" + "gap-2" te dará ese comportamiento.
         */}
         <div className="flex flex-col sm:flex-row justify-between mt-6 gap-2">
-          <Button onClick={() => setIsOpen(false)} variant="outline">
+          <Button onClick={() => setIsOpen(false)} variant="outline" className="!border-zinc-300 !bg-white !text-zinc-900 hover:!bg-zinc-100">
             Cancelar
           </Button>
           <Button

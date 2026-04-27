@@ -2,11 +2,23 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import type { ReactNode } from "react";
 import Image from "next/image";
 import { saveAs } from "file-saver";
 import Swal from "sweetalert2";
 import "sweetalert2/dist/sweetalert2.min.css";
 import Link from "next/link";
+import {
+  ArrowLeft,
+  CalendarDays,
+  Clock3,
+  Download,
+  LogIn,
+  LogOut,
+  QrCode,
+  Timer,
+  Users,
+} from "lucide-react";
 
 type GroupMode = "day" | "month" | "year";
 
@@ -27,7 +39,6 @@ interface Attendance {
 export default function AdminAttendance() {
   const [attendees, setAttendees] = useState<Attendance[]>([]);
   const [currentTime, setCurrentTime] = useState<string>("");
-  const [hasFp, setHasFp] = useState<Record<string, boolean>>({});
   const [mode, setMode] = useState<GroupMode>("day");
 
   // ---- cargar asistencia + reloj ----
@@ -57,29 +68,6 @@ export default function AdminAttendance() {
       clearInterval(timer);
     };
   }, []);
-
-  // ---- estado de huellas por usuario ---- (DESHABILITADO para evitar spam)
-  useEffect(() => {
-    // Deshabilitado: Las peticiones automáticas de status causan spam de requests
-    // Solo se debe verificar el status cuando el usuario lo solicite explícitamente
-    const hydrateFp = async () => {
-      // const entries = await Promise.allSettled(
-      //   attendees.map(async (a) => {
-      //     const uid = a.userId || a.user?.id;
-      //     const r = await fetch(`/api/biometric/status/${uid}`, { cache: "no-store" });
-      //     const j = await r.json().catch(() => ({ hasFingerprint: false }));
-      //     return [uid, !!j?.hasFingerprint] as const;
-      //   })
-      // );
-      // const map = Object.fromEntries(
-      //   entries
-      //     .filter((e) => e.status === "fulfilled")
-      //     .map((e) => (e as PromiseFulfilledResult<readonly [string, boolean]>).value)
-      // );
-      // setHasFp(map);
-    };
-    // if (attendees.length) hydrateFp(); // Comentado para evitar spam
-  }, [attendees]);
 
   // ---- agrupar por día / mes / año ----
   const groups = useMemo(() => {
@@ -120,6 +108,24 @@ export default function AdminAttendance() {
     return ordered;
   }, [attendees, mode]);
 
+  const metrics = useMemo(() => {
+    const active = attendees.filter((a) => !a.checkOutTime).length;
+    const uniqueUsers = new Set(attendees.map((a) => a.userId || a.user?.id)).size;
+    const totalMs = attendees.reduce((acc, a) => {
+      const checkIn = new Date(a.checkInTime).getTime();
+      const checkOut = a.checkOutTime ? new Date(a.checkOutTime).getTime() : Date.now();
+      return acc + Math.max(0, checkOut - checkIn);
+    }, 0);
+
+    return {
+      total: attendees.length,
+      active,
+      completed: attendees.length - active,
+      uniqueUsers,
+      totalMs,
+    };
+  }, [attendees]);
+
 
   // ---- util format ----
   const fmtH = (ms: number) => {
@@ -144,68 +150,67 @@ export default function AdminAttendance() {
   };
 
   return (
-    <div className="p-6 bg-black min-h-screen text-white">
-      {/* HEADER */}
-      <header className="flex justify-between items-center border-b border-yellow-400 pb-4">
-        <h1 className="text-yellow-400 text-2xl font-bold">Panel de Administrador</h1>
-        <Link
-          href="/admin/dashboard"
-          className="bg-yellow-400 text-black px-4 py-2 rounded hover:bg-yellow-500"
-        >
-          Volver al Dashboard
-        </Link>
+    <div className="min-h-screen bg-black text-white">
+      <header className="border-b border-zinc-800 bg-black px-4 py-4 md:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="flex items-center gap-3 text-yellow-400">
+              <CalendarDays className="h-7 w-7" />
+              <h1 className="text-2xl font-black md:text-3xl">Asistencia</h1>
+            </div>
+            <p className="mt-1 text-sm text-zinc-400">Entradas, salidas y permanencia del gimnasio.</p>
+          </div>
+          <Link
+            href="/admin/dashboard"
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-yellow-400 px-4 py-2.5 font-semibold text-black transition hover:bg-yellow-300"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Dashboard
+          </Link>
+        </div>
       </header>
 
-      {/* RELOJ + QR */}
-      <section className="my-6 grid gap-6">
-        <div className="text-center border border-yellow-400/40 rounded-xl p-4">
-          <h3 className="text-3xl text-yellow-400 font-bold">Hora Actual</h3>
-          <p className="text-2xl text-white mt-2">{currentTime}</p>
-        </div>
-
-        <div className="text-center border border-yellow-400/40 rounded-xl p-4">
-          <h3 className="text-2xl text-yellow-400">Código QR de Registro</h3>
-          <div className="flex flex-col items-center">
-            <Image
-              src="/uploads/images/QR-GYM.png"
-              alt="Código QR de acceso"
-              width={200}
-              height={200}
-              className="mx-auto border border-yellow-400 p-2 bg-white"
-            />
-            <button
-              onClick={handleDownloadQR}
-              className="mt-4 bg-yellow-400 text-black px-4 py-2 rounded hover:bg-yellow-500"
-            >
-              Exportar QR
-            </button>
+      <main className="mx-auto grid max-w-7xl gap-6 p-4 md:p-8">
+        <section className="grid gap-3 md:grid-cols-5">
+          <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4 md:col-span-2">
+            <div className="flex items-center gap-2 text-sm text-zinc-400">
+              <Clock3 className="h-4 w-4 text-yellow-400" />
+              Hora actual
+            </div>
+            <div className="mt-3 text-2xl font-black text-white">{currentTime}</div>
           </div>
-        </div>
-      </section>
+          <Metric icon={<Users className="h-4 w-4" />} label="Registros" value={metrics.total} />
+          <Metric icon={<LogIn className="h-4 w-4" />} label="Activos" value={metrics.active} tone="yellow" />
+          <Metric icon={<Timer className="h-4 w-4" />} label="Tiempo total" value={fmtH(metrics.totalMs)} />
+        </section>
 
-      {/* CONTROLES DE AGRUPACIÓN */}
-      <section className="mb-4">
-        <div className="inline-flex rounded-xl overflow-hidden border border-yellow-400/60">
-          {(["day", "month", "year"] as GroupMode[]).map((m) => (
-            <button
-              key={m}
-              onClick={() => setMode(m)}
-              className={`px-4 py-2 text-sm ${
-                mode === m
-                  ? "bg-yellow-400 text-black"
-                  : "bg-transparent text-yellow-400 hover:bg-yellow-500 hover:text-black"
-              }`}
-            >
-              {m === "day" ? "Día" : m === "month" ? "Mes" : "Año"}
-            </button>
-          ))}
-        </div>
-      </section>
+        <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+          <div className="space-y-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-yellow-400">Registros</h2>
+                <p className="text-sm text-zinc-500">{metrics.uniqueUsers} clientes únicos · {metrics.completed} sesiones cerradas</p>
+              </div>
+              <div className="inline-flex overflow-hidden rounded-md border border-zinc-800 bg-zinc-950">
+                {(["day", "month", "year"] as GroupMode[]).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setMode(m)}
+                    className={`px-4 py-2 text-sm font-semibold transition ${
+                      mode === m
+                        ? "bg-yellow-400 text-black"
+                        : "text-zinc-300 hover:bg-zinc-900 hover:text-yellow-300"
+                    }`}
+                  >
+                    {m === "day" ? "Día" : m === "month" ? "Mes" : "Año"}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-      {/* BLOQUES AGRUPADOS */}
-      <section className="space-y-8">
+            <section className="space-y-6">
         {groups.length === 0 ? (
-          <div className="text-center p-4 text-gray-400 border border-yellow-400/40 rounded-xl">
+          <div className="rounded-lg border border-dashed border-zinc-800 p-10 text-center text-zinc-500">
             No hay asistentes aún.
           </div>
         ) : (
@@ -219,12 +224,12 @@ export default function AdminAttendance() {
             }, 0);
 
             return (
-              <div key={key} className="border border-yellow-400/40 rounded-xl overflow-hidden">
-                <div className="bg-yellow-400/10 px-4 py-3 flex items-center justify-between">
-                  <h3 className="text-xl text-yellow-400 font-semibold">
+              <div key={key} className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950">
+                <div className="flex flex-col gap-2 border-b border-zinc-800 bg-black px-4 py-3 md:flex-row md:items-center md:justify-between">
+                  <h3 className="text-lg font-bold text-yellow-400">
                     {mode === "day" ? `Día ${key}` : mode === "month" ? `Mes ${key}` : `Año ${key}`}
                   </h3>
-                  <div className="text-sm text-yellow-400/90">
+                  <div className="text-sm text-zinc-400">
                     <span className="mr-4">Registros: <b>{total}</b></span>
                     <span>Tiempo total: <b>{fmtH(totalMs)}</b></span>
                   </div>
@@ -233,12 +238,12 @@ export default function AdminAttendance() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="bg-yellow-400 text-black">
-                        <th className="p-2">Usuario</th>
-                        <th className="p-2">Día</th>
-                        <th className="p-2">Entradas y Salidas</th>
-                        <th className="p-2">Estancia</th>
-                        <th className="p-2"></th>
+                      <tr className="border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-500">
+                        <th className="px-4 py-3">Usuario</th>
+                        <th className="px-4 py-3">Día</th>
+                        <th className="px-4 py-3">Entrada / salida</th>
+                        <th className="px-4 py-3">Estancia</th>
+                        <th className="px-4 py-3">Estado</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -248,7 +253,6 @@ export default function AdminAttendance() {
                         const dayOfWeek = checkIn
                           .toLocaleDateString("es-PE", { weekday: "long" })
                           .toUpperCase();
-                        const uid = attendee.userId || attendee.user?.id;
                         const duration =
                           attendee.durationMins != null
                             ? `${attendee.durationMins} min`
@@ -257,18 +261,30 @@ export default function AdminAttendance() {
                             : "En curso";
 
                         return (
-                          <tr key={attendee.id} className="border-b border-gray-600">
-                            <td className="p-2">
-                              {attendee.user.firstName} {attendee.user.lastName}
+                          <tr key={attendee.id} className="border-b border-zinc-900 last:border-0">
+                            <td className="px-4 py-3">
+                              <div className="font-semibold text-white">{attendee.user.firstName} {attendee.user.lastName}</div>
+                              <div className="text-xs text-zinc-500">{attendee.user.phoneNumber}</div>
                             </td>
-                            <td className="p-2">{dayOfWeek}</td>
-                            <td className="p-2">
-                              Entrada: {checkIn.toLocaleTimeString()} <br />
-                              {checkOut ? `Salida: ${checkOut.toLocaleTimeString()}` : "Sin salida"}
+                            <td className="px-4 py-3 text-zinc-300">{dayOfWeek}</td>
+                            <td className="px-4 py-3 text-sm text-zinc-300">
+                              <div className="inline-flex items-center gap-2">
+                                <LogIn className="h-3.5 w-3.5 text-yellow-400" />
+                                {checkIn.toLocaleTimeString()}
+                              </div>
+                              <br />
+                              <div className="mt-1 inline-flex items-center gap-2">
+                                <LogOut className="h-3.5 w-3.5 text-red-400" />
+                                {checkOut ? checkOut.toLocaleTimeString() : "Pendiente"}
+                              </div>
                             </td>
-                            <td className="p-2">{duration}</td>
-                            <td className="p-2">
-                              
+                            <td className="px-4 py-3 font-semibold text-white">{duration}</td>
+                            <td className="px-4 py-3">
+                              <span className={`inline-flex rounded-md px-2.5 py-1 text-xs font-semibold ${
+                                checkOut ? "bg-zinc-800 text-zinc-200" : "bg-yellow-400 text-black"
+                              }`}>
+                                {checkOut ? "Cerrado" : "En curso"}
+                              </span>
                             </td>
                           </tr>
                         );
@@ -280,7 +296,55 @@ export default function AdminAttendance() {
             );
           })
         )}
-      </section>
+            </section>
+          </div>
+
+          <aside className="h-fit rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+            <div className="mb-4 flex items-center gap-2 text-yellow-400">
+              <QrCode className="h-5 w-5" />
+              <h2 className="font-bold">QR de registro</h2>
+            </div>
+            <div className="rounded-lg bg-white p-3">
+              <Image
+                src="/uploads/images/QR-GYM.png"
+                alt="Código QR de acceso"
+                width={220}
+                height={220}
+                className="mx-auto"
+              />
+            </div>
+            <button
+              onClick={handleDownloadQR}
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-yellow-400 px-4 py-2.5 font-semibold text-black transition hover:bg-yellow-300"
+            >
+              <Download className="h-4 w-4" />
+              Exportar QR
+            </button>
+          </aside>
+        </section>
+      </main>
+    </div>
+  );
+}
+
+function Metric({
+  icon,
+  label,
+  value,
+  tone = "default",
+}: {
+  icon: ReactNode;
+  label: string;
+  value: number | string;
+  tone?: "default" | "yellow";
+}) {
+  return (
+    <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+      <div className={`flex items-center gap-2 text-sm ${tone === "yellow" ? "text-yellow-400" : "text-zinc-400"}`}>
+        {icon}
+        {label}
+      </div>
+      <div className="mt-3 text-2xl font-black text-white">{value}</div>
     </div>
   );
 }

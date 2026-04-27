@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-// Solo usar el servicio C# biometric-service (puerto 8002)
-const BIOMETRIC_BASE = process.env.BIOMETRIC_CAPTURE_BASE || "http://127.0.0.1:8002";
+// Solo usar el servicio C# biometric-service (puerto local 8001)
+const BIOMETRIC_BASE = process.env.BIOMETRIC_CAPTURE_BASE || "http://127.0.0.1:8001";
 const TIMEOUT_MS = 15_000;
 
 function timeoutFetch(input: RequestInfo | URL, init?: RequestInit, ms = TIMEOUT_MS) {
@@ -29,8 +29,14 @@ export async function POST(
 
     // Lee body y normaliza entradas
     const raw: unknown = await req.json().catch(() => ({} as unknown));
-    type IncomingBody = { templates?: unknown; template?: unknown };
+    type IncomingBody = { templates?: unknown; template?: unknown; fingerIndex?: unknown; finger_index?: unknown };
     const body = raw as IncomingBody;
+    const rawFingerIndex = body.fingerIndex ?? body.finger_index ?? 0;
+    const fingerIndex = Number.isInteger(Number(rawFingerIndex)) ? Number(rawFingerIndex) : 0;
+
+    if (fingerIndex < 0 || fingerIndex > 9) {
+      return NextResponse.json({ ok: false, message: "fingerIndex debe estar entre 0 y 9" }, { status: 400 });
+    }
 
     const templatesBody = Array.isArray(body?.templates)
       ? (body.templates as unknown[])
@@ -67,7 +73,7 @@ export async function POST(
     // Registrar usando el endpoint /enroll del servicio C# biometric-service
     const enrollPayload = {
       userId: id,
-      fingerIndex: 0, // Dedo índice por defecto
+      fingerIndex,
       samplesB64: templates
     };
 

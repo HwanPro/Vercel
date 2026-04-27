@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/infrastructure/prisma/prisma";
 
-const BASE = process.env.BIOMETRIC_BASE || "http://127.0.0.1:8002";
+const BASE = process.env.BIOMETRIC_BASE || "http://127.0.0.1:8001";
 export const dynamic = "force-dynamic";
 
 export async function DELETE(
@@ -26,8 +26,8 @@ export async function DELETE(
 
     console.log(`[DELETE] Huella eliminada de BD para usuario ${userId}: ${deletedFingerprint.count} registros`);
 
-    // 2. Opcional: También eliminar del dispositivo/servicio Python si es necesario
-    // (Por ahora no es necesario ya que el servicio Python lee desde la BD)
+    // 2. Refrescar cache del servicio C# para que 1:N no conserve huellas eliminadas.
+    await fetch(`${BASE}/cache/reload`, { method: "POST", cache: "no-store" }).catch(() => null);
 
     return NextResponse.json({
       ok: true,

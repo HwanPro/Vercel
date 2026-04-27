@@ -2,40 +2,86 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Providers from "./providers";
 
+const siteUrl = "https://wolf-gym.com";
+const siteName = "Wolf Gym";
+const logoPath = "/wolf-gym-logo.png";
+const title = "Wolf Gym - Gimnasio en Ica | Entrena con equipos de calidad";
+const description =
+  "Wolf Gym en Ica: gimnasio con equipos de calidad, planes accesibles, tienda deportiva y control de asistencia para clientes.";
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://wolfgym.com"),
-  title: "Wolf Gym - Gimnasio en Ica | Equipos de Calidad",
-  description:
-    "Wolf Gym en Ica - El mejor gimnasio con equipos de calidad, entrenadores expertos y planes accesibles. Libera tu lobo interior.",
+  metadataBase: new URL(siteUrl),
+  applicationName: siteName,
+  title: {
+    default: title,
+    template: `%s | ${siteName}`,
+  },
+  description,
   keywords: [
     "gimnasio Ica",
     "Wolf Gym",
+    "Wolf Gym Ica",
     "fitness Ica",
+    "gym en Ica",
     "entrenamiento personal",
     "membresias gimnasio",
-    "gym Ica Peru",
+    "membresías gimnasio Ica",
+    "gym Ica Perú",
+    "tienda fitness Ica",
   ],
   authors: [{ name: "Wolf Gym" }],
-  robots: { index: true, follow: true },
+  creator: "Wolf Gym",
+  publisher: "Wolf Gym",
+  category: "Fitness",
+  manifest: "/site.webmanifest",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
   openGraph: {
     type: "website",
-    title: "Wolf Gym - Gimnasio en Ica | Equipos de Calidad",
-    description:
-      "El mejor gimnasio de Ica con equipos de calidad, entrenadores expertos y planes accesibles.",
-    siteName: "Wolf Gym",
+    title,
+    description,
+    siteName,
     locale: "es_PE",
-    url: "https://wolfgym.com",
-    images: [{ url: "/uploads/images/logo2.jpg" }],
+    url: siteUrl,
+    images: [
+      {
+        url: logoPath,
+        width: 512,
+        height: 512,
+        alt: "Logo de Wolf Gym",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Wolf Gym - Gimnasio en Ica | Equipos de Calidad",
-    description:
-      "El mejor gimnasio de Ica con equipos de calidad, entrenadores expertos y planes accesibles.",
-    images: ["/uploads/images/logo2.jpg"],
+    title,
+    description,
+    images: [logoPath],
   },
-  icons: { icon: "/favicon.ico" },
-  alternates: { canonical: "https://wolfgym.com" },
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    shortcut: ["/favicon.ico"],
+  },
+  alternates: { canonical: siteUrl },
+  formatDetection: {
+    telephone: false,
+    address: false,
+    email: false,
+  },
 };
 
 export const viewport: Viewport = {
@@ -50,10 +96,8 @@ export default function RootLayout({
     "@context": "https://schema.org",
     "@type": "Gym",
     name: "Wolf Gym",
-    description:
-      "Gimnasio en Ica con equipos de calidad y entrenadores expertos",
-    url: "https://wolfgym.com",
-    telephone: "+51-XXX-XXX-XXX",
+    description,
+    url: siteUrl,
     address: {
       "@type": "PostalAddress",
       streetAddress: "Av. Peru 622",
@@ -68,11 +112,8 @@ export default function RootLayout({
     },
     openingHours: ["Mo-Fr 06:00-21:00", "Sa 06:00-20:00"],
     priceRange: "S/60 - S/350",
-    image: "/uploads/images/logo2.jpg",
-    sameAs: [
-      "https://www.facebook.com/wolfgym",
-      "https://www.instagram.com/wolfgym",
-    ],
+    image: `${siteUrl}${logoPath}`,
+    logo: `${siteUrl}${logoPath}`,
   };
 
   return (

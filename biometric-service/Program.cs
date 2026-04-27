@@ -43,49 +43,20 @@ try
     builder.WebHost.ConfigureKestrel(k =>
     {
         k.Limits.MaxRequestBodySize = 5 * 1024 * 1024; // 5MB por si envías imágenes
-        
-        // Configuración según el entorno
-        var isDevelopment = builder.Environment.IsDevelopment();
-        if (isDevelopment)
-        {
-            // Desarrollo: solo localhost
-            k.ListenLocalhost(8002);
-        }
-        else
-        {
-            // Producción: todas las interfaces
-            k.ListenAnyIP(8002);
-        }
+
+        var port = builder.Configuration.GetValue<int?>("BiometricService:Port") ?? 8001;
+        // El servicio biométrico debe ser local. Next.js lo consume desde la misma PC.
+        k.ListenLocalhost(port);
     });
 
-    // CORS: configuración para desarrollo y producción
+    // CORS: solo la app local. No exponer el servicio biométrico a la red.
     builder.Services.AddCors(options =>
     {
         options.AddDefaultPolicy(policy =>
         {
-            var isDevelopment = builder.Environment.IsDevelopment();
-            if (isDevelopment)
-            {
-                // Desarrollo: solo localhost
-                policy.WithOrigins(
-                        "http://localhost:3000", 
-                        "http://127.0.0.1:3000"
-                      )
-                      .AllowAnyMethod()
-                      .AllowAnyHeader();
-            }
-            else
-            {
-                // Producción: dominios de Wolf Gym
-                policy.WithOrigins(
-                        "https://wolf-gym.com",
-                        "https://www.wolf-gym.com",
-                        "http://wolf-gym.com",
-                        "http://www.wolf-gym.com"
-                      )
-                      .AllowAnyMethod()
-                      .AllowAnyHeader();
-            }
+            policy.WithOrigins("http://localhost:3000", "http://127.0.0.1:3000")
+            .AllowAnyMethod()
+            .AllowAnyHeader();
         });
     });
 
@@ -110,11 +81,29 @@ try
     builder.Services.AddSingleton<ZKFingerService>();
     builder.Services.AddScoped<FingerprintRepository>();
 
-    // Watchdog que mantiene device/DB listos (auto-recuperación)
-    // DESHABILITADO TEMPORALMENTE - causaba crash al iniciar
-    // builder.Services.AddHostedService<BiometricWatchdog>();
+    // Watchdog y cache biométrica
+    builder.Services.AddHostedService<BiometricWatchdog>();
+    builder.Services.AddHostedService<FingerprintCacheWarmup>();
 
     var app = builder.Build();
+
+    // ── Cargar configuración biométrica en el servicio ──────────────────────
+    // Bug fix: el threshold de appsettings.json nunca se aplicaba al servicio
+    var zkService = app.Services.GetRequiredService<ZKFingerService>();
+    var bioConfig = app.Configuration.GetSection("BiometricService");
+    if (int.TryParse(bioConfig["Threshold"], out var cfgThreshold) && cfgThreshold > 0)
+        zkService.Threshold = cfgThreshold;
+    if (int.TryParse(bioConfig["CaptureTimeout"], out var cfgTimeout) && cfgTimeout > 0)
+        zkService.CaptureTimeout = cfgTimeout;
+    if (bool.TryParse(bioConfig["MergeSamples"], out var cfgMerge))
+        zkService.MergeSamples = cfgMerge;
+    if (int.TryParse(bioConfig["AmbiguityMargin"], out var cfgAmbiguity) && cfgAmbiguity >= 0)
+        zkService.AmbiguityMargin = cfgAmbiguity;
+    Log.Information("Biometric config loaded: Threshold={Thr} Timeout={T} Merge={M} AmbiguityMargin={A}",
+        zkService.Threshold, zkService.CaptureTimeout, zkService.MergeSamples, zkService.AmbiguityMargin);
+
+    // ── Auto-detección de libzkfp.dll ────────────────────────────────────────
+    WolfGym.BiometricService.Utils.DllFinder.EnsureDllsPresent(Log.Logger);
 
     // Middleware global de errores (no mata el proceso)
     app.UseExceptionHandler(errorApp =>
@@ -147,8 +136,9 @@ try
     app.MapHealthChecks("/health");
 
     // Logs de ciclo de vida (útil si Windows reinicia el servicio)
+    var boundPort = app.Configuration.GetValue<int?>("BiometricService:Port") ?? 8001;
     app.Lifetime.ApplicationStarted.Register(() =>
-        Log.Information("Service started successfully on http://127.0.0.1:8002"));
+        Log.Information("Service started successfully on http://127.0.0.1:{Port}", boundPort));
     app.Lifetime.ApplicationStopping.Register(() =>
         Log.Information("Service stopping..."));
     app.Lifetime.ApplicationStopped.Register(() =>
@@ -187,15 +177,11 @@ public sealed class BiometricWatchdog : BackgroundService
         {
             try
             {
-                // Invoca el método internal EnsureOpenWithDb() por reflexión
-                var mi = typeof(ZKFingerService)
-                    .GetMethod("EnsureOpenWithDb", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-
-                if (mi != null)
+                if (!_zk.IsDeviceOpen || !_zk.HasDatabase)
                 {
-                    var result = (ValueTuple<bool, string?>) (mi.Invoke(_zk, null) ?? (false, "no-result"));
-                    if (!result.Item1)
-                        _logger.LogWarning("Watchdog EnsureOpenWithDb failed: {err}", result.Item2);
+                    var result = _zk.RecoverDevice();
+                    if (!result.success)
+                        _logger.LogWarning("Watchdog recovery failed: {Error}", result.error);
                 }
             }
             catch (Exception ex)
@@ -206,5 +192,37 @@ public sealed class BiometricWatchdog : BackgroundService
             await Task.Delay(TimeSpan.FromSeconds(20), stoppingToken);
         }
         _logger.LogInformation("Watchdog stopped");
+    }
+}
+
+public sealed class FingerprintCacheWarmup : BackgroundService
+{
+    private readonly ILogger<FingerprintCacheWarmup> _logger;
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ZKFingerService _zk;
+
+    public FingerprintCacheWarmup(
+        ILogger<FingerprintCacheWarmup> logger,
+        IServiceScopeFactory scopeFactory,
+        ZKFingerService zk)
+    {
+        _logger = logger;
+        _scopeFactory = scopeFactory;
+        _zk = zk;
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        try
+        {
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var repository = scope.ServiceProvider.GetRequiredService<FingerprintRepository>();
+            var all = await repository.GetAllFingerprintsAsync();
+            _zk.ReplaceFingerprintCache(all.Select(f => new FingerprintCacheEntry(f.userId, f.fingerIndex, f.template)));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Fingerprint cache warmup failed; cache will reload on first identify");
+        }
     }
 }

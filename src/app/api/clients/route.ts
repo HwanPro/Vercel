@@ -52,7 +52,15 @@ export async function GET(request: NextRequest) {
         profile_emergency_phone: true,
         profile_address: true,
         profile_social: true,
-        user: { select: { id: true, role: true, username: true, createdAt: true } },
+        user: {
+          select: {
+            id: true,
+            role: true,
+            username: true,
+            createdAt: true,
+            fingerprints: { select: { id: true }, take: 1 },
+          },
+        },
       },
     });
     return NextResponse.json(clients, { status: 200 });

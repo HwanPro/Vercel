@@ -25,6 +25,12 @@ function calcDaysLeft(endDate?: Date | null) {
   const ONE_DAY = 24 * 60 * 60 * 1000;
   return Math.max(0, Math.ceil(diff / ONE_DAY));
 }
+function isMembershipExpired(endDate?: Date | null) {
+  if (!endDate) return false;
+  const today = new Date();
+  const floorToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  return endDate.getTime() < floorToday.getTime();
+}
 function only9Digits(pePhoneLike: string) {
   const d = String(pePhoneLike || "").replace(/\D/g, "");
   // devolver últimos 9 para casos con +51
@@ -35,8 +41,28 @@ function only9Digits(pePhoneLike: string) {
 const REBOUND_SECONDS = 60;      // antirrebote (segundos)
 const MAX_ENTRIES_PER_DAY = 2;   // cantidad máxima de entradas por día
 
-async function closeIfOpenOrCreate(userId: string) {
+type AttendanceIntent = "checkin" | "checkout";
+
+async function closeIfOpenOrCreate(userId: string, intent: AttendanceIntent) {
   const { start, end } = todayRangeLima();
+
+  const profile = await prisma.clientProfile.findUnique({
+    where: { user_id: userId },
+    select: {
+      profile_end_date: true,
+      debt: true,
+    },
+  });
+
+  if (intent === "checkin" && isMembershipExpired(profile?.profile_end_date)) {
+    return {
+      ok: false as const,
+      reason: "membership_expired" as const,
+      message: "Membresía vencida. Renovar antes de marcar entrada",
+      endDate: profile?.profile_end_date ?? null,
+      monthlyDebt: profile?.debt !== null && profile?.debt !== undefined ? Number(profile.debt) : 0,
+    };
+  }
 
   // Antirrebote: si acaban de hacer check-in abierto, ignorar
   const rebound = await prisma.attendance.findFirst({
@@ -57,6 +83,15 @@ async function closeIfOpenOrCreate(userId: string) {
   });
 
   if (open) {
+    if (intent === "checkin") {
+      return {
+        ok: true as const,
+        ignored: true as const,
+        type: "already_open" as const,
+        record: open,
+      };
+    }
+
     // Cerrar (checkout)
     const salida = limaNow();
     const durationMins = Math.max(
@@ -68,6 +103,14 @@ async function closeIfOpenOrCreate(userId: string) {
       data: { checkOutTime: salida, durationMins },
     });
     return { ok: true as const, type: "checkout" as const, record: updated };
+  }
+
+  if (intent === "checkout") {
+    return {
+      ok: false as const,
+      reason: "no_open_attendance" as const,
+      message: "No hay una entrada abierta para registrar salida",
+    };
   }
 
   // Límite por día (solo contamos check-ins del día)
@@ -153,6 +196,7 @@ async function getProfileInfo(userId: string) {
     dailyDebt,
     totalDebt: monthlyDebt + dailyDebt,
     daysLeft,
+    membershipExpired: isMembershipExpired(profile?.profile_end_date),
     avatarUrl: user?.image ?? null,
     profileId: profile?.profile_id ?? null,
   };
@@ -164,6 +208,7 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({} as any));
     const userId: string | undefined = body?.userId;
     const phoneRaw: string | undefined = body?.phone;
+    const intent: AttendanceIntent = body?.intent === "checkout" ? "checkout" : "checkin";
 
     // ---- HUELLAS (userId) ----
     if (userId) {
@@ -175,10 +220,23 @@ export async function POST(req: Request) {
         );
       }
 
-      const res = await closeIfOpenOrCreate(user.id);
+      const res = await closeIfOpenOrCreate(user.id, intent);
       if (!res.ok) {
+        const info = await getProfileInfo(user.id);
         return NextResponse.json(
-          { ok: false, message: res.message, reason: res.reason },
+          {
+            ok: false,
+            message: res.message,
+            reason: res.reason,
+            fullName: info.fullName,
+            endDate: info.endDate,
+            daysLeft: info.daysLeft,
+            monthlyDebt: info.monthlyDebt,
+            dailyDebt: info.dailyDebt,
+            totalDebt: info.totalDebt,
+            avatarUrl: info.avatarUrl,
+            profileId: info.profileId,
+          },
           { status: 400 }
         );
       }
@@ -193,16 +251,19 @@ export async function POST(req: Request) {
         startDate: info.startDate,
         endDate: info.endDate,
         daysLeft: info.daysLeft,
+        membershipExpired: info.membershipExpired,
         monthlyDebt: info.monthlyDebt,
         dailyDebt: info.dailyDebt,
         totalDebt: info.totalDebt,
         avatarUrl: info.avatarUrl,
         profileId: info.profileId,
-        action: res.type === "checkout" ? "checkout" : "checkin",
+        action: res.type === "checkout" ? "checkout" : res.type === "already_open" ? "already_open" : "checkin",
         type: res.type,
         message:
           res.type === "checkout"
             ? "Salida registrada"
+            : res.type === "already_open"
+              ? "Entrada ya estaba abierta"
             : res.type === "rebote"
               ? "Registro ya tomado"
               : "Entrada registrada",
@@ -211,7 +272,7 @@ export async function POST(req: Request) {
       };
 
       // Broadcast a todas las salas (o puedes usar una sala específica)
-      if (res.type !== "rebote") {
+      if (res.type !== "rebote" && res.type !== "already_open") {
         broadcastToRoom("default", responseData);
       }
 
@@ -259,10 +320,23 @@ export async function POST(req: Request) {
         );
       }
 
-      const res = await closeIfOpenOrCreate(userIdFromPhone);
+      const res = await closeIfOpenOrCreate(userIdFromPhone, intent);
       if (!res.ok) {
+        const info = await getProfileInfo(userIdFromPhone);
         return NextResponse.json(
-          { ok: false, message: res.message, reason: res.reason },
+          {
+            ok: false,
+            message: res.message,
+            reason: res.reason,
+            fullName: info.fullName,
+            endDate: info.endDate,
+            daysLeft: info.daysLeft,
+            monthlyDebt: info.monthlyDebt,
+            dailyDebt: info.dailyDebt,
+            totalDebt: info.totalDebt,
+            avatarUrl: info.avatarUrl,
+            profileId: info.profileId,
+          },
           { status: 400 }
         );
       }
@@ -277,16 +351,19 @@ export async function POST(req: Request) {
         startDate: info.startDate,
         endDate: info.endDate,
         daysLeft: info.daysLeft,
+        membershipExpired: info.membershipExpired,
         monthlyDebt: info.monthlyDebt,
         dailyDebt: info.dailyDebt,
         totalDebt: info.totalDebt,
         avatarUrl: info.avatarUrl,
         profileId: info.profileId,
-        action: res.type === "checkout" ? "checkout" : "checkin",
+        action: res.type === "checkout" ? "checkout" : res.type === "already_open" ? "already_open" : "checkin",
         type: res.type,
         message:
           res.type === "checkout"
             ? "Salida registrada"
+            : res.type === "already_open"
+              ? "Entrada ya estaba abierta"
             : res.type === "rebote"
               ? "Registro ya tomado"
               : "Entrada registrada",
@@ -295,7 +372,7 @@ export async function POST(req: Request) {
       };
 
       // Broadcast a todas las salas
-      if (res.type !== "rebote") {
+      if (res.type !== "rebote" && res.type !== "already_open") {
         broadcastToRoom("default", responseData);
       }
 

@@ -22,6 +22,16 @@ body {
   z-index: 10000 !important;
 }
 
+.swal2-popup .swal2-styled.swal-confirm-black {
+  color: #050505 !important;
+  font-weight: 700 !important;
+}
+
+.swal2-popup .swal2-styled.swal-cancel-contrast {
+  background: #27272a !important;
+  color: #fafafa !important;
+}
+
 /* Asegurar que los overlays de Radix no bloqueen SweetAlert2 */
 [data-radix-dialog-overlay] {
   z-index: 50 !important;

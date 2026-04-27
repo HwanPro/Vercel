@@ -11,14 +11,14 @@ netstat -ano | findstr ":8001"
 
 echo 3. Iniciando SOLO el servicio C# biometrico...
 cd /d "D:\DiscoE\new-gym\csharp-biometric-service\ZKBiometricAPI"
-start "ZK C# Service" dotnet run --configuration Release --urls http://localhost:8002
+start "ZK C# Service" dotnet run --configuration Release --urls http://localhost:8001
 
 echo 4. Esperando que el servicio inicie...
 timeout 5
 
 echo 5. Probando el dispositivo...
-curl -s http://localhost:8002/health
-curl -X POST http://localhost:8002/device/open
+curl -s http://localhost:8001/health
+curl -X POST http://localhost:8001/device/open
 
 echo ==============================
 echo CONFIGURACION COMPLETADA

@@ -6,11 +6,11 @@ import prisma from "@/infrastructure/prisma/prisma";
 const CAPTURE_BASE =
   process.env.BIOMETRIC_CAPTURE_BASE ||
   process.env.BIOMETRIC_BASE ||
-  "http://127.0.0.1:8002";
+  "http://127.0.0.1:8001";
 const IDENTIFY_BASE =
   process.env.BIOMETRIC_STORE_BASE ||
   process.env.NEXT_PUBLIC_BIOMETRIC_BASE ||
-  "http://127.0.0.1:8002";
+  "http://127.0.0.1:8001";
 
 export const dynamic = "force-dynamic";
 
@@ -60,11 +60,6 @@ export async function POST(req: Request) {
       }
       templateBase64 = capData.template as string;
       
-      // Cerrar el dispositivo después de la captura
-      await fetch(`${CAPTURE_BASE}/device/close`, {
-        method: "POST",
-        cache: "no-store",
-      }).catch(() => null);
     }
 
     // 2) Identificar en el servicio C# (1:N)
@@ -112,7 +107,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // 3) Obtener información del usuario y validar perfil activo
+    // 3) Obtener información del usuario. La biometría solo decide identidad;
+    //    vigencia/deuda se muestran en el flujo de check-in.
     const userId = bestMatch.userId as string;
 
     const user = await prisma.user.findUnique({
@@ -146,32 +142,15 @@ export async function POST(req: Request) {
       },
     });
 
-    if (!profile) {
-      return NextResponse.json(
-        {
-          ok: true,
-          match: false,
-          message: "Usuario sin perfil de cliente activo",
-        },
-        { status: 200 }
-      );
-    }
-
-    if (profile.profile_end_date && profile.profile_end_date < new Date()) {
-      return NextResponse.json(
-        {
-          ok: true,
-          match: false,
-          message: "Membresía expirada",
-        },
-        { status: 200 }
-      );
-    }
-
     const fullName =
-      `${profile.profile_first_name} ${profile.profile_last_name}`.trim() ||
+      `${profile?.profile_first_name || ""} ${profile?.profile_last_name || ""}`.trim() ||
       `${user.firstName} ${user.lastName}`.trim() ||
       user.username;
+    const today = new Date();
+    const floorToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const membershipExpired = Boolean(
+      profile?.profile_end_date && profile.profile_end_date < floorToday
+    );
 
     return NextResponse.json(
       {
@@ -183,7 +162,14 @@ export async function POST(req: Request) {
         name: fullName, // compat
         score: bestMatch.score,
         threshold: bestMatch.threshold,
-        message: "Usuario identificado correctamente",
+        hasProfile: Boolean(profile),
+        membershipExpired,
+        profileEndDate: profile?.profile_end_date ?? null,
+        message: membershipExpired
+          ? "Usuario identificado con membresía expirada"
+          : profile
+            ? "Usuario identificado correctamente"
+            : "Usuario identificado sin perfil de cliente",
       },
       { status: 200 }
     );

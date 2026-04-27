@@ -1,13 +1,18 @@
 User-agent: *
 Allow: /
-Allow: /auth/login
-Allow: /auth/register
 Allow: /products/public
+Allow: /uploads/images/
+Allow: /favicon.ico
+Allow: /apple-touch-icon.png
+Allow: /icons/
 
 Disallow: /admin/
 Disallow: /api/
-Disallow: /client/
+Disallow: /auth/
 Disallow: /check-in/
+Disallow: /client/
 Disallow: /profile/
+Disallow: /sales/
+Disallow: /swr/
 
-Sitemap: https://wolfgym.com/sitemap.xml
+Sitemap: https://wolf-gym.com/sitemap.xml

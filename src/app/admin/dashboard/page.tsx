@@ -260,7 +260,7 @@ export default function AdminDashboard() {
             href="/admin/clients"
             className="block text-sm font-medium text-white hover:text-yellow-400 no-underline"
           >
-            R-Clientes
+            Clientes
           </Link>
           <Link
             href="/admin/products"
@@ -284,19 +284,19 @@ export default function AdminDashboard() {
             href="/admin/profile"
             className="block text-sm font-medium text-white hover:text-yellow-400 no-underline"
           >
-            Perfil Admin
+            Perfil
           </Link>
           <Link
             href="/admin/attendence"
             className="block text-sm font-medium text-white hover:text-yellow-400 no-underline"
           >
-            Registrarse
+            Historial
           </Link>
           <Link
             href="/check-in"
             className="block text-sm font-medium text-white hover:text-yellow-400 no-underline"
           >
-            Asistencia
+            Recepción
           </Link>
           <Link
             href="/admin/routines"
@@ -308,7 +308,7 @@ export default function AdminDashboard() {
             href="/admin/Edit"
             className="block text-sm font-medium text-white hover:text-yellow-400 no-underline"
           >
-            Editar
+            Contenido
           </Link>
           <button
             type="button"

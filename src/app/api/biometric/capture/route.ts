@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 
 // Forzar base del servicio C# (captura). No usar BIOMETRIC_BASE para evitar colisiones con Python.
-const BASE = process.env.BIOMETRIC_CAPTURE_BASE || "http://127.0.0.1:8002";
+const BASE = process.env.BIOMETRIC_CAPTURE_BASE || "http://127.0.0.1:8001";
 export const dynamic = "force-dynamic";
 
 async function call(path: string, body?: Record<string, unknown>) {
@@ -43,9 +43,6 @@ export async function POST() {
     const c = await call("/capture");
     const jc = (await c.json().catch(() => ({}))) as { ok?: boolean; template?: string; message?: string };
     console.log(`[CAPTURE] Resultado captura: ${JSON.stringify(jc)}`);
-
-    // cerrar en background — si falla, no rompe la respuesta
-    call("/device/close").catch(() => null);
 
     const ok = c.ok && jc?.ok && jc?.template;
     return NextResponse.json(

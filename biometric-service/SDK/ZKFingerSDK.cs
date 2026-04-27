@@ -7,19 +7,32 @@ namespace WolfGym.BiometricService.SDK;
 /// </summary>
 public static class zkfperrdef
 {
+    public const int ZKFP_ERR_ALREADY_INIT = 1;
     public const int ZKFP_ERR_OK = 0;
     public const int ZKFP_ERR_INITLIB = -1;
     public const int ZKFP_ERR_INIT = -2;
-    public const int ZKFP_ERR_OPEN = -3;
-    public const int ZKFP_ERR_INVALID_PARAM = -4;
-    public const int ZKFP_ERR_ALREADY_INIT = -5;
-    public const int ZKFP_ERR_BUSY = -8;
-    public const int ZKFP_ERR_NO_DEVICE = -9;
-    public const int ZKFP_ERR_NOT_INIT = -10;
-    public const int ZKFP_ERR_NOT_OPEN = -11;
-    public const int ZKFP_ERR_CAPTURE = -12;
-    public const int ZKFP_ERR_EXTRACT = -13;
-    public const int ZKFP_ERR_ABSORT = -14;
+    public const int ZKFP_ERR_NO_DEVICE = -3;
+    public const int ZKFP_ERR_NOT_SUPPORT = -4;
+    public const int ZKFP_ERR_INVALID_PARAM = -5;
+    public const int ZKFP_ERR_OPEN = -6;
+    public const int ZKFP_ERR_INVALID_HANDLE = -7;
+    public const int ZKFP_ERR_CAPTURE = -8;
+    public const int ZKFP_ERR_EXTRACT_FP = -9;
+    public const int ZKFP_ERR_ABSORT = -10;
+    public const int ZKFP_ERR_MEMORY_NOT_ENOUGH = -11;
+    public const int ZKFP_ERR_BUSY = -12;
+    public const int ZKFP_ERR_ADD_FINGER = -13;
+    public const int ZKFP_ERR_DEL_FINGER = -14;
+    public const int ZKFP_ERR_FAIL = -17;
+    public const int ZKFP_ERR_CANCEL = -18;
+    public const int ZKFP_ERR_VERIFY_FP = -20;
+    public const int ZKFP_ERR_MERGE = -22;
+    public const int ZKFP_ERR_NOT_OPEN = -23;
+    public const int ZKFP_ERR_NOT_INIT = -24;
+    public const int ZKFP_ERR_ALREADY_OPENED = -25;
+    public const int ZKFP_ERR_LOADIMAGE = -26;
+    public const int ZKFP_ERR_ANALYSE_IMG = -27;
+    public const int ZKFP_ERR_TIMEOUT = -28;
 }
 
 /// <summary>
@@ -49,6 +62,12 @@ public static class zkfp2
     [DllImport(DLL_NAME, EntryPoint = "ZKFPM_GetParameters", CallingConvention = CallingConvention.Cdecl)]
     public static extern int GetParameters(IntPtr devHandle, int code, byte[] paramValue, ref int size);
 
+    [DllImport(DLL_NAME, EntryPoint = "ZKFPM_GetCaptureParamsEx", CallingConvention = CallingConvention.Cdecl)]
+    public static extern int GetCaptureParamsEx(IntPtr devHandle, ref int width, ref int height, ref int dpi);
+
+    [DllImport(DLL_NAME, EntryPoint = "ZKFPM_AcquireFingerprintImage", CallingConvention = CallingConvention.Cdecl)]
+    public static extern int AcquireFingerprintImage(IntPtr devHandle, byte[] fpImage, int imageSize);
+
     // Database
     [DllImport(DLL_NAME, EntryPoint = "ZKFPM_DBInit", CallingConvention = CallingConvention.Cdecl)]
     public static extern IntPtr DBInit();
@@ -60,7 +79,7 @@ public static class zkfp2
     public static extern int DBMerge(IntPtr dbHandle, byte[] temp1, byte[] temp2, byte[] temp3, byte[] regTemp, ref int regTempLen);
 
     [DllImport(DLL_NAME, EntryPoint = "ZKFPM_DBAdd", CallingConvention = CallingConvention.Cdecl)]
-    public static extern int DBAdd(IntPtr dbHandle, int fid, byte[] temp);
+    public static extern int DBAdd(IntPtr dbHandle, uint fid, byte[] temp, int tempLen);
 
     [DllImport(DLL_NAME, EntryPoint = "ZKFPM_DBDel", CallingConvention = CallingConvention.Cdecl)]
     public static extern int DBDel(IntPtr dbHandle, int fid);
@@ -69,10 +88,10 @@ public static class zkfp2
     public static extern int DBClear(IntPtr dbHandle);
 
     [DllImport(DLL_NAME, EntryPoint = "ZKFPM_DBCount", CallingConvention = CallingConvention.Cdecl)]
-    public static extern int DBCount(IntPtr dbHandle);
+    public static extern int DBCount(IntPtr dbHandle, ref uint fpCount);
 
     [DllImport(DLL_NAME, EntryPoint = "ZKFPM_DBIdentify", CallingConvention = CallingConvention.Cdecl)]
-    public static extern int DBIdentify(IntPtr dbHandle, byte[] temp, ref int fid, ref int score);
+    public static extern int DBIdentify(IntPtr dbHandle, byte[] temp, int tempLen, ref uint fid, ref uint score);
 
     [DllImport(DLL_NAME, EntryPoint = "ZKFPM_DBMatch", CallingConvention = CallingConvention.Cdecl)]
     public static extern int DBMatch(IntPtr dbHandle, byte[] temp1, int temp1Len, byte[] temp2, int temp2Len);

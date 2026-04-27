@@ -1,5 +1,5 @@
 // utils/biometric.ts
-export async function detectLocalAgent(base = process.env.NEXT_PUBLIC_BIOMETRIC_BASE || "http://127.0.0.1:8000") {
+export async function detectLocalAgent(base = process.env.NEXT_PUBLIC_BIOMETRIC_BASE || "http://127.0.0.1:8001") {
     try {
       const ctrl = new AbortController();
       setTimeout(() => ctrl.abort(), 800);
@@ -7,4 +7,3 @@ export async function detectLocalAgent(base = process.env.NEXT_PUBLIC_BIOMETRIC_
       return r.ok ? base : null;
     } catch { return null; }
   }
-  
