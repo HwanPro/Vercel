@@ -48,19 +48,7 @@ function Show-Banner {
 function Find-ZKDll {
     param([string]$DllName)
 
-    $searchPaths = @(
-        "C:\Program Files\ZKFingerSDK_Windows_Standard",
-        "C:\Program Files (x86)\ZKFingerSDK_Windows_Standard",
-        "D:\Downloads\ZKFinger SDK V10.0-Windows-Lite",
-        "C:\ZKFinger10",
-        "C:\ZKTeco",
-        "C:\Program Files\ZKTeco",
-        "C:\Program Files (x86)\ZKTeco",
-        "C:\Program Files\ZKFinger SDK",
-        "C:\Program Files (x86)\ZKFinger SDK",
-        $env:ProgramFiles,
-        ${env:ProgramFiles(x86)}
-    )
+    $searchPaths = Get-ZKSearchRoots
 
     # 1. Buscar en System32 / SysWOW64
     $sys32 = Join-Path $env:SystemRoot "System32\$DllName"
@@ -80,6 +68,65 @@ function Find-ZKDll {
     }
 
     return $null
+}
+
+function Get-ZKSearchRoots {
+    $roots = New-Object System.Collections.Generic.List[string]
+
+    function Add-Root([string]$Path) {
+        if ([string]::IsNullOrWhiteSpace($Path)) { return }
+        try {
+            $resolved = Resolve-Path -LiteralPath $Path -ErrorAction SilentlyContinue
+            if ($resolved -and -not $roots.Contains($resolved.ProviderPath)) {
+                [void]$roots.Add($resolved.ProviderPath)
+            }
+        } catch { }
+    }
+
+    @(
+        $env:ZKFINGER_SDK_ROOT,
+        $env:WOLFGYM_ZKFINGER_SDK,
+        "D:\Downloads\ZKFinger SDK V10.0-Windows-Lite",
+        "C:\ZKFinger10",
+        "C:\ZKTeco",
+        "C:\Program Files\ZKFingerSDK_Windows_Standard",
+        "C:\Program Files (x86)\ZKFingerSDK_Windows_Standard",
+        "C:\Program Files\ZKTeco",
+        "C:\Program Files (x86)\ZKTeco",
+        "C:\Program Files\ZKFinger SDK",
+        "C:\Program Files (x86)\ZKFinger SDK",
+        $env:ProgramFiles,
+        ${env:ProgramFiles(x86)}
+    ) | ForEach-Object { Add-Root $_ }
+
+    Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Root -and (Test-Path $_.Root) } | ForEach-Object {
+        $base = $_.Root.TrimEnd('\')
+        @(
+            "$base\Downloads",
+            "$base\SDK",
+            "$base\Drivers",
+            "$base\ZKFinger10",
+            "$base\ZKTeco",
+            "$base\Program Files",
+            "$base\Program Files (x86)"
+        ) | ForEach-Object { Add-Root $_ }
+
+        try {
+            Get-ChildItem -LiteralPath "$base\" -Directory -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -match "ZK|ZKTeco|Finger|SDK" } |
+                ForEach-Object { Add-Root $_.FullName }
+        } catch { }
+
+        try {
+            Get-ChildItem -LiteralPath "$base\Users" -Directory -ErrorAction SilentlyContinue |
+                ForEach-Object {
+                    Add-Root (Join-Path $_.FullName "Downloads")
+                    Add-Root (Join-Path $_.FullName "Desktop")
+                }
+        } catch { }
+    }
+
+    return $roots
 }
 
 function Ensure-ZKDlls {

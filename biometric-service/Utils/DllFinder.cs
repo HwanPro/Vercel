@@ -10,24 +10,7 @@ public static class DllFinder
 {
     private static readonly string[] TargetDlls = ["libzkfp.dll", "libzkfpcsharp.dll"];
 
-    // Patrones de búsqueda por orden de prioridad
-    private static readonly string[] SearchRoots =
-    [
-        Path.Combine(AppContext.BaseDirectory, "vendor", "zkfinger", "x64"),
-        Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "vendor", "zkfinger", "x64")),
-        Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "vendor", "zkfinger", "x64")),
-        @"C:\Program Files\ZKFingerSDK_Windows_Standard",
-        @"C:\Program Files (x86)\ZKFingerSDK_Windows_Standard",
-        @"D:\Downloads\ZKFinger SDK V10.0-Windows-Lite",
-        @"C:\ZKFinger10",
-        @"C:\ZKTeco",
-        @"C:\Program Files\ZKTeco",
-        @"C:\Program Files (x86)\ZKTeco",
-        @"C:\Program Files\ZKFinger SDK",
-        @"C:\Program Files (x86)\ZKFinger SDK",
-        Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
-        Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
-    ];
+    private const int MaxSearchDepth = 7;
 
     public static void EnsureDllsPresent(Serilog.ILogger logger)
     {
@@ -66,8 +49,8 @@ public static class DllFinder
 
     private static string? FindDll(string dllName)
     {
-        // 1. Buscar en rutas conocidas del SDK (x64 primero)
-        foreach (var root in SearchRoots)
+        // 1. Buscar en rutas conocidas del SDK en todos los discos (x64 primero)
+        foreach (var root in GetSearchRoots())
         {
             if (!Directory.Exists(root)) continue;
 
@@ -84,14 +67,87 @@ public static class DllFinder
         if (File.Exists(sysWow)) return sysWow;
 
         // 3. Búsqueda recursiva en Program Files (más lenta, último recurso)
-        foreach (var root in SearchRoots.Distinct())
+        foreach (var root in GetSearchRoots().Distinct())
         {
             if (!Directory.Exists(root)) continue;
-            var found = SearchRecursive(root, dllName, maxDepth: 5);
+            var found = SearchRecursive(root, dllName, maxDepth: MaxSearchDepth);
             if (found != null) return found;
         }
 
         return null;
+    }
+
+    private static IEnumerable<string> GetSearchRoots()
+    {
+        var roots = new List<string>();
+
+        void Add(string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return;
+            try
+            {
+                var full = Path.GetFullPath(path);
+                if (Directory.Exists(full) && !roots.Any(r => string.Equals(r, full, StringComparison.OrdinalIgnoreCase)))
+                    roots.Add(full);
+            }
+            catch { }
+        }
+
+        Add(Path.Combine(AppContext.BaseDirectory, "vendor", "zkfinger", "x64"));
+        Add(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "vendor", "zkfinger", "x64")));
+        Add(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "vendor", "zkfinger", "x64")));
+        Add(Environment.GetEnvironmentVariable("ZKFINGER_SDK_ROOT"));
+        Add(Environment.GetEnvironmentVariable("WOLFGYM_ZKFINGER_SDK"));
+
+        Add(@"D:\Downloads\ZKFinger SDK V10.0-Windows-Lite");
+        Add(@"C:\ZKFinger10");
+        Add(@"C:\ZKTeco");
+        Add(@"C:\Program Files\ZKFingerSDK_Windows_Standard");
+        Add(@"C:\Program Files (x86)\ZKFingerSDK_Windows_Standard");
+        Add(@"C:\Program Files\ZKTeco");
+        Add(@"C:\Program Files (x86)\ZKTeco");
+        Add(@"C:\Program Files\ZKFinger SDK");
+        Add(@"C:\Program Files (x86)\ZKFinger SDK");
+        Add(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles));
+        Add(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86));
+
+        foreach (var drive in DriveInfo.GetDrives().Where(d => d.IsReady && d.DriveType == DriveType.Fixed))
+        {
+            var root = drive.RootDirectory.FullName.TrimEnd('\\');
+            Add(Path.Combine(root + "\\", "Downloads"));
+            Add(Path.Combine(root + "\\", "SDK"));
+            Add(Path.Combine(root + "\\", "Drivers"));
+            Add(Path.Combine(root + "\\", "ZKFinger10"));
+            Add(Path.Combine(root + "\\", "ZKTeco"));
+            Add(Path.Combine(root + "\\", "Program Files"));
+            Add(Path.Combine(root + "\\", "Program Files (x86)"));
+
+            try
+            {
+                foreach (var dir in Directory.EnumerateDirectories(root + "\\")
+                    .Where(d => Path.GetFileName(d).Contains("ZK", StringComparison.OrdinalIgnoreCase)
+                             || Path.GetFileName(d).Contains("Finger", StringComparison.OrdinalIgnoreCase)
+                             || Path.GetFileName(d).Contains("SDK", StringComparison.OrdinalIgnoreCase)))
+                {
+                    Add(dir);
+                }
+            }
+            catch { }
+
+            var usersDir = Path.Combine(root + "\\", "Users");
+            if (!Directory.Exists(usersDir)) continue;
+            try
+            {
+                foreach (var userDir in Directory.EnumerateDirectories(usersDir))
+                {
+                    Add(Path.Combine(userDir, "Downloads"));
+                    Add(Path.Combine(userDir, "Desktop"));
+                }
+            }
+            catch { }
+        }
+
+        return roots;
     }
 
     private static string? TryFindInSubdirs(string root, string dllName, bool preferX64)

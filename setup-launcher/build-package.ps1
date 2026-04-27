@@ -153,15 +153,48 @@ Set-Content (Join-Path $DIST "WolfGym.bat") $batContent -Encoding UTF8
 Write-Host "Buscando DLLs de ZKTeco para incluir en el paquete..." -ForegroundColor Cyan
 
 $zkDlls = @("libzkfp.dll", "libzkfpcsharp.dll")
-$zkSearchPaths = @(
-    "C:\Program Files\ZKFingerSDK_Windows_Standard",
-    "C:\Program Files (x86)\ZKFingerSDK_Windows_Standard",
-    "D:\Downloads\ZKFinger SDK V10.0-Windows-Lite",
-    "C:\ZKFinger10",
-    "C:\ZKTeco",
-    "$env:SystemRoot\System32",
-    "$env:SystemRoot\SysWOW64"
-)
+
+function Get-ZKSearchRoots {
+    $roots = New-Object System.Collections.Generic.List[string]
+    function Add-Root([string]$Path) {
+        if ([string]::IsNullOrWhiteSpace($Path)) { return }
+        try {
+            $resolved = Resolve-Path -LiteralPath $Path -ErrorAction SilentlyContinue
+            if ($resolved -and -not $roots.Contains($resolved.ProviderPath)) {
+                [void]$roots.Add($resolved.ProviderPath)
+            }
+        } catch { }
+    }
+
+    @(
+        $env:ZKFINGER_SDK_ROOT,
+        $env:WOLFGYM_ZKFINGER_SDK,
+        "D:\Downloads\ZKFinger SDK V10.0-Windows-Lite",
+        "C:\ZKFinger10",
+        "C:\ZKTeco",
+        "C:\Program Files\ZKFingerSDK_Windows_Standard",
+        "C:\Program Files (x86)\ZKFingerSDK_Windows_Standard",
+        "C:\Program Files\ZKTeco",
+        "C:\Program Files (x86)\ZKTeco",
+        "$env:SystemRoot\System32",
+        "$env:SystemRoot\SysWOW64"
+    ) | ForEach-Object { Add-Root $_ }
+
+    Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Root -and (Test-Path $_.Root) } | ForEach-Object {
+        $base = $_.Root.TrimEnd('\')
+        @("$base\Downloads", "$base\SDK", "$base\Drivers", "$base\ZKFinger10", "$base\ZKTeco") |
+            ForEach-Object { Add-Root $_ }
+        try {
+            Get-ChildItem -LiteralPath "$base\" -Directory -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -match "ZK|ZKTeco|Finger|SDK" } |
+                ForEach-Object { Add-Root $_.FullName }
+        } catch { }
+    }
+
+    return $roots
+}
+
+$zkSearchPaths = Get-ZKSearchRoots
 
 foreach ($dll in $zkDlls) {
     $dest = Join-Path $BIO_DEST $dll
@@ -230,7 +263,8 @@ Write-Host ""
 Write-Host "Contenido:" -ForegroundColor Yellow
 Get-ChildItem $DIST | ForEach-Object {
     $size = if ($_.PSIsContainer) {
-        "$((Get-ChildItem $_.FullName -Recurse -File | Measure-Object Length -Sum).Sum / 1MB | [math]::Round(1)) MB"
+        $bytes = (Get-ChildItem $_.FullName -Recurse -File | Measure-Object Length -Sum).Sum
+        "$([math]::Round($bytes / 1MB, 1)) MB"
     } else {
         "$([math]::Round($_.Length / 1KB, 1)) KB"
     }
