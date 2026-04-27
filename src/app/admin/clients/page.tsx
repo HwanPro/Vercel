@@ -261,6 +261,43 @@ export default function ClientsPage() {
     return String(va).localeCompare(String(vb), "es", { sensitivity: "base" });
   }, []);
 
+  const getMembershipDays = (membershipEnd: string) => {
+    if (!membershipEnd) {
+      return {
+        label: "Sin fecha",
+        className: "border-zinc-700 bg-zinc-900 text-zinc-300",
+      };
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const end = new Date(`${membershipEnd}T00:00:00`);
+    const diffDays = Math.ceil((end.getTime() - today.getTime()) / 86_400_000);
+
+    if (diffDays < 0) {
+      const days = Math.abs(diffDays);
+      return {
+        label: `Venció hace ${days} ${days === 1 ? "día" : "días"}`,
+        className: "border-red-500/40 bg-red-600/15 text-red-300",
+      };
+    }
+
+    if (diffDays === 0) {
+      return {
+        label: "Vence hoy",
+        className: "border-amber-400/50 bg-amber-500/15 text-amber-200",
+      };
+    }
+
+    return {
+      label: `${diffDays} ${diffDays === 1 ? "día" : "días"}`,
+      className:
+        diffDays <= 7
+          ? "border-amber-400/50 bg-amber-500/15 text-amber-200"
+          : "border-green-500/40 bg-green-600/15 text-green-300",
+    };
+  };
+
   // Define Client type for the new client data
   interface NewClientData {
     firstName: string;
@@ -897,6 +934,7 @@ export default function ClientsPage() {
                         : ""}
                     </button>
                   </TableHead>
+                  <TableHead className="text-xs uppercase tracking-wide !text-yellow-300">Días</TableHead>
 
                   {/* Columna opcional: Fecha de registro (si API la expone) */}
                   <TableHead className="text-xs uppercase tracking-wide !text-yellow-300">
@@ -924,6 +962,7 @@ export default function ClientsPage() {
                   filteredClients.map((client) => {
                     const uid = client.userId || client.id;
                     const has = fpStatus[uid] ?? Boolean(client.hasFingerprint);
+                    const membershipDays = getMembershipDays(client.membershipEnd);
                     return (
                       <TableRow
                         key={client.id}
@@ -943,6 +982,11 @@ export default function ClientsPage() {
                         </TableCell>
                         <TableCell className="text-zinc-300">{client.membershipStart || "—"}</TableCell>
                         <TableCell className="text-zinc-300">{client.membershipEnd || "—"}</TableCell>
+                        <TableCell>
+                          <span className={`inline-flex whitespace-nowrap rounded-full border px-2 py-1 text-xs font-semibold ${membershipDays.className}`}>
+                            {membershipDays.label}
+                          </span>
+                        </TableCell>
                         <TableCell className="text-zinc-400">{client.createdAt || "—"}</TableCell>
                         <TableCell>
                           <Button
@@ -1048,7 +1092,7 @@ export default function ClientsPage() {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={9} className="py-10 text-center text-zinc-500">
+                    <TableCell colSpan={10} className="py-10 text-center text-zinc-500">
                       No hay clientes disponibles
                     </TableCell>
                   </TableRow>
