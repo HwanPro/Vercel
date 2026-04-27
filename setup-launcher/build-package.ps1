@@ -217,46 +217,42 @@ foreach ($dll in $zkDlls) {
     }
 }
 
-# ── 6. README de inicio rápido ────────────────────────────────────────────────
-$readme = @"
-╔══════════════════════════════════════════════════════════╗
-║              WOLF GYM - INICIO RÁPIDO                    ║
-╚══════════════════════════════════════════════════════════╝
-
-REQUISITOS PREVIOS (instalar una sola vez):
-  1. Node.js 20+        → https://nodejs.org
-  2. Driver ZKTeco ZK9500 → Incluido en el CD del dispositivo
-                            o en https://www.zktecousa.com
-
-CÓMO INICIAR:
-  1. Conecte el lector de huellas (USB)
-  2. Doble clic en  WolfGym.bat
-  3. El navegador se abre automáticamente en http://localhost:3000
-
-ACCESO DESDE OTRA PC EN LA RED:
-  Abrir en el navegador: http://IP_DE_ESTA_PC:3000
-  (La IP aparece al ejecutar: ipconfig en CMD)
-
-PRIMERA VEZ / HUELLAS:
-  - Registrar huellas: Perfil del cliente → Registrar huella
-  - Marcar entrada: En el kiosco, colocar el dedo en el lector
-
-CONEXIÓN A BASE DE DATOS:
-  - Con internet: datos guardados en la nube automáticamente
-  - Sin internet: el sistema puede funcionar localmente
-    (los datos se sincronizan al recuperar la conexión)
-
-SOPORTE:
-  Revise los logs en la carpeta  biometric\logs\
-"@
+# ── 6. README de inicio rapido ────────────────────────────────────────────────
+$readme = @(
+    "WOLF GYM - INICIO RAPIDO",
+    "=========================",
+    "",
+    "REQUISITOS PREVIOS (instalar una sola vez):",
+    "  1. Node.js 20+        -> https://nodejs.org",
+    "  2. Driver ZKTeco ZK9500 -> incluido en el CD del dispositivo o pagina oficial",
+    "",
+    "COMO INICIAR:",
+    "  1. Conecte el lector de huellas USB",
+    "  2. Doble clic en WolfGym.bat",
+    "  3. El navegador se abre automaticamente en http://localhost:3000",
+    "",
+    "ACCESO DESDE OTRA PC EN LA RED:",
+    "  Abrir en el navegador: http://IP_DE_ESTA_PC:3000",
+    "  La IP aparece al ejecutar: ipconfig en CMD",
+    "",
+    "PRIMERA VEZ / HUELLAS:",
+    "  - Registrar huellas: Perfil del cliente -> Registrar huella",
+    "  - Marcar entrada: En recepcion, colocar el dedo en el lector",
+    "",
+    "CONEXION A BASE DE DATOS:",
+    "  Configure las variables o appsettings.json antes de produccion.",
+    "",
+    "SOPORTE:",
+    "  Revise los logs en la carpeta biometric\logs\"
+)
 
 Set-Content (Join-Path $DIST "README-INICIO.txt") $readme -Encoding UTF8
 
 # ── Resumen ────────────────────────────────────────────────────────────────────
 Write-Host ""
-Write-Host "╔══════════════════════════════════════╗" -ForegroundColor Green
-Write-Host "║   BUILD COMPLETADO EXITOSAMENTE      ║" -ForegroundColor Green
-Write-Host "╚══════════════════════════════════════╝" -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Green
+Write-Host "  BUILD COMPLETADO EXITOSAMENTE" -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "Paquete listo en: $DIST" -ForegroundColor Cyan
 Write-Host ""
@@ -271,4 +267,4 @@ Get-ChildItem $DIST | ForEach-Object {
     Write-Host "  $($_.Name)  ($size)" -ForegroundColor Gray
 }
 Write-Host ""
-Write-Host "Para distribuir: comprima la carpeta '$DIST' en un ZIP" -ForegroundColor Cyan
+Write-Host ("Para distribuir: comprima la carpeta {0} en un ZIP" -f $DIST) -ForegroundColor Cyan
