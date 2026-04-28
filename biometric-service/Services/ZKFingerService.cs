@@ -94,7 +94,7 @@ public class ZKFingerService : IDisposable
 
             var ret = zkfp2.Init();
             if (ret != zkfperrdef.ZKFP_ERR_OK && ret != zkfperrdef.ZKFP_ERR_ALREADY_INIT)
-                return (false, $"Failed to initialize SDK, error code: {ret}", 0);
+                return (false, DescribeSdkError(ret), 0);
 
             _isInitialized = true;
             int count = zkfp2.GetDeviceCount();
@@ -147,7 +147,7 @@ public class ZKFingerService : IDisposable
             if (_deviceHandle == IntPtr.Zero)
             {
                 _logger.LogError("zkfp2.OpenDevice returned IntPtr.Zero");
-                return (false, "Failed to open device");
+                return (false, "No se pudo abrir el lector ZK9500. Verifique que el USB este conectado, que el driver ZKTeco este instalado y que ninguna otra app este usando el lector.");
             }
 
             if (!EnsureDb())
@@ -347,7 +347,7 @@ public class ZKFingerService : IDisposable
                 zkfperrdef.ZKFP_ERR_TIMEOUT => "No finger detected (timeout)",
                 zkfperrdef.ZKFP_ERR_NOT_OPEN => "Device not open",
                 zkfperrdef.ZKFP_ERR_NO_DEVICE => "No device connected",
-                _ => $"Capture failed with code: {lastErrorCode}"
+                _ => DescribeSdkError(lastErrorCode)
             };
 
             _logger.LogWarning("Fingerprint capture failed/timeout. Last error: {Code}", lastErrorCode);
@@ -632,6 +632,26 @@ public class ZKFingerService : IDisposable
             _isInitialized = false;
         }
         _captureLock.Dispose();
+    }
+
+    private static string DescribeSdkError(int code)
+    {
+        return code switch
+        {
+            zkfperrdef.ZKFP_ERR_INITLIB =>
+                "No se pudo inicializar el SDK ZKFinger (codigo -1). Instale el driver/runtime ZKTeco ZK9500 x64 y conecte el lector. Si esta en VirtualBox, habilite USB 2.0/3.0, Extension Pack y pase el dispositivo USB ZK9500 a la maquina virtual.",
+            zkfperrdef.ZKFP_ERR_INIT =>
+                "No se pudo inicializar el lector ZK9500 (codigo -2). Reinicie el servicio y reconecte el USB.",
+            zkfperrdef.ZKFP_ERR_NO_DEVICE =>
+                "No se detecto lector ZK9500 conectado (codigo -3). Conecte el USB o paselo a la maquina virtual.",
+            zkfperrdef.ZKFP_ERR_OPEN =>
+                "No se pudo abrir el lector ZK9500 (codigo -6). Cierre otras apps que usen el lector y reconecte el USB.",
+            zkfperrdef.ZKFP_ERR_NOT_SUPPORT =>
+                "El lector o driver no es compatible con este SDK ZKFinger x64 (codigo -4).",
+            zkfperrdef.ZKFP_ERR_NOT_INIT =>
+                "El SDK ZKFinger no esta inicializado (codigo -24).",
+            _ => $"Error del SDK ZKFinger, codigo: {code}"
+        };
     }
 }
 

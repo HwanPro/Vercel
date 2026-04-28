@@ -236,11 +236,29 @@ export default function CheckInPage() {
         const j = (await r.json().catch(() => ({}))) as {
           ok?: boolean;
           template?: string;
+          message?: string;
         };
         if (j?.ok && j?.template) return j.template;
+        const message = j?.message || "";
+        if (
+          !r.ok &&
+          /SDK|ZKFinger|ZK9500|driver|USB|lector|dispositivo|device/i.test(
+            message,
+          )
+        ) {
+          throw new Error(message);
+        }
         // no hay dedo → pequeña pausa antes del siguiente intento
         await new Promise((res) => setTimeout(res, 300));
-      } catch {
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "";
+        if (
+          /SDK|ZKFinger|ZK9500|driver|USB|lector|dispositivo|device/i.test(
+            message,
+          )
+        ) {
+          throw error;
+        }
         await new Promise((res) => setTimeout(res, 300));
       }
     }
