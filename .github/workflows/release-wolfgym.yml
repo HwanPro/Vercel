@@ -1,0 +1,63 @@
+name: Build WolfGym Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version/tag to publish, for example v1.0.1"
+        required: true
+        default: "v1.0.1"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/wolfgym?schema=public
+      SHADOW_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/wolfgym_shadow?schema=public
+      NEXTAUTH_SECRET: wolfgym-release-build-secret
+      NEXTAUTH_URL: http://127.0.0.1:3000
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Resolve version
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            "WOLFGYM_VERSION=${{ github.event.inputs.version }}" | Out-File -FilePath $env:GITHUB_ENV -Append
+          } else {
+            "WOLFGYM_VERSION=${{ github.ref_name }}" | Out-File -FilePath $env:GITHUB_ENV -Append
+          }
+
+      - name: Build package
+        shell: pwsh
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File setup-launcher\build-package.ps1 -Version $env:WOLFGYM_VERSION -CreateZip
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.WOLFGYM_VERSION }}
+          name: WolfGym ${{ env.WOLFGYM_VERSION }}
+          files: dist/WolfGym-${{ env.WOLFGYM_VERSION }}.zip
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

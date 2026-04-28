@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Net.Http;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace WolfGymLauncher;
 
@@ -7,12 +9,14 @@ internal static class Program
 {
     private const string WebUrl = "http://127.0.0.1:3000";
     private const string BioUrl = "http://127.0.0.1:8001/health";
+    private const string ReleaseApiUrl = "https://api.github.com/repos/HwanPro/Wolf-Gym/releases/latest";
 
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(2) };
+    private static readonly HttpClient UpdateHttp = new() { Timeout = TimeSpan.FromSeconds(30) };
     private static readonly List<Process> StartedProcesses = [];
     private static string _logDir = "";
 
-    private static async Task<int> Main()
+    private static async Task<int> Main(string[] args)
     {
         Console.Title = "WolfGym Launcher";
         var root = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
@@ -24,6 +28,17 @@ internal static class Program
         Console.WriteLine("==========================================");
         Console.WriteLine();
         Console.WriteLine($"Carpeta: {root}");
+
+        if (!args.Contains("--skip-update", StringComparer.OrdinalIgnoreCase))
+        {
+            var updateStarted = await CheckAndInstallUpdateAsync(root);
+            if (updateStarted)
+            {
+                Http.Dispose();
+                UpdateHttp.Dispose();
+                return 0;
+            }
+        }
 
         var bioDir = Path.Combine(root, "biometric");
         var bioExe = Path.Combine(bioDir, "WolfGym.BiometricService.exe");
@@ -89,7 +104,187 @@ internal static class Program
 
         StopStartedProcesses();
         Http.Dispose();
+        UpdateHttp.Dispose();
         return 0;
+    }
+
+    private static async Task<bool> CheckAndInstallUpdateAsync(string root)
+    {
+        try
+        {
+            UpdateHttp.DefaultRequestHeaders.UserAgent.ParseAdd("WolfGymLauncher/1.0");
+            var releaseJson = await UpdateHttp.GetStringAsync(ReleaseApiUrl);
+            var release = JsonSerializer.Deserialize<GitHubRelease>(releaseJson);
+            if (release is null || release.Draft || release.Prerelease || string.IsNullOrWhiteSpace(release.TagName))
+                return false;
+
+            var currentVersion = ReadCurrentVersion(root);
+            if (!IsNewerVersion(release.TagName, currentVersion))
+                return false;
+
+            var asset = release.Assets?
+                .Where(a => !string.IsNullOrWhiteSpace(a.BrowserDownloadUrl))
+                .FirstOrDefault(a =>
+                    a.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) &&
+                    a.Name.Contains("WolfGym", StringComparison.OrdinalIgnoreCase));
+
+            if (asset?.BrowserDownloadUrl is null)
+                return false;
+
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine();
+            Console.WriteLine($"Actualizacion disponible: {currentVersion} -> {release.TagName}");
+            Console.WriteLine("Descargando e instalando automaticamente. No cierre esta ventana.");
+            Console.ResetColor();
+
+            var zipPath = Path.Combine(Path.GetTempPath(), $"WolfGym-{release.TagName}.zip");
+            await using (var input = await UpdateHttp.GetStreamAsync(asset.BrowserDownloadUrl))
+            await using (var output = File.Create(zipPath))
+            {
+                await input.CopyToAsync(output);
+            }
+
+            var scriptPath = WriteUpdateScript(root, zipPath);
+            var psi = new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{scriptPath}\" -Root \"{root}\" -Zip \"{zipPath}\" -Pid {Environment.ProcessId}",
+                UseShellExecute = true,
+                WorkingDirectory = root,
+            };
+            Process.Start(psi);
+            Console.WriteLine("El actualizador terminara la instalacion y reabrira WolfGym.");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            AppendLog(Path.Combine(_logDir, "updater.log"), $"Update check skipped: {ex.Message}");
+            return false;
+        }
+    }
+
+    private static string ReadCurrentVersion(string root)
+    {
+        try
+        {
+            var path = Path.Combine(root, "version.json");
+            if (!File.Exists(path)) return "0.0.0";
+            var version = JsonSerializer.Deserialize<VersionFile>(File.ReadAllText(path));
+            return string.IsNullOrWhiteSpace(version?.Version) ? "0.0.0" : version.Version;
+        }
+        catch
+        {
+            return "0.0.0";
+        }
+    }
+
+    private static bool IsNewerVersion(string latest, string current)
+    {
+        var latestParts = ParseVersion(latest);
+        var currentParts = ParseVersion(current);
+        for (var i = 0; i < Math.Max(latestParts.Length, currentParts.Length); i++)
+        {
+            var left = i < latestParts.Length ? latestParts[i] : 0;
+            var right = i < currentParts.Length ? currentParts[i] : 0;
+            if (left > right) return true;
+            if (left < right) return false;
+        }
+        return false;
+    }
+
+    private static int[] ParseVersion(string version)
+    {
+        var clean = version.Trim().TrimStart('v', 'V');
+        var dash = clean.IndexOfAny(['-', '+']);
+        if (dash >= 0) clean = clean[..dash];
+        return clean
+            .Split('.', StringSplitOptions.RemoveEmptyEntries)
+            .Select(part => int.TryParse(part, out var n) ? n : 0)
+            .ToArray();
+    }
+
+    private static string WriteUpdateScript(string root, string zipPath)
+    {
+        var scriptPath = Path.Combine(Path.GetTempPath(), $"WolfGymUpdater-{Guid.NewGuid():N}.ps1");
+        var script = """
+param(
+    [Parameter(Mandatory=$true)][string]$Root,
+    [Parameter(Mandatory=$true)][string]$Zip,
+    [Parameter(Mandatory=$true)][int]$Pid
+)
+
+$ErrorActionPreference = "Stop"
+$launcher = Join-Path $Root "WolfGymLauncher.exe"
+$timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+$stage = Join-Path $env:TEMP ("WolfGym-stage-" + [guid]::NewGuid().ToString("N"))
+$backup = Join-Path $Root ("_backup_" + $timestamp)
+$preserve = @(
+    "logs",
+    "biometric\appsettings.json",
+    "webapp\.env",
+    "webapp\.env.local"
+)
+$preserveDir = Join-Path $env:TEMP ("WolfGym-preserve-" + [guid]::NewGuid().ToString("N"))
+
+Write-Host "Actualizando WolfGym..." -ForegroundColor Yellow
+while (Get-Process -Id $Pid -ErrorAction SilentlyContinue) {
+    Start-Sleep -Milliseconds 300
+}
+
+try {
+    New-Item -ItemType Directory -Path $stage -Force | Out-Null
+    New-Item -ItemType Directory -Path $backup -Force | Out-Null
+    New-Item -ItemType Directory -Path $preserveDir -Force | Out-Null
+
+    foreach ($item in $preserve) {
+        $src = Join-Path $Root $item
+        if (Test-Path $src) {
+            $dst = Join-Path $preserveDir $item
+            New-Item -ItemType Directory -Path (Split-Path $dst) -Force | Out-Null
+            Copy-Item -LiteralPath $src -Destination $dst -Recurse -Force
+        }
+    }
+
+    Expand-Archive -LiteralPath $Zip -DestinationPath $stage -Force
+    $payload = $stage
+    $nested = Join-Path $stage "WolfGym"
+    if (Test-Path $nested) { $payload = $nested }
+
+    Get-ChildItem -LiteralPath $Root -Force |
+        Where-Object { $_.Name -notlike "_backup_*" } |
+        ForEach-Object {
+            Move-Item -LiteralPath $_.FullName -Destination (Join-Path $backup $_.Name) -Force
+        }
+
+    Copy-Item -Path (Join-Path $payload "*") -Destination $Root -Recurse -Force
+
+    foreach ($item in $preserve) {
+        $src = Join-Path $preserveDir $item
+        if (Test-Path $src) {
+            $dst = Join-Path $Root $item
+            New-Item -ItemType Directory -Path (Split-Path $dst) -Force | Out-Null
+            Copy-Item -LiteralPath $src -Destination $dst -Recurse -Force
+        }
+    }
+
+    Write-Host "Actualizacion completada. Reiniciando..." -ForegroundColor Green
+    Start-Process -FilePath $launcher -ArgumentList "--skip-update" -WorkingDirectory $Root
+} catch {
+    Write-Host ("Error actualizando: " + $_.Exception.Message) -ForegroundColor Red
+    if (Test-Path $backup) {
+        Copy-Item -Path (Join-Path $backup "*") -Destination $Root -Recurse -Force
+    }
+    if (Test-Path $launcher) {
+        Start-Process -FilePath $launcher -ArgumentList "--skip-update" -WorkingDirectory $Root
+    }
+} finally {
+    Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $preserveDir -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $Zip -Force -ErrorAction SilentlyContinue
+}
+""";
+        File.WriteAllText(scriptPath, script);
+        return scriptPath;
     }
 
     private static Process StartProcess(string name, string fileName, string arguments, string workingDirectory, string logPath)
@@ -206,5 +401,35 @@ internal static class Program
         Console.ResetColor();
         Console.WriteLine("Presione ENTER para salir.");
         Console.ReadLine();
+    }
+
+    private sealed class VersionFile
+    {
+        [JsonPropertyName("version")]
+        public string Version { get; set; } = "0.0.0";
+    }
+
+    private sealed class GitHubRelease
+    {
+        [JsonPropertyName("tag_name")]
+        public string TagName { get; set; } = "";
+
+        [JsonPropertyName("draft")]
+        public bool Draft { get; set; }
+
+        [JsonPropertyName("prerelease")]
+        public bool Prerelease { get; set; }
+
+        [JsonPropertyName("assets")]
+        public List<GitHubAsset> Assets { get; set; } = [];
+    }
+
+    private sealed class GitHubAsset
+    {
+        [JsonPropertyName("name")]
+        public string Name { get; set; } = "";
+
+        [JsonPropertyName("browser_download_url")]
+        public string BrowserDownloadUrl { get; set; } = "";
     }
 }

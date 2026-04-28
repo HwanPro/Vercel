@@ -12,6 +12,11 @@
     └── README-INICIO.txt  ← Instrucciones rápidas
 #>
 
+param(
+    [string]$Version = "",
+    [switch]$CreateZip
+)
+
 $ErrorActionPreference = "Stop"
 $ROOT   = Split-Path $PSScriptRoot -Parent
 $DIST   = Join-Path $ROOT "dist\WolfGym"
@@ -21,8 +26,22 @@ $WEB_DEST = Join-Path $DIST "webapp"
 $SETUP_SRC = Join-Path $ROOT "setup-launcher"
 $LAUNCHER_SRC = Join-Path $ROOT "launcher"
 
+if ([string]::IsNullOrWhiteSpace($Version)) {
+    if (-not [string]::IsNullOrWhiteSpace($env:WOLFGYM_VERSION)) {
+        $Version = $env:WOLFGYM_VERSION
+    } else {
+        try {
+            $gitTag = (& git describe --tags --abbrev=0 2>$null)
+            $Version = if ([string]::IsNullOrWhiteSpace($gitTag)) { "0.1.0-local" } else { $gitTag.Trim() }
+        } catch {
+            $Version = "0.1.0-local"
+        }
+    }
+}
+
 Write-Host "=== WolfGym Package Builder ===" -ForegroundColor Green
 Write-Host "Destino: $DIST" -ForegroundColor Cyan
+Write-Host "Version: $Version" -ForegroundColor Cyan
 Write-Host ""
 
 # ── Limpiar ────────────────────────────────────────────────────────────────────
@@ -304,6 +323,7 @@ $readme = @(
     "  1. Conecte el lector de huellas USB",
     "  2. Doble clic en WolfGymLauncher.exe",
     "  3. El navegador se abre automaticamente en http://localhost:3000",
+    "  4. Si hay una version nueva publicada en GitHub Releases, el launcher la descarga e instala automaticamente.",
     "",
     "RESPALDO:",
     "  Si el launcher no abre, use WolfGym.bat y revise la carpeta logs.",
@@ -326,6 +346,26 @@ $readme = @(
 
 Set-Content (Join-Path $DIST "README-INICIO.txt") $readme -Encoding UTF8
 
+# ── 7. Version para auto-update ───────────────────────────────────────────────
+$versionInfo = [ordered]@{
+    version = $Version
+    channel = "stable"
+    repository = "HwanPro/Wolf-Gym"
+    builtAt = (Get-Date).ToUniversalTime().ToString("o")
+}
+$versionInfo | ConvertTo-Json | Set-Content (Join-Path $DIST "version.json") -Encoding UTF8
+
+if ($CreateZip) {
+    $safeVersion = ($Version -replace '[^A-Za-z0-9._-]', '-')
+    $zipPath = Join-Path $ROOT "dist\WolfGym-$safeVersion.zip"
+    if (Test-Path $zipPath) {
+        Remove-Item $zipPath -Force
+    }
+    Write-Host "Creando ZIP para release: $zipPath" -ForegroundColor Cyan
+    Compress-Archive -Path (Join-Path $DIST "*") -DestinationPath $zipPath -Force
+    Write-Host "  ZIP creado OK" -ForegroundColor Green
+}
+
 # ── Resumen ────────────────────────────────────────────────────────────────────
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Green
@@ -345,4 +385,8 @@ Get-ChildItem $DIST | ForEach-Object {
     Write-Host "  $($_.Name)  ($size)" -ForegroundColor Gray
 }
 Write-Host ""
-Write-Host ("Para distribuir: comprima la carpeta {0} en un ZIP" -f $DIST) -ForegroundColor Cyan
+if ($CreateZip) {
+    Write-Host ("Para distribuir: use el ZIP generado en dist\WolfGym-{0}.zip" -f (($Version -replace '[^A-Za-z0-9._-]', '-'))) -ForegroundColor Cyan
+} else {
+    Write-Host ("Para distribuir: comprima la carpeta {0} en un ZIP o ejecute este script con -CreateZip" -f $DIST) -ForegroundColor Cyan
+}
