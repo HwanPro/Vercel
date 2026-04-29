@@ -13,6 +13,21 @@ body {
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
+:root {
+  --wolf-page: #f4f1ea;
+  --wolf-surface: #ffffff;
+  --wolf-muted-surface: #f7f8fa;
+  --wolf-ink: #141414;
+  --wolf-subtle: #667085;
+  --wolf-border: #e5e7eb;
+  --wolf-primary: #facc15;
+  --wolf-primary-strong: #d9a300;
+  --wolf-secondary: #2563eb;
+  --wolf-success: #16a34a;
+  --wolf-warning: #d97706;
+  --wolf-danger: #dc2626;
+}
+
 /* Fix para z-index de SweetAlert2 sobre modales */
 .swal2-container {
   z-index: 10000 !important;
@@ -37,12 +52,12 @@ body {
   flex: 1;
   border: 0;
   background: transparent;
-  color: #ffffff;
+  color: var(--wolf-ink);
   outline: none;
 }
 
 .wolf-phone-input .PhoneInputInput::placeholder {
-  color: #71717a;
+  color: #94a3b8;
 }
 
 .wolf-phone-input .PhoneInputCountry {
@@ -60,16 +75,16 @@ body {
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 224 71.4% 4.1%;
+    --background: 39 26% 94%;
+    --foreground: 0 0% 8%;
     --card: 0 0% 100%;
     --card-foreground: 224 71.4% 4.1%;
     --popover: 0 0% 100%;
     --popover-foreground: 224 71.4% 4.1%;
-    --primary: 220.9 39.3% 11%;
-    --primary-foreground: 210 20% 98%;
-    --secondary: 220 14.3% 95.9%;
-    --secondary-foreground: 220.9 39.3% 11%;
+    --primary: 50 96% 53%;
+    --primary-foreground: 0 0% 8%;
+    --secondary: 221 83% 53%;
+    --secondary-foreground: 0 0% 100%;
     --muted: 220 14.3% 95.9%;
     --muted-foreground: 220 8.9% 46.1%;
     --accent: 220 14.3% 95.9%;

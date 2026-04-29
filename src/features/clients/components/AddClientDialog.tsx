@@ -204,13 +204,13 @@ export default function AddClientDialog({
   return (
     <div className={dialogSurfaceClass}>
       <div className="mb-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-yellow-400">
+        <p className="text-xs font-semibold text-wolf-subtle">
           Nuevo cliente
         </p>
-        <h2 className="text-xl font-black text-white">Registro de membresía</h2>
+        <h2 className="text-xl font-black text-wolf-ink">Registro de membresía</h2>
       </div>
       {errorMessage && (
-        <p className="mb-3 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+        <p className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
           {errorMessage}
         </p>
       )}
@@ -257,7 +257,7 @@ export default function AddClientDialog({
 
       {/* Fechas manuales */}
       <section className={`${sectionClass} mt-3 space-y-3`}>
-        <label className="flex items-center gap-2 text-sm text-zinc-200">
+        <label className="flex items-center gap-2 text-sm font-medium text-wolf-ink">
           <input
             type="checkbox"
             checked={manualDates}
@@ -288,7 +288,7 @@ export default function AddClientDialog({
             </div>
 
             {/* Asistente de promo */}
-            <label className="mt-1 flex items-center gap-2 text-sm text-zinc-200">
+            <label className="mt-1 flex items-center gap-2 text-sm font-medium text-wolf-ink">
               <input
                 type="checkbox"
                 checked={usePromoAssistant}
@@ -349,7 +349,7 @@ export default function AddClientDialog({
                   />
                 </div>
 
-                <div className="col-span-1 text-xs text-zinc-400 sm:col-span-3">
+                <div className="col-span-1 text-xs text-wolf-subtle sm:col-span-3">
                   Duración efectiva: <b>{durationDays}</b> días
                   {membershipStart && usePromoAssistant ? (
                     <>
@@ -401,7 +401,7 @@ export default function AddClientDialog({
 
       {/* Guardar */}
       <Button
-        className="mt-4 h-11 w-full bg-yellow-400 text-sm font-bold text-black hover:bg-yellow-300"
+        className="mt-4 h-11 w-full bg-wolf-primary text-sm font-bold text-wolf-ink hover:bg-yellow-300"
         onClick={handleSave}
         disabled={loading}
       >
@@ -410,25 +410,24 @@ export default function AddClientDialog({
 
       {/* Modal de credenciales */}
       {credentials && (
-        <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50">
-          <div className="max-h-[90vh] w-[calc(100vw-2rem)] max-w-md overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-950 p-5 text-white shadow-lg">
-            <h2 className="text-center text-xl font-bold">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg border border-wolf-border bg-white p-5 text-wolf-ink shadow-lg">
+            <h2 className="text-center text-xl font-bold text-wolf-ink">
               ¡Bienvenido a Wolf Gym!
             </h2>
-            <p className="text-center text-sm italic text-zinc-400">
-              “El éxito es la suma de pequeños esfuerzos repetidos día tras
-              día.”
+            <p className="text-center text-sm italic text-wolf-subtle">
+              El éxito es la suma de pequeños esfuerzos repetidos día tras día.
             </p>
 
             <textarea
               readOnly
-              className="mt-4 h-44 w-full resize-none rounded-md border border-zinc-800 bg-black p-4 text-sm text-zinc-100"
+              className="mt-4 h-44 w-full resize-none rounded-md border border-wolf-border bg-wolf-muted p-4 text-sm text-wolf-ink"
               value={credentials.message || ""}
             />
 
             <Button
               variant="outline"
-              className="mt-3 w-full !border-zinc-700 !bg-zinc-900 text-sm !text-white hover:!bg-zinc-800"
+              className="mt-3 w-full !border-wolf-border !bg-white text-sm !text-wolf-ink hover:!bg-wolf-muted"
               onClick={() => {
                 navigator.clipboard.writeText(credentials.message || "");
               }}
@@ -437,7 +436,7 @@ export default function AddClientDialog({
             </Button>
 
             <Button
-              className="mt-2 w-full bg-green-600 text-white hover:bg-green-500"
+              className="mt-2 w-full bg-wolf-success text-white hover:bg-green-600"
               onClick={() =>
                 window.open(credentials.whatsappUrl || `https://wa.me/${credentials.phone}`, "_blank")
               }
@@ -446,7 +445,7 @@ export default function AddClientDialog({
             </Button>
 
             <Button
-              className="mt-2 w-full bg-yellow-400 text-black hover:bg-yellow-300"
+              className="mt-2 w-full bg-wolf-primary text-wolf-ink hover:bg-yellow-300"
               onClick={() => setCredentials(null)}
             >
               Cerrar
