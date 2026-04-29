@@ -183,10 +183,10 @@ export default function EditClientDialog({
           <DialogTitle className="sr-only">Editar cliente</DialogTitle>
 
           <div className="mb-4">
-            <p className="text-xs font-semibold text-wolf-subtle">
+            <p className="text-xs font-semibold text-slate-600">
               Cliente
             </p>
-            <h2 className="text-xl font-black text-wolf-ink">Editar perfil</h2>
+            <h2 className="text-xl font-black text-slate-900">Editar perfil</h2>
           </div>
 
           <section className={sectionClass}>
@@ -207,7 +207,7 @@ export default function EditClientDialog({
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold text-wolf-ink">Foto de perfil</p>
+                <p className="text-sm font-bold text-slate-900">Foto de perfil</p>
                 <p className={helperTextClass}>
                   Usa una foto clara para ubicar al cliente rápido en recepción.
                 </p>

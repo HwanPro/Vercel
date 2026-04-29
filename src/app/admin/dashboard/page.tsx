@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Home, Bell, Menu, X } from "lucide-react";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
   Table,
@@ -15,10 +14,8 @@ import {
 } from "@/ui/table";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import ProfileModal from "@/ui/components/ProfileModal";
 
 export default function AdminDashboard() {
-  const { data: session } = useSession();
   const router = useRouter();
   const isRedirecting = useRef(false);
 
@@ -36,9 +33,17 @@ export default function AdminDashboard() {
     todayAttendance: 0,
     activeMemberships: 0,
     lowStockProducts: 0,
-    lastUpdated: new Date().toISOString()
+    lastUpdated: ""
   });
   const [refreshing, setRefreshing] = useState(false);
+  const [metricsErrorShown, setMetricsErrorShown] = useState(false);
+  const lastUpdatedDate = dashboardData.lastUpdated
+    ? new Date(dashboardData.lastUpdated)
+    : null;
+  const lastUpdatedLabel =
+    lastUpdatedDate && !Number.isNaN(lastUpdatedDate.getTime())
+      ? lastUpdatedDate.toLocaleString("es-ES")
+      : "—";
 
   const redirectToLogin = () => {
     if (isRedirecting.current) return;
@@ -61,11 +66,22 @@ export default function AdminDashboard() {
         throw new Error("Error al obtener métricas");
       }
       const data = await res.json();
-      setDashboardData(data);
+      setDashboardData({
+        totalIncome: Number(data?.totalIncome ?? 0),
+        newClients: Number(data?.newClients ?? 0),
+        productSales: Number(data?.productSales ?? 0),
+        classAttendance: Number(data?.classAttendance ?? 0),
+        todayAttendance: Number(data?.todayAttendance ?? 0),
+        activeMemberships: Number(data?.activeMemberships ?? 0),
+        lowStockProducts: Number(data?.lowStockProducts ?? 0),
+        lastUpdated: data?.lastUpdated || new Date().toISOString(),
+      });
+      if (metricsErrorShown) setMetricsErrorShown(false);
     } catch (error) {
       console.error("Error fetchDashboard:", error);
-      if (!silent) {
+      if (!silent && !metricsErrorShown) {
         toast.error("Error al cargar métricas del dashboard");
+        setMetricsErrorShown(true);
       }
     }
   }
@@ -87,9 +103,6 @@ export default function AdminDashboard() {
 
   const [loadingClients, setLoadingClients] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(false);
-
-  // Control modal perfil
-  const [showProfileModal, setShowProfileModal] = useState(false);
 
   // Carga de clientes
   const fetchRecentClients = async (silent = false) => {
@@ -310,13 +323,6 @@ export default function AdminDashboard() {
           >
             Contenido
           </Link>
-          <button
-            type="button"
-            onClick={() => setShowProfileModal(true)}
-            className="block text-sm font-medium text-white hover:text-yellow-400"
-          >
-            Mi Perfil
-          </button>
         </nav>
 
         {/* Menú notificaciones */}
@@ -346,24 +352,24 @@ export default function AdminDashboard() {
         <section className="mb-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="bg-white text-black rounded-md shadow p-4 hover:shadow-lg transition-shadow">
             <p className="text-sm font-medium text-gray-600">Ingresos Totales</p>
-            <h3 className="text-2xl font-bold text-green-600">
+            <h3 className="text-2xl font-bold text-black">
               S/. {Number(dashboardData.totalIncome).toFixed(2)}
             </h3>
             <p className="text-xs text-gray-500 mt-1">Todos los pagos</p>
           </div>
           <div className="bg-white text-black rounded-md shadow p-4 hover:shadow-lg transition-shadow">
             <p className="text-sm font-medium text-gray-600">Nuevos Clientes</p>
-            <h3 className="text-2xl font-bold text-blue-600">{dashboardData.newClients}</h3>
+            <h3 className="text-2xl font-bold text-black">{dashboardData.newClients}</h3>
             <p className="text-xs text-gray-500 mt-1">Últimos 30 días</p>
           </div>
           <div className="bg-white text-black rounded-md shadow p-4 hover:shadow-lg transition-shadow">
             <p className="text-sm font-medium text-gray-600">Asistencia Hoy</p>
-            <h3 className="text-2xl font-bold text-yellow-600">{dashboardData.todayAttendance}</h3>
+            <h3 className="text-2xl font-bold text-black">{dashboardData.todayAttendance}</h3>
             <p className="text-xs text-gray-500 mt-1">Check-ins de hoy</p>
           </div>
           <div className="bg-white text-black rounded-md shadow p-4 hover:shadow-lg transition-shadow">
             <p className="text-sm font-medium text-gray-600">Membresías Activas</p>
-            <h3 className="text-2xl font-bold text-purple-600">{dashboardData.activeMemberships}</h3>
+            <h3 className="text-2xl font-bold text-black">{dashboardData.activeMemberships}</h3>
             <p className="text-xs text-gray-500 mt-1">Clientes activos</p>
           </div>
         </section>
@@ -372,19 +378,19 @@ export default function AdminDashboard() {
         <section className="mb-10 grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white text-black rounded-md shadow p-4 hover:shadow-lg transition-shadow">
             <p className="text-sm font-medium text-gray-600">Asistencia Semanal</p>
-            <h3 className="text-2xl font-bold text-indigo-600">{dashboardData.classAttendance}</h3>
+            <h3 className="text-2xl font-bold text-black">{dashboardData.classAttendance}</h3>
             <p className="text-xs text-gray-500 mt-1">Últimos 7 días</p>
           </div>
           <div className="bg-white text-black rounded-md shadow p-4 hover:shadow-lg transition-shadow">
             <p className="text-sm font-medium text-gray-600">Ventas de Productos</p>
-            <h3 className="text-2xl font-bold text-orange-600">
+            <h3 className="text-2xl font-bold text-black">
               S/. {Number(dashboardData.productSales).toFixed(2)}
             </h3>
             <p className="text-xs text-gray-500 mt-1">Total vendido</p>
           </div>
           <div className="bg-white text-black rounded-md shadow p-4 hover:shadow-lg transition-shadow">
             <p className="text-sm font-medium text-gray-600">Stock Bajo</p>
-            <h3 className="text-2xl font-bold text-red-600">{dashboardData.lowStockProducts}</h3>
+            <h3 className="text-2xl font-bold text-black">{dashboardData.lowStockProducts}</h3>
             <p className="text-xs text-gray-500 mt-1">Productos ≤ 10 unidades</p>
           </div>
         </section>
@@ -392,7 +398,7 @@ export default function AdminDashboard() {
         {/* Indicador de última actualización */}
         <div className="mb-6 text-center">
           <p className="text-sm text-gray-400">
-            Última actualización: {new Date(dashboardData.lastUpdated).toLocaleString('es-ES')}
+            Última actualización: {lastUpdatedLabel}
           </p>
           <button
             type="button"
@@ -415,32 +421,32 @@ export default function AdminDashboard() {
           {loadingClients ? (
             <p className="text-yellow-400">Cargando clientes...</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>Apellidos</TableHead>
-                  <TableHead>Plan</TableHead>
-                  <TableHead>Inicio</TableHead>
-                  <TableHead>Fin</TableHead>
-                  <TableHead>Días</TableHead>
+            <Table className="rounded-md overflow-hidden">
+              <TableHeader className="[&_tr]:border-0">
+                <TableRow className="border-0 bg-black">
+                  <TableHead className="text-yellow-300">Nombre</TableHead>
+                  <TableHead className="text-yellow-300">Apellidos</TableHead>
+                  <TableHead className="text-yellow-300">Plan</TableHead>
+                  <TableHead className="text-yellow-300">Inicio</TableHead>
+                  <TableHead className="text-yellow-300">Fin</TableHead>
+                  <TableHead className="text-yellow-300">Días</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {recentClients.length > 0 ? (
                   recentClients.map((client) => (
-                    <TableRow key={client.id}>
-                      <TableCell className="truncate">{client.name}</TableCell>
-                      <TableCell>{client.lastName}</TableCell>
-                      <TableCell>{client.plan}</TableCell>
-                      <TableCell>{client.membershipStartFormatted}</TableCell>
-                      <TableCell>{client.membershipEndFormatted}</TableCell>
-                      <TableCell>{client.daysRemaining}</TableCell>
+                    <TableRow key={client.id} className="border-0 hover:bg-zinc-900/60">
+                      <TableCell className="truncate text-white">{client.name}</TableCell>
+                      <TableCell className="text-white">{client.lastName}</TableCell>
+                      <TableCell className="text-white">{client.plan}</TableCell>
+                      <TableCell className="text-zinc-300">{client.membershipStartFormatted}</TableCell>
+                      <TableCell className="text-zinc-300">{client.membershipEndFormatted}</TableCell>
+                      <TableCell className="text-zinc-300">{client.daysRemaining}</TableCell>
                     </TableRow>
                   ))
                 ) : (
-                  <TableRow>
-                    <TableCell colSpan={6}>
+                  <TableRow className="border-0">
+                    <TableCell colSpan={6} className="text-zinc-400">
                       No hay clientes disponibles
                     </TableCell>
                   </TableRow>
@@ -458,26 +464,26 @@ export default function AdminDashboard() {
           {loadingProducts ? (
             <p className="text-yellow-400">Cargando productos...</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>Stock</TableHead>
+            <Table className="rounded-md overflow-hidden">
+              <TableHeader className="[&_tr]:border-0">
+                <TableRow className="border-0 bg-black">
+                  <TableHead className="text-yellow-300">Nombre</TableHead>
+                  <TableHead className="text-yellow-300">Stock</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {products.length > 0 ? (
                   products.map((product) => (
-                    <TableRow key={product.item_id}>
-                      <TableCell className="truncate">
+                    <TableRow key={product.item_id} className="border-0 hover:bg-zinc-900/60">
+                      <TableCell className="truncate text-white">
                         {product.item_name}
                       </TableCell>
-                      <TableCell>{product.item_stock}</TableCell>
+                      <TableCell className="text-zinc-300">{product.item_stock}</TableCell>
                     </TableRow>
                   ))
                 ) : (
-                  <TableRow>
-                    <TableCell colSpan={2}>
+                  <TableRow className="border-0">
+                    <TableCell colSpan={2} className="text-zinc-400">
                       No hay productos disponibles
                     </TableCell>
                   </TableRow>
@@ -487,23 +493,6 @@ export default function AdminDashboard() {
           )}
         </section>
       </main>
-
-      {showProfileModal && (
-        <ProfileModal
-          isOpen={showProfileModal}
-          onClose={() => setShowProfileModal(false)}
-          onSuccess={async () => {
-            await refreshAll(true);
-          }}
-          userName={session?.user?.name ?? ""}
-          firstName={session?.user?.firstName ?? ""}
-          userLastName={session?.user?.lastName ?? ""}
-          userPhone={session?.user?.phoneNumber ?? ""}
-          userEmergencyPhone="" // Solo si decides agregar este campo luego
-          userRole={session?.user?.role ?? ""}
-          profileImage={session?.user?.image ?? ""}
-        />
-      )}
     </div>
   );
 }

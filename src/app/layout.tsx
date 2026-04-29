@@ -134,7 +134,7 @@ export default function RootLayout({
 
   return (
     <html lang="es" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body className="min-h-dvh overflow-x-hidden bg-black font-sans text-white antialiased">
+      <body className="min-h-dvh overflow-x-hidden bg-background font-sans text-foreground antialiased">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessJsonLd) }}

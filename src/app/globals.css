@@ -52,7 +52,7 @@ body {
   flex: 1;
   border: 0;
   background: transparent;
-  color: var(--wolf-ink);
+  color: inherit;
   outline: none;
 }
 
@@ -130,11 +130,22 @@ body {
 }
 
 @layer base {
-  * {
-    @apply border-none; 
-  }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer base {
+  input,
+  textarea,
+  select {
+    color: inherit;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #94a3b8;
+    opacity: 1;
   }
 }
 

@@ -178,7 +178,7 @@ export default function AdminReportes() {
             href="/admin/profile"
             className="rounded border border-yellow-400 px-4 py-2 text-center text-yellow-400 hover:bg-yellow-400 hover:text-black"
           >
-            Perfil Admin
+            Perfil
           </Link>
           <Link
             href="/admin/dashboard"

@@ -820,23 +820,23 @@ export default function ClientsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-wolf-page text-wolf-ink">
+    <div className="min-h-screen bg-black text-white">
       <ToastContainer />
 
-      <header className="border-b border-wolf-border bg-white px-4 py-4 md:px-8">
+      <header className="border-b border-zinc-800 bg-black px-4 py-4 md:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="flex items-center gap-3 text-wolf-ink">
+            <div className="flex items-center gap-3 text-yellow-400">
               <Users className="h-7 w-7" />
               <h1 className="text-2xl font-black md:text-3xl">Clientes y membresías</h1>
             </div>
-            <p className="mt-1 text-sm text-wolf-subtle">
+            <p className="mt-1 text-sm text-zinc-400">
               Registro, planes, deudas y huellas de clientes activos.
             </p>
           </div>
           <Link
             href="/admin/dashboard"
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-wolf-primary px-4 py-2.5 font-semibold text-wolf-ink transition hover:bg-yellow-300"
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-yellow-400 px-4 py-2.5 font-semibold text-black transition hover:bg-yellow-300"
           >
             <ArrowLeft className="h-4 w-4" />
             Dashboard
@@ -852,18 +852,18 @@ export default function ClientsPage() {
           <ClientMetric icon={<Activity className="h-4 w-4" />} label="Mostrando" value={filteredClients.length} />
         </section>
 
-        <section className="rounded-lg border border-wolf-border bg-white p-4 shadow-sm">
+        <section className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
           <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <h2 className="text-lg font-bold text-wolf-ink">Búsqueda y acciones</h2>
-              <p className="text-sm text-wolf-subtle">Filtra por nombre, apellido, usuario, teléfono o DNI.</p>
+              <h2 className="text-lg font-bold text-yellow-400">Búsqueda y acciones</h2>
+              <p className="text-sm text-zinc-500">Filtra por nombre, apellido, usuario, teléfono o DNI.</p>
             </div>
             <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
               <div className="relative w-full md:w-80">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-wolf-subtle" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
                 <input
                   type="text"
-                  className="h-10 w-full rounded-md border border-wolf-border bg-white pl-9 pr-3 text-sm text-wolf-ink outline-none transition placeholder:text-slate-400 focus:border-wolf-primary-strong focus:ring-2 focus:ring-wolf-primary/30"
+                  className="h-10 w-full rounded-md border border-zinc-700 bg-black pl-9 pr-3 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-yellow-400 focus:ring-2 focus:ring-yellow-300/20"
                   placeholder="Buscar cliente"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -876,19 +876,19 @@ export default function ClientsPage() {
                 toast.success("Listado actualizado");
               }}
               variant="outline" 
-              className="inline-flex flex-1 items-center gap-2 !border-wolf-border !bg-white !text-wolf-ink hover:!bg-wolf-muted md:flex-none"
+              className="inline-flex flex-1 items-center gap-2 !border-zinc-700 !bg-zinc-900 !text-white hover:!bg-zinc-800 md:flex-none"
             >
               <RefreshCcw className="h-4 w-4" />
               Refrescar
             </Button>
             <Dialog>
               <DialogTrigger asChild>
-                <Button className="inline-flex flex-1 items-center gap-2 bg-wolf-primary text-wolf-ink hover:bg-yellow-300 md:flex-none">
+                <Button className="inline-flex flex-1 items-center gap-2 bg-yellow-400 text-black hover:bg-yellow-300 md:flex-none">
                   <Plus className="h-4 w-4" />
                   Nuevo cliente
                 </Button>
               </DialogTrigger>
-            <DialogContent className="max-h-[92dvh] w-[min(96vw,48rem)] overflow-y-auto p-0">
+            <DialogContent className="max-h-[92dvh] w-[min(96vw,48rem)] overflow-y-auto overflow-x-hidden border-zinc-800 bg-zinc-950 p-0">
               <DialogTitle className="sr-only">...</DialogTitle>
               <div className="p-0">
                 <AddClientDialog
@@ -911,10 +911,10 @@ export default function ClientsPage() {
           </div>
         </section>
 
-      <section className="overflow-hidden rounded-lg border border-wolf-border bg-white shadow-sm">
-        <div className="border-b border-wolf-border bg-white px-4 py-3">
-          <h2 className="text-lg font-bold text-wolf-ink">Directorio de clientes</h2>
-          <p className="text-sm text-wolf-subtle">Vista operativa para pagos, huellas y edición de perfiles.</p>
+      <section className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950">
+        <div className="border-b border-zinc-800 bg-black px-4 py-3">
+          <h2 className="text-lg font-bold text-yellow-400">Directorio de clientes</h2>
+          <p className="text-sm text-zinc-500">Vista operativa para pagos, huellas y edición de perfiles.</p>
         </div>
 
         <div className="grid gap-3 p-3 lg:hidden">
@@ -927,18 +927,18 @@ export default function ClientsPage() {
               return (
                 <article
                   key={client.id}
-                  className="rounded-lg border border-wolf-border bg-white p-3 shadow-sm"
+                  className="rounded-lg border border-zinc-800 bg-black p-3"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="font-bold text-wolf-ink">
+                      <p className="font-bold text-white">
                         {client.firstName} {client.lastName}
                       </p>
-                      <p className="text-sm text-wolf-subtle">
+                      <p className="text-sm text-zinc-400">
                         DNI: {client.documentNumber || "Sin DNI"}
                       </p>
                     </div>
-                    <span className="shrink-0 rounded-md border border-wolf-border bg-wolf-muted px-2 py-1 text-xs font-semibold text-wolf-ink">
+                    <span className="shrink-0 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs font-semibold text-zinc-100">
                       {client.plan}
                     </span>
                   </div>
@@ -948,7 +948,7 @@ export default function ClientsPage() {
                     <Info label="Fin" value={client.membershipEnd || "—"} />
                     <Info label="Registro" value={client.createdAt || "—"} />
                     <div>
-                      <p className="text-xs text-wolf-subtle">Días</p>
+                      <p className="text-xs text-zinc-500">Días</p>
                       <span className={`mt-1 inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${membershipDays.className}`}>
                         {membershipDays.label}
                       </span>
@@ -965,13 +965,13 @@ export default function ClientsPage() {
                         });
                         setShowDebtDialog(true);
                       }}
-                      className="bg-wolf-secondary text-white hover:bg-blue-500"
+                      className="bg-blue-600 text-white hover:bg-blue-500"
                     >
                       <BadgeDollarSign className="h-4 w-4" />
                       Cobros
                     </Button>
                     <Button
-                      className={`${busy[uid] ? "cursor-not-allowed opacity-50" : "hover:bg-yellow-300"} bg-wolf-primary text-wolf-ink`}
+                      className={`${busy[uid] ? "cursor-not-allowed opacity-50" : "hover:bg-yellow-300"} bg-yellow-400 text-black`}
                       onClick={() => registerFingerprint(uid)}
                       disabled={!!busy[uid] || !!deleting[uid]}
                     >
@@ -988,7 +988,7 @@ export default function ClientsPage() {
                       }}
                     />
                     <Button
-                      className="!border-green-600 !bg-white !text-green-700 hover:!bg-green-600 hover:!text-white"
+                      className="!border-green-500 !bg-zinc-950 !text-green-300 hover:!bg-green-600 hover:!text-white"
                       onClick={() => sendCredentials(client)}
                       disabled={!!busy[client.id] || !!deleting[client.id]}
                       variant="outline"
@@ -997,7 +997,7 @@ export default function ClientsPage() {
                       Credenciales
                     </Button>
                     <Button
-                      className="bg-wolf-danger text-white hover:bg-red-600"
+                      className="bg-red-500 text-white hover:bg-red-600"
                       onClick={() => handleDeleteClick(client.id)}
                       disabled={!!deleting[client.id] || isPageLoading}
                     >
@@ -1009,19 +1009,19 @@ export default function ClientsPage() {
               );
             })
           ) : (
-            <p className="rounded-md border border-dashed border-wolf-border p-4 text-center text-sm text-wolf-subtle">
+            <p className="rounded-md border border-dashed border-zinc-800 p-4 text-center text-sm text-zinc-500">
               No hay clientes disponibles.
             </p>
           )}
         </div>
 
         <div className="hidden overflow-x-auto lg:block">
-          <div className="max-h-[58vh] overflow-y-auto">
+          <div>
             <Table className="w-full min-w-[1180px] table-auto border-collapse">
               {/* Encabezado sticky */}
-              <TableHeader className="sticky top-0 z-10 !bg-slate-50">
-                <TableRow className="border-wolf-border !bg-slate-50">
-                  <TableHead className="text-xs font-bold !text-wolf-ink">
+              <TableHeader className="sticky top-0 z-10 !bg-zinc-950">
+                <TableRow className="border-zinc-800 !bg-zinc-950">
+                  <TableHead className="text-xs font-bold !text-yellow-300">
                     <button
                       onClick={() => toggleSort("firstName")}
                       className="flex items-center gap-1"
@@ -1034,7 +1034,7 @@ export default function ClientsPage() {
                         : ""}
                     </button>
                   </TableHead>
-                  <TableHead className="text-xs font-bold !text-wolf-ink">
+                  <TableHead className="text-xs font-bold !text-yellow-300">
                     <button
                       onClick={() => toggleSort("lastName")}
                       className="flex items-center gap-1"
@@ -1047,7 +1047,7 @@ export default function ClientsPage() {
                         : ""}
                     </button>
                   </TableHead>
-                  <TableHead className="text-xs font-bold !text-wolf-ink">
+                  <TableHead className="text-xs font-bold !text-yellow-300">
                     <button
                       onClick={() => toggleSort("plan")}
                       className="flex items-center gap-1"
@@ -1056,7 +1056,7 @@ export default function ClientsPage() {
                       {sortBy === "plan" ? (sortDir === "asc" ? "▲" : "▼") : ""}
                     </button>
                   </TableHead>
-                  <TableHead className="text-xs font-bold !text-wolf-ink">
+                  <TableHead className="text-xs font-bold !text-yellow-300">
                     <button
                       onClick={() => toggleSort("membershipStart")}
                       className="flex items-center gap-1"
@@ -1069,7 +1069,7 @@ export default function ClientsPage() {
                         : ""}
                     </button>
                   </TableHead>
-                  <TableHead className="text-xs font-bold !text-wolf-ink">
+                  <TableHead className="text-xs font-bold !text-yellow-300">
                     <button
                       onClick={() => toggleSort("membershipEnd")}
                       className="flex items-center gap-1"
@@ -1082,11 +1082,11 @@ export default function ClientsPage() {
                         : ""}
                     </button>
                   </TableHead>
-                  <TableHead className="text-xs font-bold !text-wolf-ink">Días</TableHead>
-                  <TableHead className="text-xs font-bold !text-wolf-ink">DNI</TableHead>
+                  <TableHead className="text-xs font-bold !text-yellow-300">Días</TableHead>
+                  <TableHead className="text-xs font-bold !text-yellow-300">DNI</TableHead>
 
                   {/* Columna opcional: Fecha de registro (si API la expone) */}
-                  <TableHead className="text-xs font-bold !text-wolf-ink">
+                  <TableHead className="text-xs font-bold !text-yellow-300">
                     <button
                       onClick={() => toggleSort("createdAt")}
                       className="flex items-center gap-1"
@@ -1100,9 +1100,9 @@ export default function ClientsPage() {
                     </button>
                   </TableHead>
 
-                  <TableHead className="text-xs font-bold !text-wolf-ink">Cobros</TableHead>
-                  <TableHead className="text-xs font-bold !text-wolf-ink">Huella</TableHead>
-                  <TableHead className="text-xs font-bold !text-wolf-ink">Operaciones</TableHead>
+                  <TableHead className="text-xs font-bold !text-yellow-300">Cobros</TableHead>
+                  <TableHead className="text-xs font-bold !text-yellow-300">Huella</TableHead>
+                  <TableHead className="text-xs font-bold !text-yellow-300">Operaciones</TableHead>
                 </TableRow>
               </TableHeader>
 
@@ -1115,29 +1115,29 @@ export default function ClientsPage() {
                     return (
                       <TableRow
                         key={client.id}
-                        className="border-wolf-border hover:bg-slate-50"
+                        className="border-zinc-900 hover:bg-zinc-900/70"
                       >
-                        <TableCell className="font-semibold text-wolf-ink">
+                        <TableCell className="font-semibold text-white">
                           <div className="flex items-center gap-2">
-                            <UserRound className="h-4 w-4 text-wolf-primary-strong" />
+                            <UserRound className="h-4 w-4 text-yellow-400" />
                             {client.firstName}
                           </div>
                         </TableCell>
-                        <TableCell className="text-wolf-ink">{client.lastName}</TableCell>
+                        <TableCell className="text-zinc-300">{client.lastName}</TableCell>
                         <TableCell>
-                          <span className="inline-flex rounded-md border border-wolf-border bg-wolf-muted px-2 py-1 text-xs font-semibold text-wolf-ink">
+                          <span className="inline-flex rounded-md border border-zinc-800 bg-black px-2 py-1 text-xs font-semibold text-zinc-200">
                             {client.plan}
                           </span>
                         </TableCell>
-                        <TableCell className="text-wolf-ink">{client.membershipStart || "—"}</TableCell>
-                        <TableCell className="text-wolf-ink">{client.membershipEnd || "—"}</TableCell>
+                        <TableCell className="text-zinc-300">{client.membershipStart || "—"}</TableCell>
+                        <TableCell className="text-zinc-300">{client.membershipEnd || "—"}</TableCell>
                         <TableCell>
                           <span className={`inline-flex whitespace-nowrap rounded-full border px-2 py-1 text-xs font-semibold ${membershipDays.className}`}>
                             {membershipDays.label}
                           </span>
                         </TableCell>
-                        <TableCell className="text-wolf-subtle">{client.documentNumber || "—"}</TableCell>
-                        <TableCell className="text-wolf-subtle">{client.createdAt || "—"}</TableCell>
+                        <TableCell className="text-zinc-400">{client.documentNumber || "—"}</TableCell>
+                        <TableCell className="text-zinc-400">{client.createdAt || "—"}</TableCell>
                         <TableCell>
                           <Button
                             onClick={() => {
@@ -1148,7 +1148,7 @@ export default function ClientsPage() {
                               });
                               setShowDebtDialog(true);
                             }}
-                            className="inline-flex items-center gap-2 bg-wolf-secondary px-2 py-1 text-xs text-white hover:bg-blue-500"
+                            className="inline-flex items-center gap-2 bg-blue-600 px-2 py-1 text-xs text-white hover:bg-blue-500"
                           >
                             <BadgeDollarSign className="h-3.5 w-3.5" />
                             Cobros
@@ -1173,7 +1173,7 @@ export default function ClientsPage() {
                         <TableCell>
                           <div className="flex flex-wrap gap-2">
                             <Button
-                            className={`${busy[uid] ? "opacity-50 cursor-not-allowed" : "hover:bg-yellow-300"} bg-wolf-primary text-wolf-ink`}
+                            className={`${busy[uid] ? "opacity-50 cursor-not-allowed" : "hover:bg-yellow-300"} bg-yellow-400 text-black`}
                               onClick={() => registerFingerprint(uid)}
                               disabled={!!busy[uid] || !!deleting[uid]}
                             >
@@ -1182,7 +1182,7 @@ export default function ClientsPage() {
                             </Button>
 
                             <Button
-                              className={`!border-wolf-primary-strong !bg-white !text-wolf-primary-strong hover:!bg-wolf-primary hover:!text-wolf-ink ${
+                              className={`!border-yellow-400 !bg-zinc-950 !text-yellow-300 hover:!bg-yellow-400 hover:!text-black ${
                                 busy[uid] ? "opacity-50 cursor-not-allowed" : ""
                               }`}
                               onClick={() => verifyFingerprint(uid)}
@@ -1209,7 +1209,7 @@ export default function ClientsPage() {
                             />
 
                             <Button
-                              className="inline-flex items-center gap-2 !border-green-600 !bg-white !text-green-700 hover:!bg-green-600 hover:!text-white"
+                              className="inline-flex items-center gap-2 !border-green-500 !bg-zinc-950 !text-green-300 hover:!bg-green-600 hover:!text-white"
                               onClick={() => sendCredentials(client)}
                               disabled={!!busy[client.id] || !!deleting[client.id]}
                               variant="outline"
@@ -1236,7 +1236,7 @@ export default function ClientsPage() {
                             </Button>
 
                             <Button
-                              className={`!border-red-500 !bg-white !text-red-600 hover:!bg-red-600 hover:!text-white ${
+                              className={`!border-red-500 !bg-zinc-950 !text-red-300 hover:!bg-red-600 hover:!text-white ${
                                 busy[uid] ? "opacity-50 cursor-not-allowed" : ""
                               }`}
                               onClick={() => deleteFingerprint(uid)}
@@ -1252,7 +1252,7 @@ export default function ClientsPage() {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={11} className="py-10 text-center text-wolf-subtle">
+                    <TableCell colSpan={11} className="py-10 text-center text-zinc-500">
                       No hay clientes disponibles
                     </TableCell>
                   </TableRow>
@@ -1262,22 +1262,22 @@ export default function ClientsPage() {
           </div>
         </div>
       </section>
-      <section className="rounded-lg border border-wolf-border bg-white p-4 shadow-sm">
-        <div className="mb-4 flex items-center gap-2 text-wolf-ink">
+      <section className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+        <div className="mb-4 flex items-center gap-2 text-yellow-400">
           <UserRound className="h-5 w-5" />
           <h2 className="text-lg font-bold">Accesos pendientes</h2>
         </div>
         {pendingCredentials.length > 0 ? (
           pendingCredentials.map((cred, index) => (
-            <div key={index} className="mb-3 rounded-lg border border-wolf-border bg-wolf-muted p-3">
-              <div className="grid gap-1 text-sm text-wolf-ink md:grid-cols-3">
-                <p><span className="text-wolf-subtle">Usuario</span><br />{cred.username}</p>
-                <p><span className="text-wolf-subtle">Contraseña</span><br />{cred.password}</p>
-                <p><span className="text-wolf-subtle">Teléfono</span><br />{cred.phone}</p>
+            <div key={index} className="mb-3 rounded-lg border border-zinc-800 bg-black p-3">
+              <div className="grid gap-1 text-sm text-zinc-300 md:grid-cols-3">
+                <p><span className="text-zinc-500">Usuario</span><br />{cred.username}</p>
+                <p><span className="text-zinc-500">Contraseña</span><br />{cred.password}</p>
+                <p><span className="text-zinc-500">Teléfono</span><br />{cred.phone}</p>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button
-                  className="bg-wolf-primary text-wolf-ink hover:bg-yellow-300"
+                  className="bg-yellow-400 text-black hover:bg-yellow-300"
                   onClick={() => {
                     navigator.clipboard.writeText(
                       cred.message || `Usuario: ${cred.username}\nContraseña: ${cred.password}\nTeléfono: ${cred.phone}`
@@ -1288,7 +1288,7 @@ export default function ClientsPage() {
                   Copiar
                 </Button>
                 <Button
-                  className="bg-wolf-success text-white hover:bg-green-600"
+                  className="bg-green-600 text-white hover:bg-green-500"
                   onClick={() =>
                     window.open(
                       cred.whatsappUrl ||
@@ -1302,7 +1302,7 @@ export default function ClientsPage() {
                   Abrir chat en WhatsApp
                 </Button>
                 <Button
-                  className="bg-wolf-danger text-white hover:bg-red-600"
+                  className="bg-red-500 text-white hover:bg-red-600"
                   onClick={() => {
                     const updated = pendingCredentials.filter(
                       (_, i) => i !== index
@@ -1320,7 +1320,7 @@ export default function ClientsPage() {
             </div>
           ))
         ) : (
-          <p className="rounded-md border border-dashed border-wolf-border p-4 text-sm text-wolf-subtle">
+          <p className="rounded-md border border-dashed border-zinc-800 p-4 text-sm text-zinc-500">
             No hay accesos pendientes.
           </p>
         )}
@@ -1328,7 +1328,7 @@ export default function ClientsPage() {
       </main>
       {isPageLoading && (
         <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center">
-          <div className="flex items-center gap-3 rounded-lg border border-wolf-border bg-white px-4 py-3 text-wolf-ink shadow-xl">
+          <div className="flex items-center gap-3 rounded-lg border border-yellow-400 bg-black/80 px-4 py-3 text-white shadow-xl">
             <BtnSpinner />
             <span>Procesando…</span>
           </div>
@@ -1371,12 +1371,12 @@ function ClientMetric({
   tone?: "default" | "yellow";
 }) {
   return (
-    <div className="rounded-lg border border-wolf-border bg-white p-4 shadow-sm">
-      <div className={`flex items-center gap-2 text-sm ${tone === "yellow" ? "text-wolf-primary-strong" : "text-wolf-subtle"}`}>
+    <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+      <div className={`flex items-center gap-2 text-sm ${tone === "yellow" ? "text-yellow-400" : "text-zinc-400"}`}>
         {icon}
         {label}
       </div>
-      <div className="mt-3 text-2xl font-black text-wolf-ink">{value}</div>
+      <div className="mt-3 text-2xl font-black text-white">{value}</div>
     </div>
   );
 }
@@ -1384,8 +1384,8 @@ function ClientMetric({
 function Info({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs text-wolf-subtle">{label}</p>
-      <p className="mt-1 font-medium text-wolf-ink">{value}</p>
+      <p className="text-xs text-zinc-500">{label}</p>
+      <p className="mt-1 font-medium text-white">{value}</p>
     </div>
   );
 }

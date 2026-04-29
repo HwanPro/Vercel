@@ -13,22 +13,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Obtener métricas en tiempo real
-    const [
-      totalIncome,
-      newClients,
-      productSales,
-      classAttendance,
-      todayAttendance,
-      activeMemberships,
-      lowStockProducts
-    ] = await Promise.all([
-      // Ingresos totales
+    // Tolerar fallos parciales para no tumbar todo el dashboard.
+    const results = await Promise.allSettled([
       prisma.paymentRecord.aggregate({
         _sum: { payment_amount: true },
       }),
-      
-      // Nuevos clientes (últimos 30 días)
       prisma.user.count({
         where: {
           role: "client",
@@ -37,13 +26,9 @@ export async function GET(request: NextRequest) {
           },
         },
       }),
-      
-      // Ventas de productos
       prisma.purchase.aggregate({
         _sum: { purchase_total: true },
       }),
-      
-      // Asistencia total (últimos 7 días)
       prisma.attendance.count({
         where: {
           checkInTime: {
@@ -51,8 +36,6 @@ export async function GET(request: NextRequest) {
           },
         },
       }),
-      
-      // Asistencia de hoy
       prisma.attendance.count({
         where: {
           checkInTime: {
@@ -61,8 +44,6 @@ export async function GET(request: NextRequest) {
           },
         },
       }),
-      
-      // Membresías activas
       prisma.clientProfile.count({
         where: {
           profile_end_date: {
@@ -70,16 +51,35 @@ export async function GET(request: NextRequest) {
           },
         },
       }),
-      
-      // Productos con stock bajo
       prisma.inventoryItem.count({
         where: {
           item_stock: {
             lte: 10,
           },
         },
-      })
+      }),
     ]);
+
+    const takeValue = <T,>(index: number, fallback: T): T => {
+      const result = results[index];
+      if (result.status === "fulfilled") return result.value as T;
+      console.error("Métrica fallida", index, result.reason);
+      return fallback;
+    };
+
+    const totalIncome = takeValue<{ _sum: { payment_amount: number | null } }>(
+      0,
+      { _sum: { payment_amount: 0 } }
+    );
+    const newClients = takeValue<number>(1, 0);
+    const productSales = takeValue<{ _sum: { purchase_total: number | null } }>(
+      2,
+      { _sum: { purchase_total: 0 } }
+    );
+    const classAttendance = takeValue<number>(3, 0);
+    const todayAttendance = takeValue<number>(4, 0);
+    const activeMemberships = takeValue<number>(5, 0);
+    const lowStockProducts = takeValue<number>(6, 0);
 
     return NextResponse.json({
       totalIncome: totalIncome._sum.payment_amount || 0,

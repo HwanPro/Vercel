@@ -208,16 +208,18 @@ export default function ProfileModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-h-[92vh] max-w-lg overflow-y-auto border border-zinc-800 bg-zinc-950 text-white shadow-2xl">
+      <DialogContent className="max-h-[92vh] max-w-lg overflow-y-auto border border-wolf-border bg-white text-wolf-ink shadow-2xl">
         <DialogHeader>
-          <DialogTitle className="text-yellow-300">Mi Perfil</DialogTitle>
-          <DialogDescription className="text-zinc-400">Gestiona tu información personal</DialogDescription>
+          <DialogTitle className="text-wolf-ink">Editar perfil</DialogTitle>
+          <DialogDescription className="text-wolf-subtle">
+            Gestiona tu información personal.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex items-center gap-4">
           {/* Avatar */}
           <div className="relative">
-            <div className="w-24 h-24 border-2 border-yellow-400 rounded-full overflow-hidden bg-yellow-400 flex items-center justify-center">
+            <div className="w-24 h-24 border-2 border-wolf-primary rounded-full overflow-hidden bg-wolf-primary flex items-center justify-center">
               {currentProfileImage ? (
                 <img 
                   src={currentProfileImage} 
@@ -235,12 +237,12 @@ export default function ProfileModal({
             </div>
             <Button
               size="icon"
-              className="absolute bottom-0 right-0 rounded-full bg-yellow-400 text-black hover:bg-yellow-500 disabled:opacity-50"
+              className="absolute bottom-0 right-0 rounded-full bg-wolf-primary text-wolf-ink hover:bg-yellow-300 disabled:opacity-50"
               onClick={handleCameraClick}
               disabled={isUploadingImage}
             >
               {isUploadingImage ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-black"></div>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-wolf-ink"></div>
               ) : (
                 <Camera className="h-4 w-4" />
               )}
@@ -256,10 +258,10 @@ export default function ProfileModal({
 
           {/* Nombre y rol */}
           <div>
-            <h1 className="text-2xl font-bold text-white">
+            <h1 className="text-2xl font-bold text-wolf-ink">
               {firstNameLocal} {lastName}
             </h1>
-            <p className="text-zinc-400">{userRole || "Usuario"}</p>
+            <p className="text-wolf-subtle">{userRole || "Usuario"}</p>
           </div>
         </div>
 
@@ -267,48 +269,48 @@ export default function ProfileModal({
         <div className="space-y-4 mt-4">
           {/* Nombre de Usuario */}
           <div className="space-y-2">
-            <Label htmlFor="username" className="text-zinc-200">Nombre de Usuario</Label>
+            <Label htmlFor="username" className="text-wolf-ink">Usuario</Label>
             <Input
               id="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="border border-zinc-700 bg-black text-white"
+              className="border border-wolf-border bg-white text-wolf-ink"
             />
           </div>
 
           {/* Nombre real */}
           <div className="space-y-2">
-            <Label htmlFor="firstName" className="text-zinc-200">Nombre</Label>
+            <Label htmlFor="firstName" className="text-wolf-ink">Nombre</Label>
             <Input
               id="firstName"
               value={firstNameLocal}
               onChange={(e) => setFirstNameLocal(e.target.value)}
-              className="border border-zinc-700 bg-black text-white"
+              className="border border-wolf-border bg-white text-wolf-ink"
             />
           </div>
 
           {/* Apellidos */}
           <div className="space-y-2">
-            <Label htmlFor="lastName" className="text-zinc-200">Apellidos</Label>
+            <Label htmlFor="lastName" className="text-wolf-ink">Apellidos</Label>
             <Input
               id="lastName"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
-              className="border border-zinc-700 bg-black text-white"
+              className="border border-wolf-border bg-white text-wolf-ink"
             />
           </div>
 
           {/* Teléfono principal */}
           <div className="space-y-2">
-            <Label htmlFor="phone" className="text-zinc-200">Teléfono</Label>
+            <Label htmlFor="phone" className="text-wolf-ink">Teléfono</Label>
             <div className="flex gap-2">
               <Input
                 id="phone"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="border border-zinc-700 bg-black text-white"
+                className="border border-wolf-border bg-white text-wolf-ink"
               />
-              <Button size="icon" variant="outline" className="shrink-0 !border-zinc-700 !bg-zinc-900 !text-yellow-300 hover:!bg-zinc-800">
+              <Button size="icon" variant="outline" className="shrink-0 !border-wolf-border !bg-white !text-wolf-primary-strong hover:!bg-wolf-muted">
                 <Phone className="h-4 w-4" />
               </Button>
             </div>
@@ -316,15 +318,15 @@ export default function ProfileModal({
 
           {/* Teléfono de emergencia */}
           <div className="space-y-2">
-            <Label htmlFor="emergencyPhone" className="text-zinc-200">Teléfono de emergencia</Label>
+            <Label htmlFor="emergencyPhone" className="text-wolf-ink">Teléfono de emergencia</Label>
             <div className="flex gap-2">
               <Input
                 id="emergencyPhone"
                 value={emergencyPhone}
                 onChange={(e) => setEmergencyPhone(e.target.value)}
-                className="border border-zinc-700 bg-black text-white"
+                className="border border-wolf-border bg-white text-wolf-ink"
               />
-              <Button size="icon" variant="outline" className="shrink-0 !border-zinc-700 !bg-zinc-900 !text-yellow-300 hover:!bg-zinc-800">
+              <Button size="icon" variant="outline" className="shrink-0 !border-wolf-border !bg-white !text-wolf-primary-strong hover:!bg-wolf-muted">
                 <Phone className="h-4 w-4" />
               </Button>
             </div>
@@ -332,7 +334,7 @@ export default function ProfileModal({
 
           {/* Botón guardar */}
           <Button
-            className="w-full bg-yellow-400 font-semibold text-black hover:bg-yellow-300"
+            className="w-full bg-wolf-primary font-semibold text-wolf-ink hover:bg-yellow-300"
             onClick={handleSubmit}
             disabled={isSubmitting}
           >
@@ -341,7 +343,7 @@ export default function ProfileModal({
 
           {/* Cambiar contraseña - DESACTIVADO */}
           <Button
-            className="w-full cursor-not-allowed bg-zinc-800 text-zinc-400"
+            className="w-full cursor-not-allowed bg-slate-100 text-wolf-subtle"
             disabled
           >
             Cambiar contraseña (Próximamente)
