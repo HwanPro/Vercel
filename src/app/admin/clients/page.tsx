@@ -25,12 +25,10 @@ import {
   TableCell,
 } from "@/ui/table";
 import { Dialog, DialogTrigger, DialogContent, DialogTitle } from "@/ui/dialog";
-import AddClientDialog from "@/features/clients/AddClientDialog";
+import { AddClientDialog, DebtManagement, EditClientDialog } from "@/features/clients";
 import Link from "next/link";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import EditClientDialog from "@/features/clients/EditClientDialog";
-import DebtManagement from "@/features/clients/DebtManagement";
 import Swal from "sweetalert2";
 import "sweetalert2/dist/sweetalert2.min.css";
 import {

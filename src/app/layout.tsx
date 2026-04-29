@@ -1,10 +1,12 @@
 import type { Metadata, Viewport } from "next";
+import localFont from "next/font/local";
 import "./globals.css";
 import Providers from "./providers";
 
 const siteUrl = "https://wolf-gym.com";
 const siteName = "Wolf Gym";
 const logoPath = "/wolf-gym-logo.png";
+const iconPath = "/icons/icon-512.png";
 const title = "Wolf Gym - Gimnasio en Ica | Entrena con equipos de calidad";
 const description =
   "Wolf Gym en Ica: gimnasio con equipos de calidad, planes accesibles, tienda deportiva y control de asistencia para clientes.";
@@ -65,11 +67,12 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title,
     description,
-    images: [logoPath],
+    images: [iconPath],
   },
   icons: {
     icon: [
-      { url: "/favicon.ico" },
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.png", sizes: "512x512", type: "image/png" },
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
@@ -87,7 +90,20 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  themeColor: "#facc15",
 };
+
+const geistSans = localFont({
+  src: "./fonts/GeistVF.woff",
+  variable: "--font-geist-sans",
+  weight: "100 900",
+});
+
+const geistMono = localFont({
+  src: "./fonts/GeistMonoVF.woff",
+  variable: "--font-geist-mono",
+  weight: "100 900",
+});
 
 export default function RootLayout({
   children,
@@ -117,8 +133,8 @@ export default function RootLayout({
   };
 
   return (
-    <html lang="es">
-      <body className="min-h-dvh bg-black text-white antialiased overflow-x-hidden">
+    <html lang="es" className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body className="min-h-dvh overflow-x-hidden bg-black font-sans text-white antialiased">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessJsonLd) }}

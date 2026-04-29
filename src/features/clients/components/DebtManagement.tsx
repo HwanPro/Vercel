@@ -1,4 +1,3 @@
-// src/features/clients/DebtManagement.tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";

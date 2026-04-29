@@ -1,13 +1,20 @@
-// features/clients/AddClientDialog.tsx
 "use client";
 
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 import { Button } from "@/ui/button";
 import MembershipSelection from "@/ui/components/MembershipSelection";
-
-type Cred = { username: string; password: string; phone: string };
+import type { ClientFormPayload, PendingCredential } from "../types";
+import {
+  dialogSurfaceClass,
+  fieldClass,
+  helperTextClass,
+  labelClass,
+  phoneInputClass,
+  sectionClass,
+} from "../lib/form-styles";
 
 interface ClientProfile {
   user_id: string;
@@ -20,29 +27,12 @@ interface ClientResponse {
   [key: string]: unknown;
 }
 
-interface NewClientData {
-  firstName: string;
-  lastName: string;
-  username: string;
-  phoneNumber: string;
-  profile: {
-    plan: string;
-    startDate: string;
-    endDate: string;
-    emergencyPhone: string;
-    address: string;
-    social: string;
-    documentNumber: string;
-    debt: number;
-  };
-}
-
 export default function AddClientDialog({
   onSave,
   onCredentialsUpdate,
 }: {
-  onSave: (client: NewClientData) => Promise<unknown> | void;
-  onCredentialsUpdate?: (cred: Cred) => void;
+  onSave: (client: ClientFormPayload) => Promise<unknown> | void;
+  onCredentialsUpdate?: (cred: PendingCredential) => void;
 }) {
   // ---- estados base ----
   const [name, setName] = useState("");
@@ -74,10 +64,7 @@ export default function AddClientDialog({
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const [generatedUsername, setGeneratedUsername] = useState<string>("");
-  const [generatedPassword, setGeneratedPassword] = useState<string>("");
-
-  const [credentials, setCredentials] = useState<Cred | null>(null);
+  const [credentials, setCredentials] = useState<PendingCredential | null>(null);
   const normalizePhone = (p?: string) => (p ? p.replace(/\D/g, "") : "");
 
   // ---- helpers ----
@@ -163,9 +150,6 @@ export default function AddClientDialog({
 
     const username = generateUsername(name);
     const password = generatePassword();
-    setGeneratedUsername(username);
-    setGeneratedPassword(password);
-
 
     // 👇 payload EXACTO que espera el backend
     const payloadForApi = {
@@ -192,8 +176,14 @@ export default function AddClientDialog({
       const response = (await onSave(payloadForApi)) as ClientResponse;
 
       const tempPassword = response?.tempPassword || password;
-      setGeneratedPassword(tempPassword);
-      const cred: Cred = { username, password: tempPassword, phone: phone! };
+      const message = `Wolf Gym - credenciales de acceso\n\nUsuario: ${username}\nContraseña: ${tempPassword}\n\nIngresa en: https://www.wolf-gym.com/auth/login\nPuedes cambiar tu contraseña desde tu perfil.`;
+      const cred: PendingCredential = {
+        username,
+        password: tempPassword,
+        phone: normalizePhone(phone),
+        message,
+        whatsappUrl: `https://wa.me/${normalizePhone(phone)}?text=${encodeURIComponent(message)}`,
+      };
 
       const stored = localStorage.getItem("pendingCredentials");
       const list = stored ? JSON.parse(stored) : [];
@@ -212,56 +202,50 @@ export default function AddClientDialog({
 
   // ---- UI ----
   return (
-    // ⬇️ contenedor responsive + scroll
-    <div className="relative w-[calc(100vw-2rem)] max-w-xl sm:max-w-2xl bg-white rounded-lg shadow-lg max-h-[90vh] overflow-y-auto p-4 mx-auto">
+    <div className={dialogSurfaceClass}>
+      <div className="mb-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-yellow-400">
+          Nuevo cliente
+        </p>
+        <h2 className="text-xl font-black text-white">Registro de membresía</h2>
+      </div>
       {errorMessage && (
-        <p className="text-red-500 mb-2 text-sm">{errorMessage}</p>
+        <p className="mb-3 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+          {errorMessage}
+        </p>
       )}
 
-      {/* Nombres y apellidos */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <input
-          className="w-full p-2 border rounded bg-white text-black text-sm"
-          placeholder="Nombres"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <input
-          className="w-full p-2 border rounded bg-white text-black text-sm"
-          placeholder="Apellidos"
-          value={lastName}
-          onChange={(e) => setLastName(e.target.value)}
-        />
-      </div>
-
-      {/* Documento / Dirección / Red social */}
-      <div className="mt-2">
-        <input
-          className="w-full p-2 border rounded bg-white text-black text-sm"
-          placeholder="DNI (opcional, 8 dígitos)"
-          inputMode="numeric"
-          maxLength={8}
-          value={documentNumber}
-          onChange={(e) => setDocumentNumber(e.target.value.replace(/\D/g, "").slice(0, 8))}
-        />
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-        <input
-          className="w-full p-2 border rounded bg-white text-black text-sm"
-          placeholder="Dirección (opcional)"
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-        />
-        <input
-          className="w-full p-2 border rounded bg-white text-black text-sm"
-          placeholder="Red social (opcional)"
-          value={social}
-          onChange={(e) => setSocial(e.target.value)}
-        />
-      </div>
+      <section className={sectionClass}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="Nombres">
+            <input className={fieldClass} placeholder="Nombres" value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
+          <Field label="Apellidos">
+            <input className={fieldClass} placeholder="Apellidos" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+          </Field>
+          <Field label="DNI">
+            <input
+              className={fieldClass}
+              placeholder="8 dígitos"
+              inputMode="numeric"
+              maxLength={8}
+              value={documentNumber}
+              onChange={(e) => setDocumentNumber(e.target.value.replace(/\D/g, "").slice(0, 8))}
+            />
+          </Field>
+          <Field label="Red social">
+            <input className={fieldClass} placeholder="@usuario o link" value={social} onChange={(e) => setSocial(e.target.value)} />
+          </Field>
+          <div className="sm:col-span-2">
+            <Field label="Dirección">
+              <input className={fieldClass} placeholder="Dirección opcional" value={address} onChange={(e) => setAddress(e.target.value)} />
+            </Field>
+          </div>
+        </div>
+      </section>
 
       {/* Selección de membresía automática (tu componente) */}
-      <div className="mt-3">
+      <section className={`${sectionClass} mt-3`}>
         <MembershipSelection
           onPlanSelect={(selectedPlan, start, end) => {
             setPlan(selectedPlan);
@@ -269,40 +253,34 @@ export default function AddClientDialog({
             setMembershipEnd(end);
           }}
         />
-      </div>
+      </section>
 
       {/* Fechas manuales */}
-      <div className="mt-4 space-y-2">
-        <label className="flex items-center gap-2 text-black text-sm">
+      <section className={`${sectionClass} mt-3 space-y-3`}>
+        <label className="flex items-center gap-2 text-sm text-zinc-200">
           <input
             type="checkbox"
             checked={manualDates}
             onChange={() => setManualDates(!manualDates)}
           />
-          Ingresar fechas manualmente
+          Ajustar fechas manualmente
         </label>
 
         {manualDates && (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
-                <label className="block text-sm font-bold mb-1 text-black">
-                  Fecha de inicio
-                </label>
                 <input
                   type="date"
-                  className="w-full p-2 border rounded bg-white text-black text-sm"
+                  className={fieldClass}
                   value={membershipStart}
                   onChange={(e) => setMembershipStart(e.target.value)}
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold mb-1 text-black">
-                  Fecha de fin
-                </label>
                 <input
                   type="date"
-                  className="w-full p-2 border rounded bg-white text-black text-sm"
+                  className={fieldClass}
                   value={membershipEnd}
                   onChange={(e) => setMembershipEnd(e.target.value)}
                 />
@@ -310,7 +288,7 @@ export default function AddClientDialog({
             </div>
 
             {/* Asistente de promo */}
-            <label className="flex items-center gap-2 text-black text-sm mt-1">
+            <label className="mt-1 flex items-center gap-2 text-sm text-zinc-200">
               <input
                 type="checkbox"
                 checked={usePromoAssistant}
@@ -322,13 +300,11 @@ export default function AddClientDialog({
             {usePromoAssistant && (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <div>
-                  <label className="block text-sm font-bold mb-1 text-black">
-                    Preset
-                  </label>
+                  <label className={labelClass}>Preset</label>
                   <select
                     value={promoPreset}
                     onChange={(e) => setPromoPreset(e.target.value as Preset)}
-                    className="w-full p-2 border rounded bg-white text-black text-sm"
+                    className={fieldClass}
                   >
                     <option value="30">Mensual (30 días)</option>
                     <option value="90">Trimestral (90 días)</option>
@@ -339,7 +315,7 @@ export default function AddClientDialog({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold mb-1 text-black">
+                  <label className={labelClass}>
                     {promoPreset === "custom"
                       ? "Días (personalizado)"
                       : "Días (preset)"}
@@ -347,7 +323,7 @@ export default function AddClientDialog({
                   <input
                     type="number"
                     min={1}
-                    className="w-full p-2 border rounded bg-white text-black text-sm"
+                    className={fieldClass}
                     value={
                       promoPreset === "custom"
                         ? customDays
@@ -361,13 +337,11 @@ export default function AddClientDialog({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold mb-1 text-black">
-                    Días ya consumidos
-                  </label>
+                  <label className={labelClass}>Días ya consumidos</label>
                   <input
                     type="number"
                     min={0}
-                    className="w-full p-2 border rounded bg-white text-black text-sm"
+                    className={fieldClass}
                     value={usedDays}
                     onChange={(e) =>
                       setUsedDays(Math.max(0, Number(e.target.value || 0)))
@@ -375,7 +349,7 @@ export default function AddClientDialog({
                   />
                 </div>
 
-                <div className="col-span-1 sm:col-span-3 text-xs text-black/70">
+                <div className="col-span-1 text-xs text-zinc-400 sm:col-span-3">
                   Duración efectiva: <b>{durationDays}</b> días
                   {membershipStart && usePromoAssistant ? (
                     <>
@@ -395,49 +369,39 @@ export default function AddClientDialog({
             )}
           </>
         )}
-      </div>
+      </section>
 
       {/* Teléfonos */}
-      <div className="mt-3 space-y-2">
-        <PhoneInput
-          defaultCountry="PE"
-          placeholder="Teléfono principal"
-          value={phone}
-          onChange={setPhone}
-          className="w-full p-2 border rounded bg-white text-black text-sm"
-        />
-        <PhoneInput
-          defaultCountry="PE"
-          placeholder="Teléfono de emergencia (opcional)"
-          value={emergencyPhone}
-          onChange={setEmergencyPhone}
-          className="w-full p-2 border rounded bg-white text-black text-sm"
-        />
-      </div>
+      <section className={`${sectionClass} mt-3 grid gap-3 sm:grid-cols-2`}>
+        <Field label="Teléfono principal">
+          <PhoneInput defaultCountry="PE" placeholder="987 654 321" value={phone} onChange={setPhone} className={phoneInputClass} />
+        </Field>
+        <Field label="Teléfono de emergencia">
+          <PhoneInput defaultCountry="PE" placeholder="Opcional" value={emergencyPhone} onChange={setEmergencyPhone} className={phoneInputClass} />
+        </Field>
+      </section>
 
       {/* Deuda */}
-      <div className="mt-3">
-        <label className="block text-sm font-bold mb-1 text-black">
-          Deuda (S/.)
-        </label>
+      <section className={`${sectionClass} mt-3`}>
+        <label className={labelClass}>Deuda (S/.)</label>
         <input
           type="number"
           min={0}
           step="0.01"
-          className="w-full p-2 border rounded bg-white text-black text-sm"
+          className={fieldClass}
           placeholder="0.00"
           value={debt}
           onChange={(e) => setDebt(e.target.value)}
         />
-        <p className="text-xs text-black/60 mt-1">
+        <p className={helperTextClass}>
           Si pagó parcial, coloca aquí lo que queda por pagar. Si está al día,
           déjalo en 0.
         </p>
-      </div>
+      </section>
 
       {/* Guardar */}
       <Button
-        className="bg-yellow-400 text-black hover:bg-yellow-500 w-full text-sm mt-4"
+        className="mt-4 h-11 w-full bg-yellow-400 text-sm font-bold text-black hover:bg-yellow-300"
         onClick={handleSave}
         disabled={loading}
       >
@@ -447,60 +411,42 @@ export default function AddClientDialog({
       {/* Modal de credenciales */}
       {credentials && (
         <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50">
-          <div className="w-[calc(100vw-2rem)] max-w-md bg-white p-6 rounded-lg shadow-lg space-y-4 text-black max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold text-center">
+          <div className="max-h-[90vh] w-[calc(100vw-2rem)] max-w-md overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-950 p-5 text-white shadow-lg">
+            <h2 className="text-center text-xl font-bold">
               ¡Bienvenido a Wolf Gym!
             </h2>
-            <p className="italic text-center text-gray-600">
+            <p className="text-center text-sm italic text-zinc-400">
               “El éxito es la suma de pequeños esfuerzos repetidos día tras
               día.”
             </p>
 
             <textarea
               readOnly
-              className="w-full h-48 bg-gray-100 p-4 rounded text-sm text-black resize-none"
-              value={`¡Bienvenido a Wolf Gym!
-“El éxito es la suma de pequeños esfuerzos repetidos día tras día.”
-
-Usuario: ${generatedUsername}
-Contraseña: ${generatedPassword}
-
-Puedes cambiar tu contraseña desde tu perfil presionando el botón Editar Perfil.
-
-Accede a: www.wolf-gym.com`}
+              className="mt-4 h-44 w-full resize-none rounded-md border border-zinc-800 bg-black p-4 text-sm text-zinc-100"
+              value={credentials.message || ""}
             />
 
             <Button
               variant="outline"
-              className="w-full text-sm"
+              className="mt-3 w-full !border-zinc-700 !bg-zinc-900 text-sm !text-white hover:!bg-zinc-800"
               onClick={() => {
-                navigator.clipboard.writeText(`¡Bienvenido a Wolf Gym!
-“El éxito es la suma de pequeños esfuerzos repetidos día tras día.”
-
-Usuario: ${generatedUsername}
-Contraseña: ${generatedPassword}
-
-Puedes cambiar tu contraseña desde tu perfil presionando el botón Editar Perfil.
-
-Accede a: www.wolf-gym.com
-
-PROHIBIDO RENDIRSE!!`);
+                navigator.clipboard.writeText(credentials.message || "");
               }}
             >
-              📋 Copiar credenciales
+              Copiar credenciales
             </Button>
 
             <Button
-              className="bg-green-600 text-white w-full"
+              className="mt-2 w-full bg-green-600 text-white hover:bg-green-500"
               onClick={() =>
-                window.open(`https://wa.me/${credentials.phone}`, "_blank")
+                window.open(credentials.whatsappUrl || `https://wa.me/${credentials.phone}`, "_blank")
               }
             >
               Enviar vía WhatsApp
             </Button>
 
             <Button
-              className="bg-yellow-400 w-full"
+              className="mt-2 w-full bg-yellow-400 text-black hover:bg-yellow-300"
               onClick={() => setCredentials(null)}
             >
               Cerrar
@@ -509,5 +455,20 @@ PROHIBIDO RENDIRSE!!`);
         </div>
       )}
     </div>
+  );
+}
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className={labelClass}>{label}</span>
+      {children}
+    </label>
   );
 }

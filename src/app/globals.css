@@ -10,7 +10,7 @@ body {
 }
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
 /* Fix para z-index de SweetAlert2 sobre modales */
@@ -30,6 +30,23 @@ body {
 .swal2-popup .swal2-styled.swal-cancel-contrast {
   background: #27272a !important;
   color: #fafafa !important;
+}
+
+.wolf-phone-input .PhoneInputInput {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: #ffffff;
+  outline: none;
+}
+
+.wolf-phone-input .PhoneInputInput::placeholder {
+  color: #71717a;
+}
+
+.wolf-phone-input .PhoneInputCountry {
+  margin-right: 0.65rem;
 }
 
 /* Asegurar que los overlays de Radix no bloqueen SweetAlert2 */
