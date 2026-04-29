@@ -96,6 +96,7 @@ model ClientProfile {
   profile_id              String       @id @default(cuid())
   profile_address         String?      @default("")
   profile_social          String?      @default("")
+  documentNumber          String?      @map("document_number")
   profile_first_name      String?
   profile_last_name       String?
   debt                    Decimal      @default(0) @db.Decimal(10, 2)

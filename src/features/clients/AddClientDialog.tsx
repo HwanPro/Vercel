@@ -32,6 +32,7 @@ interface NewClientData {
     emergencyPhone: string;
     address: string;
     social: string;
+    documentNumber: string;
     debt: number;
   };
 }
@@ -52,6 +53,7 @@ export default function AddClientDialog({
 
   const [address, setAddress] = useState("");
   const [social, setSocial] = useState("");
+  const [documentNumber, setDocumentNumber] = useState("");
 
   const [manualDates, setManualDates] = useState<boolean>(false);
   const [usePromoAssistant, setUsePromoAssistant] = useState<boolean>(false);
@@ -125,8 +127,13 @@ export default function AddClientDialog({
   // ---- guardar ----
   const handleSave = async () => {
     setErrorMessage("");
+    const cleanDocumentNumber = documentNumber.replace(/\D/g, "");
     if (!name || !lastName || !phone) {
       setErrorMessage("Por favor, complete Nombres, Apellidos y Teléfono.");
+      return;
+    }
+    if (cleanDocumentNumber && cleanDocumentNumber.length !== 8) {
+      setErrorMessage("El DNI debe tener 8 dígitos.");
       return;
     }
     if (!isValidPhoneNumber(phone)) {
@@ -173,6 +180,7 @@ export default function AddClientDialog({
         emergencyPhone: normalizePhone(emergencyPhone) || "",
         address: address || "",
         social: social || "",
+        documentNumber: cleanDocumentNumber,
         debt: debtValue,
       },
     };
@@ -226,7 +234,17 @@ export default function AddClientDialog({
         />
       </div>
 
-      {/* Dirección / Red social */}
+      {/* Documento / Dirección / Red social */}
+      <div className="mt-2">
+        <input
+          className="w-full p-2 border rounded bg-white text-black text-sm"
+          placeholder="DNI (opcional, 8 dígitos)"
+          inputMode="numeric"
+          maxLength={8}
+          value={documentNumber}
+          onChange={(e) => setDocumentNumber(e.target.value.replace(/\D/g, "").slice(0, 8))}
+        />
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
         <input
           className="w-full p-2 border rounded bg-white text-black text-sm"

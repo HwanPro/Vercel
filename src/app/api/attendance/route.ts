@@ -72,11 +72,14 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({} as any));
-    const normalized = String(body?.phone || "").replace(/\D/g, "").slice(-9);
+    const rawIdentifier = String(body?.identifier || body?.dni || body?.phone || "");
+    const digits = rawIdentifier.replace(/\D/g, "");
+    const normalized = digits.length >= 9 ? digits.slice(-9) : "";
+    const dni = digits.length === 8 ? digits : "";
 
-    if (normalized.length !== 9) {
+    if (!normalized && !dni) {
       return NextResponse.json(
-        { message: "Número inválido", reason: "bad_phone" },
+        { message: "Ingresa teléfono de 9 dígitos o DNI de 8 dígitos", reason: "bad_identifier" },
         { status: 400 }
       );
     }
@@ -84,7 +87,12 @@ export async function POST(req: NextRequest) {
     // 1) Resolvemos userId por clientProfile y caemos a users.phoneNumber
     const profile = await prisma.clientProfile.findFirst({
       where: {
-        OR: [{ profile_phone: normalized }, { profile_phone: `+51${normalized}` }],
+        OR: [
+          ...(normalized
+            ? [{ profile_phone: normalized }, { profile_phone: `+51${normalized}` }]
+            : []),
+          ...(dni ? [{ documentNumber: dni }] : []),
+        ],
       },
       include: { user: { select: { id: true, firstName: true, lastName: true } } },
     });
@@ -92,10 +100,14 @@ export async function POST(req: NextRequest) {
     let userId: string | null = profile?.user?.id ?? null;
 
     if (!userId) {
-      const userByPhone = await prisma.user.findFirst({
-        where: { phoneNumber: normalized },
-        select: { id: true },
-      });
+      const userByPhone = normalized
+        ? await prisma.user.findFirst({
+            where: {
+              OR: [{ phoneNumber: normalized }, { phoneNumber: `+51${normalized}` }],
+            },
+            select: { id: true },
+          })
+        : null;
       userId = userByPhone?.id ?? null;
     }
 

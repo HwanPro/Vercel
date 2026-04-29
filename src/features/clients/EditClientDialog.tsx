@@ -21,6 +21,7 @@ interface Client {
   membershipEnd: string;
   phone: string;
   emergencyPhone: string;
+  documentNumber?: string;
   address?: string;
   social?: string;
   hasPaid: boolean;
@@ -105,6 +106,11 @@ export default function EditClientDialog({
         toast.error('El número de emergencia no es válido.');
         return;
       }
+      const cleanDocumentNumber = String(formData.documentNumber || "").replace(/\D/g, "");
+      if (cleanDocumentNumber && cleanDocumentNumber.length !== 8) {
+        toast.error("El DNI debe tener 8 dígitos.");
+        return;
+      }
       
       let imageUrl = formData.image;
       
@@ -121,6 +127,7 @@ export default function EditClientDialog({
         endDate: formatDateToISO(formData.membershipEnd),
         phone: formData.phone || "",
         emergencyPhone: formData.emergencyPhone || "",
+        documentNumber: cleanDocumentNumber,
         address: formData.address || "",
         social: formData.social || "",
         image: imageUrl,
@@ -259,6 +266,25 @@ export default function EditClientDialog({
               onChange={(value) => setFormData(prev => ({ ...prev, emergencyPhone: value || '' }))}
               defaultCountry="PE"
               className="border p-2 w-full"
+            />
+          </div>
+
+          <div>
+            <label className="text-gray-600 text-sm">DNI</label>
+            <input
+              type="text"
+              name="documentNumber"
+              inputMode="numeric"
+              maxLength={8}
+              value={formData.documentNumber || ""}
+              onChange={(event) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  documentNumber: event.target.value.replace(/\D/g, "").slice(0, 8),
+                }))
+              }
+              className="border p-2 w-full"
+              placeholder="Documento de identidad"
             />
           </div>
 

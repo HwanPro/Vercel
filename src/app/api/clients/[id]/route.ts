@@ -3,6 +3,8 @@ import prisma from "@/infrastructure/prisma/prisma";
 import { z, ZodError } from "zod";
 import { getToken } from "next-auth/jwt";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 /* ---------- Auth guard ---------- */
 async function ensureAdmin(req: NextRequest) {
@@ -27,7 +29,23 @@ const clientUpdateSchema = z.object({
     .transform((val) => (val ? new Date(val) : null)),
   phone: z.string().optional().or(z.literal("")),
   emergencyPhone: z.string().optional().default(""),
+  documentNumber: z.string().optional().default(""),
 });
+
+function normalizeDocument(value?: string | null) {
+  return String(value || "").replace(/\D/g, "");
+}
+
+function normalizeWhatsappPhone(value?: string | null) {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (digits.length === 9) return `51${digits}`;
+  if (digits.length === 11 && digits.startsWith("51")) return digits;
+  return digits;
+}
+
+function buildCredentialMessage(username: string, password: string) {
+  return `Wolf Gym - credenciales de acceso\n\nUsuario: ${username}\nContraseña: ${password}\n\nIngresa en: https://www.wolf-gym.com/auth/login\nPuedes cambiar tu contraseña desde tu perfil.`;
+}
 
 /* ---------- PUT: actualizar cliente ---------- */
 export async function PUT(
@@ -50,6 +68,10 @@ export async function PUT(
 
     const body = await req.json();
     const validatedData = clientUpdateSchema.parse(body);
+    const documentNumber = normalizeDocument(validatedData.documentNumber);
+    if (documentNumber && documentNumber.length !== 8) {
+      return NextResponse.json({ error: "El DNI debe tener 8 dígitos" }, { status: 400 });
+    }
 
     const clientProfile = await prisma.clientProfile.findUnique({
       where: { profile_id: id },
@@ -90,6 +112,22 @@ export async function PUT(
       }
     }
 
+    if (documentNumber) {
+      const documentTaken = await prisma.clientProfile.findFirst({
+        where: {
+          documentNumber,
+          user_id: { not: clientProfile.user_id },
+        },
+        select: { profile_id: true },
+      });
+      if (documentTaken) {
+        return NextResponse.json(
+          { error: "El DNI ya está registrado" },
+          { status: 400 }
+        );
+      }
+    }
+
     // Transacción
     const [updatedProfile, updatedUser] = await prisma.$transaction([
       prisma.clientProfile.update({
@@ -103,6 +141,7 @@ export async function PUT(
           profile_phone: phoneE164 ?? null,
           profile_emergency_phone:
             validatedData.emergencyPhone?.trim() || null,
+          documentNumber: documentNumber || null,
         },
       }),
       prisma.user.update({
@@ -165,32 +204,19 @@ export async function DELETE(
       );
     }
 
-    /* ============ Opción 1 (recomendada si ya tienes onDelete: Cascade) ============
-       Borrar sólo el usuario; el resto (ClientProfile, Fingerprint, PaymentRecord, etc.)
-       se elimina automáticamente por cascada.
-    */
-    await prisma.user.delete({ where: { id: profile.user_id } });
-
-    /* ============ Opción 2 (defensiva: borra dependencias manualmente) ============
     await prisma.$transaction(async (tx) => {
-      // ¡OJO! El delegado correcto es 'fingerprint' (singular)
-      await tx.fingerprint
-        .deleteMany({ where: { user_id: profile.user_id } })
-        .catch(() => {});
-      await tx.paymentRecord
-        .deleteMany({ where: { user_id: profile.user_id } })
-        .catch(() => {});
-      await tx.userMembershipPlan
-        .deleteMany({ where: { user_id: profile.user_id } })
-        .catch(() => {});
-      await tx.attendance
-        .deleteMany({ where: { user_id: profile.user_id } })
-        .catch(() => {});
-
-      await tx.clientProfile.delete({ where: { profile_id: id } });
+      await tx.debtHistory.deleteMany({ where: { clientProfileId: id } });
+      await tx.dailyDebt.deleteMany({ where: { clientProfileId: id } });
+      await tx.paymentRecord.deleteMany({ where: { payer_user_id: profile.user_id } });
+      await tx.purchase.deleteMany({ where: { customerId: profile.user_id } });
+      await tx.userContact.deleteMany({ where: { contact_user_id: profile.user_id } });
+      await tx.userMembershipPlan.deleteMany({ where: { userId: profile.user_id } });
+      await tx.emailVerification.deleteMany({ where: { userId: profile.user_id } });
+      await tx.fingerprint.deleteMany({ where: { user_id: profile.user_id } });
+      await tx.attendance.deleteMany({ where: { userId: profile.user_id } });
+      await tx.clientProfile.deleteMany({ where: { profile_id: id } });
       await tx.user.delete({ where: { id: profile.user_id } });
-    });
-    */
+    }, { maxWait: 20000, timeout: 120000 });
 
     return NextResponse.json(
       { message: "Cliente eliminado con éxito" },
@@ -200,6 +226,68 @@ export async function DELETE(
     console.error("Error al eliminar cliente:", error);
     return NextResponse.json(
       { error: "Error interno del servidor" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    if (!(await ensureAdmin(req))) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const body = await req.json().catch(() => ({}));
+    if (body?.action !== "credentials") {
+      return NextResponse.json({ error: "Acción no soportada" }, { status: 400 });
+    }
+
+    const profile = await prisma.clientProfile.findUnique({
+      where: { profile_id: id },
+      select: {
+        profile_phone: true,
+        user: {
+          select: {
+            id: true,
+            username: true,
+            phoneNumber: true,
+          },
+        },
+      },
+    });
+
+    if (!profile?.user) {
+      return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 });
+    }
+
+    const password = `Wolf-${crypto.randomBytes(4).toString("hex")}`;
+    const hashed = await bcrypt.hash(password, 10);
+    await prisma.user.update({
+      where: { id: profile.user.id },
+      data: { password: hashed },
+    });
+
+    const phone = normalizeWhatsappPhone(profile.profile_phone || profile.user.phoneNumber);
+    const message = buildCredentialMessage(profile.user.username, password);
+
+    return NextResponse.json({
+      ok: true,
+      username: profile.user.username,
+      password,
+      phone,
+      message,
+      whatsappUrl: phone
+        ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
+        : null,
+    });
+  } catch (error) {
+    console.error("Error al generar credenciales:", error);
+    return NextResponse.json(
+      { error: "No se pudieron generar las credenciales" },
       { status: 500 }
     );
   }

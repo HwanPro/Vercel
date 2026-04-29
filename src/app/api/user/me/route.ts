@@ -22,7 +22,10 @@ export async function GET(request: NextRequest) {
             membership: true, // incluir detalles del plan
           },
         },
-       // attendances: true, // asistencia del usuario
+        attendances: {
+          orderBy: { checkInTime: "desc" },
+          take: 60,
+        },
       },
     });
 
@@ -44,7 +47,7 @@ export async function GET(request: NextRequest) {
         role: user.role,
         profile: user.profile,
         memberships: user.memberships,
-        //attendances: user.attendances,
+        attendances: user.attendances,
       },
       { status: 200 }
     );

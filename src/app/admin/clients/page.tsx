@@ -42,6 +42,7 @@ import {
   Plus,
   RefreshCcw,
   Search,
+  Send,
   ShieldCheck,
   Trash2,
   UserRound,
@@ -83,6 +84,7 @@ interface Client {
   membershipEnd: string;
   phone: string;
   emergencyPhone: string;
+  documentNumber: string;
   prodfile_adress: string;
   profile_social: string;
   hasPaid: boolean;
@@ -113,6 +115,7 @@ interface ApiClient {
   profile_emergency_phone?: string;
   profile_address?: string;
   profile_social?: string;
+  documentNumber?: string;
 }
 
 export default function ClientsPage() {
@@ -128,7 +131,7 @@ export default function ClientsPage() {
         .map((c: ApiClient) => ({
           id: c.profile_id,
           userId: c.user_id,
-          userName: c.profile_username || "",
+          userName: c.user?.username || c.profile_username || "",
           firstName: c.profile_first_name || "Sin nombre",
           lastName: c.profile_last_name || "Sin apellido",
           plan: c.profile_plan || "Sin plan",
@@ -140,6 +143,7 @@ export default function ClientsPage() {
             : "",
           phone: c.profile_phone || "",
           emergencyPhone: c.profile_emergency_phone || "",
+          documentNumber: c.documentNumber || "",
           prodfile_adress: c.profile_address || "",
           profile_social: c.profile_social || "",
           hasPaid: false,
@@ -311,13 +315,21 @@ export default function ClientsPage() {
       emergencyPhone: string;
       address: string;
       social: string;
+      documentNumber: string;
       debt: number;
     };
   }
 
   const [pendingCredentials, setPendingCredentials] = useState<
-    Array<{ username: string; password: string; phone: string }>
+    Array<{ username: string; password: string; phone: string; message?: string; whatsappUrl?: string | null }>
   >([]);
+
+  const persistPendingCredentials = (
+    updater: Array<{ username: string; password: string; phone: string; message?: string; whatsappUrl?: string | null }>
+  ) => {
+    localStorage.setItem("pendingCredentials", JSON.stringify(updater));
+    setPendingCredentials(updater);
+  };
 
   const swalBase: SwalBase = useMemo(
     () => ({
@@ -365,7 +377,10 @@ export default function ClientsPage() {
     const q = searchQuery.trim().toLowerCase();
     const base = q
       ? clients.filter((c) =>
-          `${c.firstName || ""} ${c.lastName || ""} ${c.userName || ""} ${c.phone || ""}`
+          (
+            `${c.firstName || ""} ${c.lastName || ""} ${c.userName || ""} ${c.phone || ""}` +
+            ` ${c.documentNumber || ""}`
+          )
             .toLowerCase()
             .includes(q)
         )
@@ -426,6 +441,38 @@ export default function ClientsPage() {
       },
     [mutate]
   );
+
+  const sendCredentials = async (client: Client) => {
+    try {
+      setBusy((b) => ({ ...b, [client.id]: true }));
+      const response = await fetch(`/api/clients/${client.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ action: "credentials" }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data?.ok) {
+        throw new Error(data?.error || "No se pudieron generar las credenciales");
+      }
+
+      const cred = {
+        username: String(data.username || client.userName),
+        password: String(data.password || ""),
+        phone: String(data.phone || client.phone || ""),
+        message: String(data.message || ""),
+        whatsappUrl: data.whatsappUrl ?? null,
+      };
+      persistPendingCredentials([cred, ...pendingCredentials]);
+      toast.success("Credenciales generadas");
+      if (cred.whatsappUrl) window.open(cred.whatsappUrl, "_blank");
+    } catch (error) {
+      console.error("Enviar credenciales:", error);
+      toast.error(error instanceof Error ? error.message : "Error generando credenciales");
+    } finally {
+      setBusy((b) => ({ ...b, [client.id]: false }));
+    }
+  };
 
   // ---- helpers biométricos ----
   const captureOnce = async (): Promise<{template: string; image?: string}> => {
@@ -811,7 +858,7 @@ export default function ClientsPage() {
           <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-lg font-bold text-yellow-400">Búsqueda y acciones</h2>
-              <p className="text-sm text-zinc-500">Filtra por nombre, apellido, usuario o teléfono.</p>
+              <p className="text-sm text-zinc-500">Filtra por nombre, apellido, usuario, teléfono o DNI.</p>
             </div>
             <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
               <div className="relative w-full md:w-80">
@@ -852,6 +899,12 @@ export default function ClientsPage() {
                     // El payload ya viene con la estructura correcta desde AddClientDialog
                     return await handleAddClient(newClient);
                   }}
+                  onCredentialsUpdate={(cred) =>
+                    persistPendingCredentials([
+                      { ...cred },
+                      ...pendingCredentials,
+                    ])
+                  }
                 />
               </div>
             </DialogContent>
@@ -935,6 +988,7 @@ export default function ClientsPage() {
                     </button>
                   </TableHead>
                   <TableHead className="text-xs uppercase tracking-wide !text-yellow-300">Días</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wide !text-yellow-300">DNI</TableHead>
 
                   {/* Columna opcional: Fecha de registro (si API la expone) */}
                   <TableHead className="text-xs uppercase tracking-wide !text-yellow-300">
@@ -987,6 +1041,7 @@ export default function ClientsPage() {
                             {membershipDays.label}
                           </span>
                         </TableCell>
+                        <TableCell className="text-zinc-400">{client.documentNumber || "—"}</TableCell>
                         <TableCell className="text-zinc-400">{client.createdAt || "—"}</TableCell>
                         <TableCell>
                           <Button
@@ -1059,6 +1114,16 @@ export default function ClientsPage() {
                             />
 
                             <Button
+                              className="inline-flex items-center gap-2 !border-green-500 !bg-zinc-950 !text-green-300 hover:!bg-green-600 hover:!text-white"
+                              onClick={() => sendCredentials(client)}
+                              disabled={!!busy[client.id] || !!deleting[client.id]}
+                              variant="outline"
+                            >
+                              <Send className="h-4 w-4" />
+                              Credenciales
+                            </Button>
+
+                            <Button
                               className="inline-flex items-center gap-2 bg-red-500 text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
                               onClick={() => handleDeleteClick(client.id)}
                               disabled={!!deleting[client.id] || isPageLoading}
@@ -1092,7 +1157,7 @@ export default function ClientsPage() {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={10} className="py-10 text-center text-zinc-500">
+                    <TableCell colSpan={11} className="py-10 text-center text-zinc-500">
                       No hay clientes disponibles
                     </TableCell>
                   </TableRow>
@@ -1120,7 +1185,7 @@ export default function ClientsPage() {
                   className="bg-yellow-400 text-black hover:bg-yellow-300"
                   onClick={() => {
                     navigator.clipboard.writeText(
-                      `Usuario: ${cred.username}\nContraseña: ${cred.password}\nTeléfono: ${cred.phone}`
+                      cred.message || `Usuario: ${cred.username}\nContraseña: ${cred.password}\nTeléfono: ${cred.phone}`
                     );
                     toast.success("Credenciales copiadas al portapapeles.");
                   }}
@@ -1130,7 +1195,13 @@ export default function ClientsPage() {
                 <Button
                   className="bg-green-600 text-white hover:bg-green-500"
                   onClick={() =>
-                    window.open(`https://wa.me/${cred.phone}`, "_blank")
+                    window.open(
+                      cred.whatsappUrl ||
+                        `https://wa.me/${cred.phone}?text=${encodeURIComponent(
+                          cred.message || `Usuario: ${cred.username}\nContraseña: ${cred.password}`
+                        )}`,
+                      "_blank"
+                    )
                   }
                 >
                   Abrir chat en WhatsApp

@@ -17,6 +17,7 @@ const ProfileSchema = z.object({
   emergencyPhone: z.preprocess((v) => (v === "" ? null : v ?? null), z.string().nullable()),
   address: z.string().default(""),
   social: z.string().default(""),
+  documentNumber: z.string().optional().default(""),
   debt: z.number().min(0).default(0),
 });
 
@@ -52,6 +53,7 @@ export async function GET(request: NextRequest) {
         profile_emergency_phone: true,
         profile_address: true,
         profile_social: true,
+        documentNumber: true,
         user: {
           select: {
             id: true,
@@ -96,6 +98,7 @@ export async function POST(request: NextRequest) {
           emergencyPhone: raw.profile?.emergencyPhone,
           address: raw.profile?.address ?? "",
           social: raw.profile?.social ?? "",
+          documentNumber: raw.profile?.documentNumber ?? raw.profile?.dni ?? "",
           debt: Number(raw.profile?.debt ?? 0),
         }
       : {
@@ -105,6 +108,7 @@ export async function POST(request: NextRequest) {
           emergencyPhone: raw?.emergencyPhone,
           address: raw?.address ?? raw?.profile_address ?? "",
           social: raw?.social ?? raw?.profile_social ?? "",
+          documentNumber: raw?.documentNumber ?? raw?.dni ?? "",
           debt: Number(raw?.debt ?? 0),
         };
 
@@ -120,6 +124,10 @@ export async function POST(request: NextRequest) {
       lastName,
       profile: { ...baseProfile, plan },
     });
+    const documentNumber = String(body.profile.documentNumber || "").replace(/\D/g, "");
+    if (documentNumber && documentNumber.length !== 8) {
+      return NextResponse.json({ error: "El DNI debe tener 8 dígitos" }, { status: 400 });
+    }
 
     // Normaliza teléfonos a E.164 (PE)
     const main = parsePhoneNumberFromString(body.phoneNumber, "PE");
@@ -138,12 +146,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Unicidad
-    const [uByUsername, uByPhone] = await Promise.all([
+    const [uByUsername, uByPhone, profileByDocument] = await Promise.all([
       prisma.user.findUnique({ where: { username: body.username }, select: { id: true } }),
       prisma.user.findUnique({ where: { phoneNumber: phoneE164 }, select: { id: true } }),
+      documentNumber
+        ? prisma.clientProfile.findFirst({ where: { documentNumber }, select: { profile_id: true } })
+        : Promise.resolve(null),
     ]);
     if (uByUsername) return NextResponse.json({ error: "El usuario ya está registrado" }, { status: 400 });
     if (uByPhone) return NextResponse.json({ error: "El teléfono ya está registrado" }, { status: 400 });
+    if (profileByDocument) return NextResponse.json({ error: "El DNI ya está registrado" }, { status: 400 });
 
     // Password: usa la enviada si viene y es >= 6; si no, genera una
     const finalRawPassword =
@@ -175,6 +187,7 @@ export async function POST(request: NextRequest) {
           profile_emergency_phone: emergencyE164,
           profile_address: body.profile.address ?? "",
           profile_social: body.profile.social ?? "",
+          documentNumber: documentNumber || null,
           debt: body.profile.debt,
         },
       });

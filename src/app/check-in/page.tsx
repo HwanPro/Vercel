@@ -201,26 +201,26 @@ export default function CheckInPage() {
   const scanningRef = useRef(false);
 
   // ==================== utilidades ====================
-  const askPhone = async (title: string): Promise<string | null> => {
+  const askIdentifier = async (title: string): Promise<string | null> => {
     const { value, isConfirmed } = await Swal.fire({
       ...swalBase,
       title,
-      input: "tel",
-      inputPlaceholder: "987654321",
-      inputAttributes: { maxlength: "9", pattern: "\\d{9}" },
+      input: "text",
+      inputPlaceholder: "Teléfono o DNI",
+      inputAttributes: { maxlength: "11", inputmode: "numeric" },
       showCancelButton: true,
       confirmButtonText: "Continuar",
       cancelButtonText: "Cancelar",
       preConfirm: (val) => {
         const v = String(val || "").replace(/\D/g, "");
-        if (v.length !== 9) {
-          Swal.showValidationMessage("Debe tener exactamente 9 dígitos");
+        if (v.length !== 8 && v.length !== 9 && !(v.length === 11 && v.startsWith("51"))) {
+          Swal.showValidationMessage("Ingresa DNI de 8 dígitos o teléfono de 9 dígitos");
           return false as any;
         }
         return v;
       },
     });
-    return isConfirmed ? String(value).replace(/\D/g, "").slice(0, 9) : null;
+    return isConfirmed ? String(value).replace(/\D/g, "") : null;
   };
 
   // ── Fase 1: captura el dedo en polling hasta obtenerlo o que el usuario detenga ──
@@ -335,6 +335,8 @@ export default function CheckInPage() {
   const register = async (payload: {
     userId?: string;
     phone?: string;
+    identifier?: string;
+    dni?: string;
     intent?: "checkin" | "checkout";
   }) => {
     const r = await fetch("/api/check-in", {
@@ -505,11 +507,11 @@ export default function CheckInPage() {
         await showCard(data, res.name);
         await refreshActiveGymMembers();
       } else {
-        const phone = await askPhone(
-          "No te reconocimos. Registra por teléfono",
+        const identifier = await askIdentifier(
+          "No te reconocimos. Registra por teléfono o DNI",
         );
-        if (!phone) return;
-        const data = await register({ phone, intent: "checkin" });
+        if (!identifier) return;
+        const data = await register({ identifier, intent: "checkin" });
         vibrate(200);
         await showCard(data);
         await refreshActiveGymMembers();
@@ -556,9 +558,9 @@ export default function CheckInPage() {
         await showCard(data, res.name);
         await refreshActiveGymMembers();
       } else {
-        const phone = await askPhone("No te reconocimos. Salida por teléfono");
-        if (!phone) return;
-        const data = await register({ phone, intent: "checkout" });
+        const identifier = await askIdentifier("No te reconocimos. Salida por teléfono o DNI");
+        if (!identifier) return;
+        const data = await register({ identifier, intent: "checkout" });
         vibrate(200);
         await showCard(data);
         await refreshActiveGymMembers();
@@ -750,11 +752,11 @@ export default function CheckInPage() {
                 <button
                   onClick={async () => {
                     try {
-                      const phone = await askPhone(
-                        "Ingresa tu teléfono para registrar asistencia",
+                      const identifier = await askIdentifier(
+                        "Ingresa tu teléfono o DNI para registrar asistencia",
                       );
-                      if (!phone) return;
-                      const data = await register({ phone, intent: "checkin" });
+                      if (!identifier) return;
+                      const data = await register({ identifier, intent: "checkin" });
                       vibrate(200);
                       await showCard(data);
                     } catch (e: unknown) {
@@ -780,7 +782,7 @@ export default function CheckInPage() {
                   className="inline-flex items-center justify-center gap-2 rounded-lg border border-yellow-400/40 bg-black px-6 py-4 font-semibold text-yellow-300 transition hover:bg-yellow-400/10"
                 >
                   <Phone className="h-4 w-4" />
-                  Registrar por teléfono
+                  Registrar por teléfono/DNI
                 </button>
               </div>
 

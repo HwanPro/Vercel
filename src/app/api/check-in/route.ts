@@ -37,6 +37,53 @@ function only9Digits(pePhoneLike: string) {
   return d.slice(-9);
 }
 
+function normalizeIdentifier(value: string) {
+  return String(value || "").replace(/\D/g, "");
+}
+
+async function resolveUserIdByIdentifier(identifierRaw?: string | null) {
+  const digits = normalizeIdentifier(identifierRaw || "");
+  if (!digits) return null;
+
+  const phoneLast9 = digits.length >= 9 ? digits.slice(-9) : "";
+  const documentNumber = digits.length === 8 ? digits : "";
+  const profileOrConditions: Array<
+    { profile_phone: string } | { documentNumber: string }
+  > = [];
+  if (phoneLast9) {
+    profileOrConditions.push(
+      { profile_phone: phoneLast9 },
+      { profile_phone: `+51${phoneLast9}` },
+      { profile_phone: `51${phoneLast9}` },
+    );
+  }
+  if (documentNumber) profileOrConditions.push({ documentNumber });
+
+  if (profileOrConditions.length) {
+    const profile = await prisma.clientProfile.findFirst({
+      where: { OR: profileOrConditions },
+      include: { user: { select: { id: true } } },
+    });
+    if (profile?.user?.id) return profile.user.id;
+  }
+
+  if (phoneLast9) {
+    const userByPhone = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { phoneNumber: phoneLast9 },
+          { phoneNumber: `+51${phoneLast9}` },
+          { phoneNumber: `51${phoneLast9}` },
+        ],
+      },
+      select: { id: true },
+    });
+    if (userByPhone?.id) return userByPhone.id;
+  }
+
+  return null;
+}
+
 /* ============== Reglas de asistencia ============== */
 const REBOUND_SECONDS = 60;      // antirrebote (segundos)
 const MAX_ENTRIES_PER_DAY = 2;   // cantidad máxima de entradas por día
@@ -207,7 +254,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({} as any));
     const userId: string | undefined = body?.userId;
-    const phoneRaw: string | undefined = body?.phone;
+    const identifierRaw: string | undefined = body?.identifier ?? body?.dni ?? body?.document ?? body?.phone;
     const intent: AttendanceIntent = body?.intent === "checkout" ? "checkout" : "checkin";
 
     // ---- HUELLAS (userId) ----
@@ -279,50 +326,29 @@ export async function POST(req: Request) {
       return NextResponse.json(responseData);
     }
 
-    // ---- TELÉFONO (phone) ----
-    if (phoneRaw) {
-      const last9 = only9Digits(phoneRaw);
-      if (last9.length !== 9) {
+    // ---- TELÉFONO / DNI ----
+    if (identifierRaw) {
+      const digits = normalizeIdentifier(identifierRaw);
+      const isPhone = digits.length >= 9;
+      const isDni = digits.length === 8;
+      if (!isPhone && !isDni) {
         return NextResponse.json(
-          { ok: false, message: "Número inválido", reason: "bad_phone" },
+          { ok: false, message: "Ingresa un teléfono de 9 dígitos o DNI de 8 dígitos", reason: "bad_identifier" },
           { status: 400 }
         );
       }
 
-      // Busca en profile por 9 dígitos o +51XXXXXXXXX
-      const profile = await prisma.clientProfile.findFirst({
-        where: {
-          OR: [
-            { profile_phone: last9 },
-            { profile_phone: `+51${last9}` },
-            { profile_phone: `51${last9}` },
-          ],
-        },
-        include: { user: { select: { id: true } } },
-      });
-
-      // Fallback: user.phoneNumber
-      const userIdFromPhone =
-        profile?.user?.id ??
-        (
-          await prisma.user.findFirst({
-            where: {
-              OR: [{ phoneNumber: last9 }, { phoneNumber: `+51${last9}` }, { phoneNumber: `51${last9}` }],
-            },
-            select: { id: true },
-          })
-        )?.id;
-
-      if (!userIdFromPhone) {
+      const userIdFromIdentifier = await resolveUserIdByIdentifier(identifierRaw);
+      if (!userIdFromIdentifier) {
         return NextResponse.json(
           { ok: false, message: "Usuario no encontrado", reason: "not_found" },
           { status: 404 }
         );
       }
 
-      const res = await closeIfOpenOrCreate(userIdFromPhone, intent);
+      const res = await closeIfOpenOrCreate(userIdFromIdentifier, intent);
       if (!res.ok) {
-        const info = await getProfileInfo(userIdFromPhone);
+        const info = await getProfileInfo(userIdFromIdentifier);
         return NextResponse.json(
           {
             ok: false,
@@ -341,11 +367,11 @@ export async function POST(req: Request) {
         );
       }
 
-      const info = await getProfileInfo(userIdFromPhone);
+      const info = await getProfileInfo(userIdFromIdentifier);
 
       const responseData = {
         ok: true,
-        userId: userIdFromPhone,
+        userId: userIdFromIdentifier,
         fullName: info.fullName,
         plan: info.plan,
         startDate: info.startDate,
@@ -380,7 +406,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json(
-      { ok: false, message: "Se requiere 'userId' o 'phone'" },
+      { ok: false, message: "Se requiere 'userId', 'phone' o 'dni'" },
       { status: 400 }
     );
   } catch (e: any) {

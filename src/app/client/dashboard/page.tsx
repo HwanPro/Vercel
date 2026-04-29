@@ -1,32 +1,43 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/ui/button";
-import { Card, CardContent } from "@/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/tabs";
 import ProfileModal from "@/ui/components/ProfileModal";
-import { Home, Crown, Edit2, LogOut } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/ui/avatar";
-
-// Importar componentes de Rutina y Nutrición
+import {
+  CalendarDays,
+  ChevronLeft,
+  Clock,
+  Crown,
+  Dumbbell,
+  Edit2,
+  LogOut,
+  Phone,
+  Salad,
+  ShieldAlert,
+} from "lucide-react";
 import RoutineTab from "@/ui/components/RoutineTab";
 import NutricionTab from "@/ui/components/NutricionTab";
 
-// Tipos de tu clientData
 interface Membership {
   membership_type: string;
   membership_duration: number;
 }
+
 interface UserMembership {
   membership: Membership;
   assignedAt: string;
 }
+
 interface Attendance {
   checkInTime: string;
+  checkOutTime?: string | null;
 }
+
 interface ClientProfile {
   profile_first_name: string | null;
   profile_last_name: string | null;
@@ -35,13 +46,17 @@ interface ClientProfile {
   profile_end_date: string | null;
   profile_emergency_phone: string | null;
   profile_phone: string | null;
+  documentNumber?: string | null;
+  debt?: string | number | null;
   gender?: "male" | "female";
 }
+
 interface ClientData {
   id: string;
-  username: string; // user.username
-  name: string; // user.firstName
-  lastName: string; // user.lastName
+  username: string;
+  name: string;
+  lastName: string;
+  phoneNumber: string;
   image: string | null;
   role: string;
   profile?: ClientProfile | null;
@@ -49,303 +64,329 @@ interface ClientData {
   attendances?: Attendance[];
 }
 
+interface SubscriptionState {
+  active: boolean;
+  plan: string;
+  startDate: Date | null;
+  endDate: Date | null;
+}
+
+function formatDate(date?: Date | string | null) {
+  if (!date) return "Sin fecha";
+  const parsed = typeof date === "string" ? new Date(date) : date;
+  if (Number.isNaN(parsed.getTime())) return "Sin fecha";
+  return new Intl.DateTimeFormat("es-PE", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(parsed);
+}
+
+function getDaysRemaining(endDate: Date | null) {
+  if (!endDate) return 0;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const end = new Date(endDate);
+  end.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.ceil((end.getTime() - today.getTime()) / 86_400_000));
+}
+
+function getInitials(firstName?: string, lastName?: string) {
+  return `${firstName?.charAt(0) || "W"}${lastName?.charAt(0) || "G"}`.toUpperCase();
+}
+
 export default function ClientDashboard() {
   const [clientData, setClientData] = useState<ClientData | null>(null);
   const [isProfileModalOpen, setProfileModalOpen] = useState(false);
-
-  const router = useRouter();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  // Ejemplo: metas de fitness (test)
+  const [isLoading, setIsLoading] = useState(true);
   const [fitnessGoal, setFitnessGoal] = useState<string>("strength");
   const [bodyFocus, setBodyFocus] = useState<string>("full");
+  const router = useRouter();
 
-  // Cargar datos del cliente
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await fetch("/api/user/me", { 
-          credentials: "include",
-          cache: "no-store"
-        });
-        const data = await res.json();
-        console.log("👤 Cliente cargado:", data);
-        if (!res.ok) {
-          if (res.status === 401) {
-            // Sesión expirada o no logueado
-            router.push("/");
-            return;
-          }
-          throw new Error("Error al obtener datos del cliente");
-        }      
-        setClientData(data);
-      } catch (error) {
-        console.error("❌ Error en la carga de datos:", error);
-        setErrorMessage(
-          error instanceof Error ? error.message : "Error al cargar datos"
-        );
+  const fetchClientData = async () => {
+    try {
+      setErrorMessage(null);
+      const res = await fetch("/api/user/me", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (res.status === 401) {
+          router.push("/");
+          return;
+        }
+        throw new Error(data?.error || "Error al obtener datos del cliente");
       }
-    };
-    
-    fetchData();
-    
-    // Actualizar datos cada 30 segundos
-    const interval = setInterval(fetchData, 30000);
-    
-    return () => clearInterval(interval);
+      setClientData(data);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Error al cargar datos");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchClientData();
+    const interval = window.setInterval(fetchClientData, 30_000);
+    return () => window.clearInterval(interval);
   }, [router]);
 
-  // Manejamos estados de carga o error
-  if (!clientData) return <p className="text-white">Cargando datos...</p>;
-  if (errorMessage) return <p className="text-red-500">{errorMessage}</p>;
-
-  // Lógica de suscripción
-  const subscription = (() => {
-    // membership con next-auth?
-    if (clientData.memberships && clientData.memberships.length > 0) {
+  const subscription: SubscriptionState = useMemo(() => {
+    if (clientData?.memberships?.length) {
       const membership = clientData.memberships[0];
       const startDate = new Date(membership.assignedAt);
-      const endDate = new Date(
-        startDate.getTime() +
-          membership.membership.membership_duration * 86400000
-      );
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + membership.membership.membership_duration);
       return {
-        active: true,
+        active: endDate.getTime() >= Date.now(),
         plan: membership.membership.membership_type,
         startDate,
         endDate,
       };
     }
 
-    // O si tienes guardado en ClientProfile
-    if (
-      clientData.profile?.profile_plan &&
-      clientData.profile?.profile_end_date
-    ) {
-      const sDate = new Date(clientData.profile.profile_start_date ?? "");
-      const eDate = new Date(clientData.profile.profile_end_date ?? "");
-      const active = eDate.getTime() > Date.now();
+    if (clientData?.profile?.profile_plan && clientData.profile.profile_end_date) {
+      const startDate = clientData.profile.profile_start_date
+        ? new Date(clientData.profile.profile_start_date)
+        : null;
+      const endDate = new Date(clientData.profile.profile_end_date);
       return {
-        active,
+        active: endDate.getTime() >= new Date().setHours(0, 0, 0, 0),
         plan: clientData.profile.profile_plan,
-        startDate: sDate,
-        endDate: eDate,
+        startDate,
+        endDate,
       };
     }
 
-    return { active: false, plan: "", startDate: null, endDate: null };
-  })();
+    return { active: false, plan: "Sin plan", startDate: null, endDate: null };
+  }, [clientData]);
 
-  const getDaysRemaining = () => {
-    if (!subscription.active || !subscription.endDate) return 0;
-    const diff = subscription.endDate.getTime() - Date.now();
-    return Math.max(0, Math.ceil(diff / (1000 * 3600 * 24)));
-  };
-
-  // Progreso semanal
-  const weeklyGoal = 3;
-  const getCurrentWeekProgress = () => {
-    if (!clientData.attendances) return 0;
+  const weeklyProgress = useMemo(() => {
+    if (!clientData?.attendances?.length) return 0;
     const now = new Date();
     const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay()); // lunes
-    return clientData.attendances.filter((att) => {
-      const checkIn = new Date(att.checkInTime);
-      return checkIn >= startOfWeek && checkIn < new Date();
+    startOfWeek.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+    startOfWeek.setHours(0, 0, 0, 0);
+    return clientData.attendances.filter((attendance) => {
+      const checkIn = new Date(attendance.checkInTime);
+      return checkIn >= startOfWeek && checkIn <= now;
     }).length;
-  };
+  }, [clientData?.attendances]);
 
-  // Para recargar una vez que guarde
-  const reloadClientData = async () => {
-    try {
-      const res = await fetch("/api/user/me", {
-        cache: "no-store"
-      });
-      if (!res.ok) throw new Error("Error al recargar datos del cliente");
-      const newData = await res.json();
-      setClientData(newData);
-      console.log("✅ Datos del cliente recargados:", newData);
-    } catch (error) {
-      console.error("❌ Error al recargar datos:", error);
-    }
-  };
+  if (isLoading) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-black px-4 text-white">
+        <div className="text-center">
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-yellow-400 border-r-transparent" />
+          <p className="mt-4 text-sm text-zinc-400">Cargando perfil</p>
+        </div>
+      </main>
+    );
+  }
 
-  // Nombres a mostrar
-  const displayName = clientData.profile?.profile_first_name || clientData.name;
-  const displayLastName =
-    clientData.profile?.profile_last_name || clientData.lastName;
+  if (!clientData || errorMessage) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-black px-4 text-white">
+        <div className="max-w-sm rounded-lg border border-red-500/30 bg-red-950/20 p-5 text-center">
+          <ShieldAlert className="mx-auto h-8 w-8 text-red-300" />
+          <h1 className="mt-3 text-lg font-bold">No se pudo cargar tu perfil</h1>
+          <p className="mt-2 text-sm text-red-100/80">{errorMessage || "Sesión no disponible"}</p>
+          <Button className="mt-4 bg-yellow-400 text-black hover:bg-yellow-300" onClick={fetchClientData}>
+            Reintentar
+          </Button>
+        </div>
+      </main>
+    );
+  }
+
+  const firstName = clientData.profile?.profile_first_name || clientData.name;
+  const lastName = clientData.profile?.profile_last_name || clientData.lastName;
+  const daysRemaining = getDaysRemaining(subscription.endDate);
+  const debt = Number(clientData.profile?.debt || 0);
 
   return (
-    <div className="p-6 bg-black min-h-screen text-white overflow-x-hidden">
-      <div className="max-w-6xl mx-auto space-y-8">
-        {/* Encabezado */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-24 h-24 border-2 border-yellow-400 rounded-full overflow-hidden bg-yellow-400 flex items-center justify-center">
-              {clientData.image ? (
-                <img 
-                  src={clientData.image} 
-                  alt="Imagen de perfil"
-                  className="w-full h-full object-cover"
-                  onLoad={() => console.log("🖼️ Avatar del dashboard cargado:", clientData.image)}
-                  onError={() => console.log("❌ Error cargando avatar del dashboard:", clientData.image)}
-                />
-              ) : (
-                <div className="bg-yellow-400 text-black text-xl font-bold">
-                  {clientData.name?.charAt(0) || "U"}
-                  {clientData.lastName?.charAt(0) || "N"}
-                </div>
-              )}
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold">
-                {displayName} {displayLastName}
-              </h1>
-              <p className="text-gray-400">
-                {subscription.active ? "Miembro Activo" : "Sin suscripción"}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/"
-              className="flex items-center text-yellow-400 no-underline"
-            >
-              <Home className="h-6 w-6 mr-2" />
-              Inicio
-            </Link>
+    <main className="min-h-screen bg-black text-white">
+      <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6 lg:px-8">
+        <header className="flex flex-col gap-4 border-b border-zinc-900 pb-5 sm:flex-row sm:items-center sm:justify-between">
+          <Link href="/" className="inline-flex w-fit items-center gap-2 text-sm font-semibold text-yellow-300">
+            <ChevronLeft className="h-4 w-4" />
+            Inicio
+          </Link>
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Button
-              className="bg-yellow-400 text-black hover:bg-yellow-500"
+              className="h-10 bg-yellow-400 text-black hover:bg-yellow-300"
               onClick={() => setProfileModalOpen(true)}
             >
-              Editar perfil <Edit2 className="ml-2 h-4 w-4" />
+              <Edit2 className="mr-2 h-4 w-4" />
+              Editar perfil
             </Button>
             <Button
               variant="outline"
-              className="text-black border-yellow-400"
+              className="h-10 !border-zinc-700 !bg-zinc-950 !text-zinc-100 hover:!bg-zinc-900"
               onClick={() => signOut()}
             >
-              Cerrar sesión <LogOut className="ml-2 h-4 w-4" />
+              <LogOut className="mr-2 h-4 w-4" />
+              Cerrar sesión
             </Button>
           </div>
-        </div>
+        </header>
 
-        {/* ProfileModal */}
+        <section className="grid gap-5 py-6 lg:grid-cols-[1.15fr_0.85fr] lg:items-stretch">
+          <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-5">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+              <div className="h-24 w-24 shrink-0 overflow-hidden rounded-full border-2 border-yellow-400 bg-yellow-400 text-black">
+                {clientData.image ? (
+                  <img src={clientData.image} alt="Perfil" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="grid h-full w-full place-items-center text-2xl font-black">
+                    {getInitials(firstName, lastName)}
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold uppercase tracking-wide text-yellow-300">
+                  {subscription.active ? "Membresía vigente" : "Membresía pendiente"}
+                </p>
+                <h1 className="mt-1 break-words text-3xl font-black leading-tight sm:text-4xl">
+                  {firstName} {lastName}
+                </h1>
+                <div className="mt-3 flex flex-wrap gap-2 text-sm text-zinc-300">
+                  <span className="inline-flex items-center gap-2 rounded-full border border-zinc-800 px-3 py-1">
+                    <Phone className="h-3.5 w-3.5 text-yellow-300" />
+                    {clientData.profile?.profile_phone || clientData.phoneNumber || "Sin teléfono"}
+                  </span>
+                  <span className="rounded-full border border-zinc-800 px-3 py-1">
+                    DNI {clientData.profile?.documentNumber || "no registrado"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+            <StatusTile icon={<Crown className="h-4 w-4" />} label="Plan" value={subscription.plan} />
+            <StatusTile icon={<CalendarDays className="h-4 w-4" />} label="Vence" value={formatDate(subscription.endDate)} />
+            <StatusTile icon={<Clock className="h-4 w-4" />} label="Días" value={`${daysRemaining}`} tone={daysRemaining <= 7 ? "warn" : "ok"} />
+          </div>
+        </section>
+
+        <section className="grid gap-3 sm:grid-cols-3">
+          <InfoBand label="Entrenos esta semana" value={`${weeklyProgress}/3`} />
+          <InfoBand label="Inicio" value={formatDate(subscription.startDate)} />
+          <InfoBand label="Deuda" value={`S/. ${debt.toFixed(2)}`} tone={debt > 0 ? "warn" : "default"} />
+        </section>
+
         {isProfileModalOpen && (
           <ProfileModal
             isOpen={isProfileModalOpen}
             onClose={() => setProfileModalOpen(false)}
-            onSuccess={reloadClientData}
+            onSuccess={fetchClientData}
             userName={clientData.username}
-            firstName={
-              clientData.profile?.profile_first_name || clientData.name
-            }
-            userLastName={clientData.lastName}
+            firstName={firstName}
+            userLastName={lastName}
             userPhone={clientData.profile?.profile_phone || ""}
-            userEmergencyPhone={
-              clientData.profile?.profile_emergency_phone || ""
-            }
+            userEmergencyPhone={clientData.profile?.profile_emergency_phone || ""}
             userRole={clientData.role}
             profileImage={clientData.image}
           />
         )}
 
-        {/* Estado de Suscripción */}
         {subscription.active ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="bg-gradient-to-r from-yellow-400 to-yellow-500 text-black">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <Crown className="h-8 w-8" />
-                  <div>
-                    <h3 className="font-bold text-lg">{subscription.plan}</h3>
-                    <p className="text-sm opacity-80">Plan Activo</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card className="bg-white">
-              <CardContent className="pt-6">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-yellow-600">{getDaysRemaining()}</div>
-                  <p className="text-sm text-gray-600">Días restantes</p>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card className="bg-white">
-              <CardContent className="pt-6">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">{getCurrentWeekProgress()}/{weeklyGoal}</div>
-                  <p className="text-sm text-gray-600">Entrenamientos esta semana</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        ) : (
-          <Card className="bg-red-50 border-red-200">
-            <CardContent className="pt-6">
-              <div className="text-center space-y-4">
-                <h3 className="text-xl font-bold text-red-600">Sin Suscripción Activa</h3>
-                <p className="text-red-700">
-                  Necesitas una suscripción activa para acceder a las funciones de entrenamiento.
-                </p>
-                <Link
-                  href="/#pricing"
-                  className="inline-block bg-yellow-400 text-black px-6 py-3 rounded-lg hover:bg-yellow-500 font-semibold"
+          <section className="mt-6 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950">
+            <Tabs defaultValue="routines" className="w-full">
+              <TabsList className="grid h-auto grid-cols-2 rounded-none border-b border-zinc-800 bg-black p-1">
+                <TabsTrigger
+                  value="routines"
+                  className="min-h-11 gap-2 rounded-md text-zinc-300 data-[state=active]:bg-yellow-400 data-[state=active]:text-black"
                 >
-                  ¡Adquiere un plan ahora!
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+                  <Dumbbell className="h-4 w-4" />
+                  Rutinas
+                </TabsTrigger>
+                <TabsTrigger
+                  value="nutrition"
+                  className="min-h-11 gap-2 rounded-md text-zinc-300 data-[state=active]:bg-yellow-400 data-[state=active]:text-black"
+                >
+                  <Salad className="h-4 w-4" />
+                  Nutrición
+                </TabsTrigger>
+              </TabsList>
 
-        {/* Contenido Principal */}
-        {subscription.active ? (
-          <Card className="bg-white shadow-lg">
-            <CardContent className="p-0">
-              <Tabs defaultValue="routines" className="w-full">
-                <TabsList className="grid grid-cols-2 bg-gray-50 rounded-t-lg">
-                  <TabsTrigger
-                    value="routines"
-                    className="data-[state=active]:bg-yellow-400 data-[state=active]:text-black font-semibold"
-                  >
-                    🏋️‍♂️ Entrenamientos
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="nutrition"
-                    className="data-[state=active]:bg-yellow-400 data-[state=active]:text-black font-semibold"
-                  >
-                    🥗 Nutrición
-                  </TabsTrigger>
-                </TabsList>
+              <TabsContent value="routines" className="m-0">
+                <RoutineTab
+                  gender={clientData.profile?.gender || "male"}
+                  fitnessGoal={fitnessGoal}
+                  bodyFocus={bodyFocus}
+                  setFitnessGoal={setFitnessGoal}
+                  setBodyFocus={setBodyFocus}
+                />
+              </TabsContent>
 
-                <TabsContent value="routines" className="mt-0">
-                  <RoutineTab
-                    gender={clientData.profile?.gender || "male"}
-                    fitnessGoal={fitnessGoal}
-                    bodyFocus={bodyFocus}
-                    setFitnessGoal={setFitnessGoal}
-                    setBodyFocus={setBodyFocus}
-                  />
-                </TabsContent>
-
-                <TabsContent value="nutrition" className="mt-0 p-6">
-                  <NutricionTab gender={clientData.profile?.gender || "male"} />
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
+              <TabsContent value="nutrition" className="m-0 p-4 sm:p-6">
+                <NutricionTab gender={clientData.profile?.gender || "male"} />
+              </TabsContent>
+            </Tabs>
+          </section>
         ) : (
-          <div className="text-center py-12">
-            <p className="text-gray-400 text-lg">
-              Activa tu suscripción para acceder a todas las funciones de entrenamiento.
-            </p>
-          </div>
+          <section className="mt-6 rounded-lg border border-red-500/30 bg-red-950/20 p-5">
+            <div className="flex items-start gap-3">
+              <ShieldAlert className="mt-1 h-5 w-5 shrink-0 text-red-300" />
+              <div>
+                <h2 className="font-bold text-red-100">Membresía no activa</h2>
+                <p className="mt-1 text-sm text-red-100/70">
+                  Acércate a recepción para renovar tu plan y habilitar tus rutinas.
+                </p>
+              </div>
+            </div>
+          </section>
         )}
       </div>
+    </main>
+  );
+}
+
+function StatusTile({
+  icon,
+  label,
+  value,
+  tone = "default",
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  tone?: "default" | "ok" | "warn";
+}) {
+  const toneClass =
+    tone === "ok"
+      ? "text-green-300"
+      : tone === "warn"
+        ? "text-amber-200"
+        : "text-white";
+  return (
+    <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+      <div className="flex items-center gap-2 text-sm text-zinc-500">
+        {icon}
+        {label}
+      </div>
+      <p className={`mt-2 text-xl font-black ${toneClass}`}>{value}</p>
+    </div>
+  );
+}
+
+function InfoBand({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  tone?: "default" | "warn";
+}) {
+  return (
+    <div className="rounded-lg border border-zinc-800 bg-zinc-950 px-4 py-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">{label}</p>
+      <p className={`mt-1 text-lg font-black ${tone === "warn" ? "text-amber-200" : "text-white"}`}>{value}</p>
     </div>
   );
 }
