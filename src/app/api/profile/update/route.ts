@@ -11,6 +11,8 @@ const updateProfileSchema = z.object({
   lastName: z.string().min(1, "El apellido es obligatorio"),
   phone: z.string().min(1, "El teléfono es obligatorio"),
   emergencyPhone: z.string().optional().or(z.literal("")),
+  documentNumber: z.string().optional().or(z.literal("")),
+  dni: z.string().optional().or(z.literal("")),
 });
 
 export async function PATCH(request: Request) {
@@ -23,8 +25,16 @@ export async function PATCH(request: Request) {
 
     // Parsear y validar el body con Zod
     const body = await request.json();
-    const { username, firstName, lastName, phone, emergencyPhone } =
+    const { username, firstName, lastName, phone, emergencyPhone, documentNumber, dni } =
       updateProfileSchema.parse(body);
+    const cleanedDocument = String(documentNumber || dni || "").replace(/\D/g, "");
+
+    if (cleanedDocument && cleanedDocument.length !== 8) {
+      return NextResponse.json(
+        { error: "El DNI debe tener 8 dígitos" },
+        { status: 400 }
+      );
+    }
 
     // Verificar si el usuario existe en la tabla User
     const existingUser = await prisma.user.findUnique({
@@ -48,6 +58,23 @@ export async function PATCH(request: Request) {
       );
     }
 
+    if (cleanedDocument) {
+      const duplicatedDocument = await prisma.clientProfile.findFirst({
+        where: {
+          documentNumber: cleanedDocument,
+          NOT: { user_id: session.user.id },
+        },
+        select: { profile_id: true },
+      });
+
+      if (duplicatedDocument) {
+        return NextResponse.json(
+          { error: "El DNI ya está registrado" },
+          { status: 409 }
+        );
+      }
+    }
+
     // Usamos una transacción para actualizar ambas tablas
     const [updatedUser, updatedProfile] = await prisma.$transaction([
       prisma.user.update({
@@ -67,6 +94,7 @@ export async function PATCH(request: Request) {
           profile_last_name: lastName,
           profile_phone: phone,
           profile_emergency_phone: emergencyPhone || null,
+          documentNumber: cleanedDocument || null,
         },
       }),
     ]);

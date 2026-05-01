@@ -45,7 +45,12 @@ export async function GET(request: NextRequest) {
         phoneNumber: user.phoneNumber,
         image: user.image ?? null,
         role: user.role,
-        profile: user.profile,
+        profile: user.profile
+          ? {
+              ...user.profile,
+              dni: user.profile.documentNumber ?? null,
+            }
+          : null,
         memberships: user.memberships,
         attendances: user.attendances,
       },

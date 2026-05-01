@@ -16,7 +16,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Parsear el body y extraer los campos necesarios
-    const { userId, username, firstName, lastName, phone, emergencyPhone, documentNumber } =
+    const { userId, username, firstName, lastName, phone, emergencyPhone, documentNumber, dni } =
       await request.json();
     if (!userId || !username || !firstName || !lastName || !phone) {
       return NextResponse.json(
@@ -28,7 +28,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const cleanedDocument = String(documentNumber || "").replace(/\D/g, "");
+    const cleanedDocument = String(documentNumber || dni || "").replace(/\D/g, "");
     if (cleanedDocument && cleanedDocument.length !== 8) {
       return NextResponse.json(
         { error: "El DNI debe tener 8 dígitos" },

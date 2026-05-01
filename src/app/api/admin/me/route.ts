@@ -36,7 +36,18 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    return NextResponse.json(admin, { status: 200 });
+    return NextResponse.json(
+      {
+        ...admin,
+        profile: admin.profile
+          ? {
+              ...admin.profile,
+              dni: admin.profile.documentNumber ?? null,
+            }
+          : null,
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error("Error GET /api/admin/me:", error);
     return NextResponse.json(

@@ -21,6 +21,7 @@ type AdminMe = {
   profile?: {
     profile_emergency_phone?: string | null;
     documentNumber?: string | null;
+    dni?: string | null;
   } | null;
 };
 
@@ -144,7 +145,7 @@ export default function AdminProfilePage() {
                   DNI
                 </dt>
                 <dd className="mt-1 text-sm font-medium text-wolf-ink">
-                  {adminMe.profile?.documentNumber || "No definido"}
+                  {adminMe.profile?.documentNumber || adminMe.profile?.dni || "No definido"}
                 </dd>
               </div>
             </dl>
@@ -174,7 +175,7 @@ export default function AdminProfilePage() {
           userLastName={adminMe?.lastName ?? session?.user?.lastName ?? ""}
           userPhone={adminMe?.phoneNumber ?? session?.user?.phoneNumber ?? ""}
           userEmergencyPhone={adminMe?.profile?.profile_emergency_phone ?? ""}
-          userDocumentNumber={adminMe?.profile?.documentNumber ?? ""}
+          userDocumentNumber={adminMe?.profile?.documentNumber ?? adminMe?.profile?.dni ?? ""}
           userRole={adminMe?.role ?? session?.user?.role ?? "admin"}
           profileImage={adminMe?.image ?? session?.user?.image ?? ""}
         />

@@ -72,8 +72,13 @@ export default function ProfileModal({
   }, [profileImage]);
 
   useEffect(() => {
+    setUsername(userName || "");
+    setFirstNameLocal(firstName || "");
+    setLastName(userLastName || "");
+    setPhone(userPhone || "");
+    setEmergencyPhone(userEmergencyPhone || "");
     setDocumentNumber(userDocumentNumber || "");
-  }, [userDocumentNumber]);
+  }, [firstName, userDocumentNumber, userEmergencyPhone, userLastName, userName, userPhone]);
 
   function validateFields() {
     if (!username.trim() || !firstNameLocal.trim() || !lastName.trim() || !phone.trim()) {
@@ -194,6 +199,7 @@ export default function ProfileModal({
           phone: phone.trim(),
           emergencyPhone: emergencyPhone.trim(),
           documentNumber: documentNumber.replace(/\D/g, "").slice(0, 8),
+          dni: documentNumber.replace(/\D/g, "").slice(0, 8),
         }),
       });
 

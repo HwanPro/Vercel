@@ -12,7 +12,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    const { username, firstName, lastName, phone, emergencyPhone, documentNumber } =
+    const { username, firstName, lastName, phone, emergencyPhone, documentNumber, dni } =
       await request.json();
 
     // Aquí ya no exigimos a la fuerza todos, puedes condicionar:
@@ -26,7 +26,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const cleanedDocument = String(documentNumber || "").replace(/\D/g, "");
+    const cleanedDocument = String(documentNumber || dni || "").replace(/\D/g, "");
     if (cleanedDocument && cleanedDocument.length !== 8) {
       return NextResponse.json(
         { error: "El DNI debe tener 8 dígitos" },

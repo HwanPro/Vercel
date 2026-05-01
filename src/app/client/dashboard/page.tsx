@@ -47,6 +47,7 @@ interface ClientProfile {
   profile_emergency_phone: string | null;
   profile_phone: string | null;
   documentNumber?: string | null;
+  dni?: string | null;
   debt?: string | number | null;
   gender?: "male" | "female";
 }
@@ -258,7 +259,7 @@ export default function ClientDashboard() {
                     {clientData.profile?.profile_phone || clientData.phoneNumber || "Sin teléfono"}
                   </span>
                   <span className="rounded-full border border-zinc-800 px-3 py-1">
-                    DNI {clientData.profile?.documentNumber || "no registrado"}
+                    DNI {clientData.profile?.documentNumber || clientData.profile?.dni || "no registrado"}
                   </span>
                 </div>
               </div>
@@ -288,7 +289,7 @@ export default function ClientDashboard() {
             userLastName={lastName}
             userPhone={clientData.profile?.profile_phone || ""}
             userEmergencyPhone={clientData.profile?.profile_emergency_phone || ""}
-            userDocumentNumber={clientData.profile?.documentNumber || ""}
+            userDocumentNumber={clientData.profile?.documentNumber || clientData.profile?.dni || ""}
             userRole={clientData.role}
             profileImage={clientData.image}
           />
