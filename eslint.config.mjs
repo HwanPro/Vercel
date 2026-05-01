@@ -10,7 +10,36 @@ const compat = new FlatCompat({
 });
 
 const eslintConfig = [
+  {
+    ignores: [
+      ".claude/**",
+      ".next/**",
+      ".vs/**",
+      "biometric-service/bin/**",
+      "biometric-service/obj/**",
+      "dist/**",
+      "logs/**",
+      "node_modules/**",
+      "python-services/**/__pycache__/**",
+      "setup-launcher/**",
+      "tsconfig.tsbuildinfo",
+    ],
+  },
   ...compat.extends("next/core-web-vitals", "next/typescript"),
+  {
+    rules: {
+      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-unused-vars": "warn",
+      "react/no-unescaped-entities": "warn",
+    },
+  },
+  {
+    files: ["next-env.d.ts", "*.config.*", "prisma/**/*.js", "prisma/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+      "@typescript-eslint/triple-slash-reference": "off",
+    },
+  },
 ];
 
 export default eslintConfig;

@@ -5,8 +5,8 @@ import Providers from "./providers";
 
 const siteUrl = "https://wolf-gym.com";
 const siteName = "Wolf Gym";
-const logoPath = "/wolf-gym-logo.png";
 const iconPath = "/icons/icon-512.png";
+const logoPath = iconPath;
 const title = "Wolf Gym - Gimnasio en Ica | Entrena con equipos de calidad";
 const description =
   "Wolf Gym en Ica: gimnasio con equipos de calidad, planes accesibles, tienda deportiva y control de asistencia para clientes.";
@@ -71,13 +71,11 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/favicon.ico", sizes: "any" },
-      { url: "/icon.png", sizes: "512x512", type: "image/png" },
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
-    shortcut: ["/favicon.ico"],
+    shortcut: [iconPath],
   },
   alternates: { canonical: siteUrl },
   formatDetection: {
@@ -90,7 +88,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#facc15",
+  themeColor: "#FFC21A",
 };
 
 const geistSans = localFont({

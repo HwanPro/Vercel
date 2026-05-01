@@ -63,10 +63,11 @@ function formatMoney(value: number) {
 }
 
 function severityStyles(severity: Severity) {
-  if (severity === "high") return "border-red-500/60 bg-red-950/40 text-red-200";
+  if (severity === "high")
+    return "border-orange-500/70 bg-orange-950/40 text-orange-100";
   if (severity === "medium")
     return "border-amber-500/60 bg-amber-950/40 text-amber-200";
-  return "border-sky-500/60 bg-sky-950/40 text-sky-200";
+  return "border-yellow-500/60 bg-yellow-950/30 text-yellow-100";
 }
 
 export default function AdminReportes() {
@@ -211,7 +212,7 @@ export default function AdminReportes() {
         )}
 
         {!loading && error && (
-          <div className="rounded border border-red-600/50 bg-red-950/30 p-6 text-red-200">
+          <div className="rounded border border-orange-600/50 bg-orange-950/30 p-6 text-orange-100">
             {error}
           </div>
         )}
@@ -221,7 +222,7 @@ export default function AdminReportes() {
             <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
               <div className="rounded border border-zinc-800 bg-zinc-950 p-4">
                 <p className="text-xs text-zinc-400">Ingresos Totales</p>
-                <p className="text-2xl font-bold text-green-400">
+                <p className="text-2xl font-bold text-yellow-300">
                   {formatMoney(report.overview.totalIncome)}
                 </p>
               </div>
@@ -233,7 +234,7 @@ export default function AdminReportes() {
               </div>
               <div className="rounded border border-zinc-800 bg-zinc-950 p-4">
                 <p className="text-xs text-zinc-400">Nuevos Clientes (30d)</p>
-                <p className="text-2xl font-bold text-blue-400">{report.overview.newClients}</p>
+                <p className="text-2xl font-bold text-yellow-400">{report.overview.newClients}</p>
               </div>
               <div className="rounded border border-zinc-800 bg-zinc-950 p-4">
                 <p className="text-xs text-zinc-400">Asistencia Hoy</p>
@@ -243,7 +244,7 @@ export default function AdminReportes() {
               </div>
               <div className="rounded border border-zinc-800 bg-zinc-950 p-4">
                 <p className="text-xs text-zinc-400">Calidad de Datos</p>
-                <p className="text-2xl font-bold text-cyan-300">
+                <p className="text-2xl font-bold text-orange-300">
                   {report.dataQuality.score}/100
                 </p>
               </div>
@@ -272,7 +273,7 @@ export default function AdminReportes() {
             <section className="rounded border border-zinc-800 bg-zinc-950 p-4">
               <h2 className="mb-3 text-lg font-bold text-yellow-400">Inconsistencias Detectadas</h2>
               {report.dataQuality.inconsistencies.length === 0 ? (
-                <p className="text-sm text-green-300">No se detectaron inconsistencias críticas.</p>
+                <p className="text-sm text-yellow-300">No se detectaron inconsistencias críticas.</p>
               ) : (
                 <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                   {report.dataQuality.inconsistencies.map((issue) => (
@@ -304,15 +305,15 @@ export default function AdminReportes() {
                   Tendencia de Ingresos (6 meses)
                 </h2>
                 <div className="space-y-2">
-                  {report.trends.incomeTrend.map((point) => (
-                    <div key={point.period}>
+                  {report.trends.incomeTrend.map((point, index) => (
+                    <div key={`${point.period}-${index}`}>
                       <div className="mb-1 flex justify-between text-xs text-zinc-300">
                         <span>{point.period}</span>
                         <span>{formatMoney(point.total)}</span>
                       </div>
                       <div className="h-2 w-full rounded bg-zinc-800">
                         <div
-                          className="h-2 rounded bg-green-500"
+                          className="h-2 rounded bg-yellow-400"
                           style={{ width: `${(point.total / maxIncome) * 100}%` }}
                         />
                       </div>
@@ -362,7 +363,7 @@ export default function AdminReportes() {
                           <p className="font-medium">{product.name}</p>
                           <p className="text-xs text-zinc-400">Cantidad: {product.quantity}</p>
                         </div>
-                        <p className="font-semibold text-emerald-300">
+                        <p className="font-semibold text-yellow-300">
                           {formatMoney(product.revenue)}
                         </p>
                       </div>
@@ -387,7 +388,7 @@ export default function AdminReportes() {
                         </div>
                         <div className="h-2 w-full rounded bg-zinc-800">
                           <div
-                            className="h-2 rounded bg-blue-500"
+                            className="h-2 rounded bg-orange-400"
                             style={{
                               width: `${(plan.count /
                                 Math.max(

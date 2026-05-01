@@ -1,16 +1,16 @@
 export const dialogSurfaceClass =
-  "relative w-full rounded-lg border border-zinc-800 bg-zinc-950 p-4 text-white shadow-2xl sm:p-5";
+  "relative w-full rounded-2xl border border-gray-200 bg-white p-4 text-gray-900 shadow-2xl sm:p-6";
 
 export const sectionClass =
-  "rounded-lg border border-zinc-800 bg-black/70 p-3 sm:p-4";
+  "rounded-lg border border-gray-200 bg-white p-3 sm:p-4";
 
 export const fieldClass =
-  "h-11 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-yellow-400 focus:ring-2 focus:ring-yellow-300/20";
+  "h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-transparent focus:ring-2 focus:ring-yellow-400";
 
 export const labelClass =
-  "mb-1.5 block text-xs font-semibold uppercase tracking-wide text-zinc-300";
+  "mb-2 block text-sm font-medium text-gray-700";
 
-export const helperTextClass = "mt-1 text-xs text-zinc-500";
+export const helperTextClass = "mt-1 text-xs text-gray-500";
 
 export const phoneInputClass =
-  "wolf-phone-input flex min-h-11 w-full items-center rounded-md border border-zinc-700 bg-zinc-900 px-3 text-sm text-white transition focus-within:border-yellow-400 focus-within:ring-2 focus-within:ring-yellow-300/20";
+  "wolf-phone-input flex min-h-11 w-full items-center rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 transition focus-within:border-transparent focus-within:ring-2 focus-within:ring-yellow-400";

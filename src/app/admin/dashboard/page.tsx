@@ -1,70 +1,175 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Home, Bell, Menu, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Bell, Home, Menu, RefreshCw, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
-} from "@/ui/table";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+
+import { Button } from "@/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/ui/table";
+import { cn } from "@/lib/utils";
+
+interface DashboardData {
+  totalIncome: number;
+  newClients: number;
+  productSales: number;
+  classAttendance: number;
+  todayAttendance: number;
+  activeMemberships: number;
+  lowStockProducts: number;
+  lastUpdated: string;
+}
+
+interface RecentClient {
+  id: string;
+  name: string;
+  lastName: string;
+  plan: string;
+  membershipStartFormatted: string;
+  membershipEndFormatted: string;
+  daysRemaining: number | string;
+}
+
+interface Product {
+  item_id: string;
+  item_name: string;
+  item_stock: number;
+}
+
+interface Notification {
+  id: string;
+  message: string;
+}
+
+interface MetricCardProps {
+  label: string;
+  value: string | number;
+  helper: string;
+  tone?: "default" | "warning" | "success";
+}
+
+const emptyDashboardData: DashboardData = {
+  totalIncome: 0,
+  newClients: 0,
+  productSales: 0,
+  classAttendance: 0,
+  todayAttendance: 0,
+  activeMemberships: 0,
+  lowStockProducts: 0,
+  lastUpdated: "",
+};
+
+const navigationItems = [
+  { href: "/admin/clients", label: "Clientes" },
+  { href: "/admin/products", label: "Productos" },
+  { href: "/admin/images", label: "Imágenes" },
+  { href: "/admin/reportes", label: "Reportes" },
+  { href: "/admin/profile", label: "Perfil" },
+  { href: "/admin/attendence", label: "Historial" },
+  { href: "/check-in", label: "Recepción" },
+  { href: "/admin/routines", label: "Rutinas" },
+  { href: "/admin/Edit", label: "Contenido" },
+];
+
+const cardClass =
+  "rounded-lg border border-yellow-400/25 bg-black p-4 shadow-sm transition hover:border-yellow-400/60";
+
+function formatCurrency(value: number) {
+  return `S/. ${Number(value).toFixed(2)}`;
+}
+
+function formatDate(value?: string) {
+  if (!value) return "N/A";
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "N/A" : date.toLocaleDateString("es-PE");
+}
+
+function getDaysRemaining(value?: string) {
+  if (!value) return "N/A";
+
+  const membershipEnd = new Date(value);
+  if (Number.isNaN(membershipEnd.getTime())) return "N/A";
+
+  const timeDiff = membershipEnd.getTime() - Date.now();
+  return timeDiff > 0 ? Math.ceil(timeDiff / (1000 * 3600 * 24)) : "Finalizado";
+}
+
+function MetricCard({ label, value, helper, tone = "default" }: MetricCardProps) {
+  return (
+    <div className={cardClass}>
+      <p className="text-sm font-medium text-white">{label}</p>
+      <p
+        className={cn(
+          "mt-2 text-2xl font-semibold tracking-tight text-white",
+          tone === "success" && "text-yellow-300",
+          tone === "warning" && "text-orange-400",
+        )}
+      >
+        {value}
+      </p>
+      <p className="mt-1 text-xs text-white/50">{helper}</p>
+    </div>
+  );
+}
 
 export default function AdminDashboard() {
   const router = useRouter();
   const isRedirecting = useRef(false);
 
-  // Estados para menú, notificaciones, etc.
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [notifications] = useState<{ id: string; message: string }[]>([]);
-
-  // Datos de Dashboard en tiempo real
-  const [dashboardData, setDashboardData] = useState({
-    totalIncome: 0,
-    newClients: 0,
-    productSales: 0,
-    classAttendance: 0,
-    todayAttendance: 0,
-    activeMemberships: 0,
-    lowStockProducts: 0,
-    lastUpdated: ""
-  });
+  const [notifications] = useState<Notification[]>([]);
+  const [dashboardData, setDashboardData] =
+    useState<DashboardData>(emptyDashboardData);
+  const [recentClients, setRecentClients] = useState<RecentClient[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loadingClients, setLoadingClients] = useState(false);
+  const [loadingProducts, setLoadingProducts] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [metricsErrorShown, setMetricsErrorShown] = useState(false);
+
   const lastUpdatedDate = dashboardData.lastUpdated
     ? new Date(dashboardData.lastUpdated)
     : null;
   const lastUpdatedLabel =
     lastUpdatedDate && !Number.isNaN(lastUpdatedDate.getTime())
-      ? lastUpdatedDate.toLocaleString("es-ES")
-      : "—";
+      ? lastUpdatedDate.toLocaleString("es-PE")
+      : "Sin actualización";
 
-  const redirectToLogin = () => {
+  function redirectToLogin() {
     if (isRedirecting.current) return;
+
     isRedirecting.current = true;
     toast.error("Sesión expirada. Redirigiendo a login...");
     router.replace("/auth/login");
-  };
+  }
 
   async function fetchDashboard(silent = false) {
     try {
       const res = await fetch("/api/admin/metrics", {
         credentials: "include",
-        cache: "no-store"
+        cache: "no-store",
       });
+
       if (!res.ok) {
         if (res.status === 401) {
           redirectToLogin();
           return;
         }
+
         throw new Error("Error al obtener métricas");
       }
+
       const data = await res.json();
       setDashboardData({
         totalIncome: Number(data?.totalIncome ?? 0),
@@ -85,122 +190,80 @@ export default function AdminDashboard() {
       }
     }
   }
-  // Clientes y productos
-  const [recentClients, setRecentClients] = useState<
-    {
-      id: string;
-      name: string;
-      lastName: string;
-      plan: string;
-      membershipStartFormatted: string;
-      membershipEndFormatted: string;
-      daysRemaining: number | string;
-    }[]
-  >([]);
-  const [products, setProducts] = useState<
-    { item_id: string; item_name: string; item_stock: number }[]
-  >([]);
 
-  const [loadingClients, setLoadingClients] = useState(false);
-  const [loadingProducts, setLoadingProducts] = useState(false);
-
-  // Carga de clientes
-  const fetchRecentClients = async (silent = false) => {
+  async function fetchRecentClients(silent = false) {
     if (!silent) setLoadingClients(true);
+
     try {
       const response = await fetch("/api/clients", { credentials: "include" });
+
       if (!response.ok) {
         if (response.status === 401) {
           redirectToLogin();
           return;
         }
+
         throw new Error("Error al obtener los clientes recientes");
       }
+
       const data = await response.json();
-
-      // Filtramos no-admin
       const filtered = data.filter(
-        (c: { user: { role: string } }) => c.user.role !== "admin"
+        (client: { user: { role: string } }) => client.user.role !== "admin",
       );
 
-      // Procesar datos
-      const processed = filtered.map(
-        (c: {
-          profile_id: string;
-          profile_first_name: string;
-          profile_last_name: string;
-          profile_plan: string;
-          profile_start_date: string;
-          profile_end_date: string;
-        }) => {
-          const membershipStart = c.profile_start_date
-            ? new Date(c.profile_start_date)
-            : null;
-          const membershipEnd = c.profile_end_date
-            ? new Date(c.profile_end_date)
-            : null;
-
-          let daysRemaining: number | string = "N/A";
-          if (membershipEnd && !isNaN(membershipEnd.getTime())) {
-            const timeDiff = membershipEnd.getTime() - Date.now();
-            daysRemaining =
-              timeDiff > 0
-                ? Math.ceil(timeDiff / (1000 * 3600 * 24))
-                : "Finalizado";
-          }
-
-          return {
-            id: c.profile_id,
-            name: c.profile_first_name || "Sin nombre",
-            lastName: c.profile_last_name || "Sin apellido",
-            plan: c.profile_plan || "Sin plan",
-            membershipStartFormatted: membershipStart
-              ? membershipStart.toLocaleDateString("es-ES")
-              : "N/A",
-            membershipEndFormatted: membershipEnd
-              ? membershipEnd.toLocaleDateString("es-ES")
-              : "N/A",
-            daysRemaining,
-          };
-        }
+      setRecentClients(
+        filtered.map(
+          (client: {
+            profile_id: string;
+            profile_first_name: string;
+            profile_last_name: string;
+            profile_plan: string;
+            profile_start_date?: string;
+            profile_end_date?: string;
+          }) => ({
+            id: client.profile_id,
+            name: client.profile_first_name || "Sin nombre",
+            lastName: client.profile_last_name || "Sin apellido",
+            plan: client.profile_plan || "Sin plan",
+            membershipStartFormatted: formatDate(client.profile_start_date),
+            membershipEndFormatted: formatDate(client.profile_end_date),
+            daysRemaining: getDaysRemaining(client.profile_end_date),
+          }),
+        ),
       );
-
-      setRecentClients(processed);
     } catch (error) {
       console.error("Error fetching recent clients:", error);
-      if (!silent) {
-        toast.error("Error al obtener los clientes recientes");
-      }
+      if (!silent) toast.error("Error al obtener los clientes recientes");
     } finally {
       if (!silent) setLoadingClients(false);
     }
-  };
+  }
 
-  const fetchProducts = async (silent = false) => {
+  async function fetchProducts(silent = false) {
     if (!silent) setLoadingProducts(true);
+
     try {
       const response = await fetch("/api/products", { credentials: "include" });
+
       if (!response.ok) {
         if (response.status === 401) {
           redirectToLogin();
           return;
         }
+
         throw new Error("Error al obtener los productos");
       }
 
-      const data = await response.json();
-      setProducts(data);
+      setProducts(await response.json());
     } catch (error) {
       console.error("Error al obtener los productos:", error);
-      if (!silent) {
-        toast.error("Error al obtener los productos");
-      }
+      if (!silent) toast.error("Error al obtener los productos");
     } finally {
       if (!silent) setLoadingProducts(false);
     }
-  };
+  }
 
-  const refreshAll = async (silent = false) => {
+  async function refreshAll(silent = false) {
     if (silent) setRefreshing(true);
     await Promise.all([
       fetchDashboard(silent),
@@ -208,7 +271,7 @@ export default function AdminDashboard() {
       fetchProducts(silent),
     ]);
     if (silent) setRefreshing(false);
-  };
+  }
 
   useEffect(() => {
     refreshAll(false);
@@ -218,278 +281,247 @@ export default function AdminDashboard() {
     }, 300000);
 
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <div className="min-h-screen bg-black text-white">
       <ToastContainer position="top-right" autoClose={3000} />
 
-      {/* Encabezado */}
-      <header className="px-4 lg:px-6 h-14 flex items-center bg-black relative">
-        <Link
-          className="flex items-center justify-center no-underline"
-          href="/"
-        >
-          <Home className="h-6 w-6 text-yellow-400 mr-2" />
-          <span className="text-yellow-400">Inicio</span>
-        </Link>
-
-        <div className="ml-auto flex items-center gap-4">
-          {/* Botón campanita */}
-          <button
-            type="button"
-            className="relative text-yellow-400 w-8"
-            onClick={() => setNotificationsOpen((prev) => !prev)}
+      <header className="sticky top-0 z-40 border-b border-yellow-400/15 bg-black/95 px-4 backdrop-blur lg:px-6">
+        <div className="mx-auto flex h-16 max-w-7xl items-center gap-4">
+          <Link
+            className="flex items-center gap-2 text-sm font-semibold text-wolf-primary no-underline transition hover:text-yellow-200"
+            href="/"
           >
-            <Bell className="h-6 w-6" />
-            {notifications.length > 0 && (
-              <span className="absolute top-0 right-0 inline-flex items-center justify-center h-4 w-4 bg-red-500 text-white text-xs rounded-full">
-                {notifications.length}
-              </span>
+            <Home className="h-5 w-5" />
+            Inicio
+          </Link>
+
+          <nav
+            className={cn(
+              "absolute right-4 top-16 hidden min-w-48 rounded-lg border border-yellow-400/20 bg-black p-3 shadow-xl lg:static lg:ml-auto lg:flex lg:min-w-0 lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none",
+              isMenuOpen && "block",
             )}
-          </button>
+          >
+            <div className="flex flex-col gap-1 lg:flex-row lg:items-center lg:gap-1">
+              {navigationItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="rounded-md px-3 py-2 text-sm font-medium text-white/80 no-underline transition hover:bg-yellow-400/10 hover:text-yellow-300"
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </nav>
 
-          {/* Menú hamburguesa */}
-          <button
-            type="button"
-            className="lg:hidden text-yellow-400"
-            onClick={() => setIsMenuOpen((prev) => !prev)}
-          >
-            {isMenuOpen ? (
-              <X className="h-6 w-6" />
-            ) : (
-              <Menu className="h-6 w-6" />
-            )}
-          </button>
-        </div>
+          <div className="ml-auto flex items-center gap-2 lg:ml-2">
+            <button
+              type="button"
+              aria-label="Mostrar notificaciones"
+              className="relative inline-flex h-10 w-10 items-center justify-center rounded-md text-wolf-primary transition hover:bg-yellow-400/10"
+              onClick={() => setNotificationsOpen((prev) => !prev)}
+            >
+              <Bell className="h-5 w-5" />
+              {notifications.length > 0 && (
+                <span className="absolute right-1.5 top-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-wolf-danger px-1 text-[10px] font-bold text-white">
+                  {notifications.length}
+                </span>
+              )}
+            </button>
 
-        {/* Menú de navegación */}
-        <nav
-          className={`absolute lg:static top-14 right-0 bg-black lg:bg-transparent lg:flex items-center gap-4 sm:gap-6 p-4 lg:p-0 z-50 ${
-            isMenuOpen ? "block" : "hidden"
-          }`}
-        >
-          <Link
-            href="/admin/clients"
-            className="block text-sm font-medium text-white hover:text-yellow-400 no-underline"
-          >
-            Clientes
-          </Link>
-          <Link
-            href="/admin/products"
-            className="block text-sm font-medium text-white hover:text-yellow-400 no-underline"
-          >
-            Productos
-          </Link>
-          <Link
-            href="/admin/images"
-            className="block text-sm font-medium text-white hover:text-yellow-400 no-underline"
-          >
-            Imágenes
-          </Link>
-          <Link
-            href="/admin/reportes"
-            className="block text-sm font-medium text-white hover:text-yellow-400 no-underline"
-          >
-            Reportes
-          </Link>
-          <Link
-            href="/admin/profile"
-            className="block text-sm font-medium text-white hover:text-yellow-400 no-underline"
-          >
-            Perfil
-          </Link>
-          <Link
-            href="/admin/attendence"
-            className="block text-sm font-medium text-white hover:text-yellow-400 no-underline"
-          >
-            Historial
-          </Link>
-          <Link
-            href="/check-in"
-            className="block text-sm font-medium text-white hover:text-yellow-400 no-underline"
-          >
-            Recepción
-          </Link>
-          <Link
-            href="/admin/routines"
-            className="block text-sm font-medium text-white hover:text-yellow-400 no-underline"
-          >
-            Rutinas
-          </Link>
-          <Link
-            href="/admin/Edit"
-            className="block text-sm font-medium text-white hover:text-yellow-400 no-underline"
-          >
-            Contenido
-          </Link>
-        </nav>
-
-        {/* Menú notificaciones */}
-        {notificationsOpen && (
-          <div className="absolute top-14 right-16 bg-white text-black p-4 rounded shadow-lg z-50 w-64 max-h-96 overflow-auto">
-            <h3 className="font-bold mb-2">Notificaciones</h3>
-            {notifications.length > 0 ? (
-              notifications.map((notification) => (
-                <div key={notification.id} className="mb-2">
-                  <p>{notification.message}</p>
-                </div>
-              ))
-            ) : (
-              <p>No hay notificaciones</p>
-            )}
+            <button
+              type="button"
+              aria-label="Abrir menú"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md text-wolf-primary transition hover:bg-yellow-400/10 lg:hidden"
+              onClick={() => setIsMenuOpen((prev) => !prev)}
+            >
+              {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
           </div>
-        )}
+
+          {notificationsOpen && (
+            <div className="absolute right-4 top-16 z-50 max-h-96 w-72 overflow-auto rounded-lg border border-yellow-400/25 bg-white p-4 text-black shadow-xl">
+              <h3 className="mb-2 font-semibold">Notificaciones</h3>
+              {notifications.length > 0 ? (
+                notifications.map((notification) => (
+                  <p key={notification.id} className="mb-2 text-sm text-black/70">
+                    {notification.message}
+                  </p>
+                ))
+              ) : (
+                <p className="text-sm text-black/70">No hay notificaciones</p>
+              )}
+            </div>
+          )}
+        </div>
       </header>
 
-      {/* Contenido principal */}
-      <main className="px-6">
-        <h1 className="text-3xl font-bold mb-6 text-yellow-400 text-center">
-          Panel de Administración
-        </h1>
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-8 flex flex-col gap-4 border-b border-yellow-400/15 pb-6 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-sm font-medium text-wolf-primary">Administración</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
+              Panel operativo
+            </h1>
+            <p className="mt-2 text-sm text-white/70">
+              Última actualización: {lastUpdatedLabel}
+            </p>
+          </div>
 
-        {/* Resumen Dashboard */}
-        <section className="mb-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white text-black rounded-md shadow p-4 hover:shadow-lg transition-shadow">
-            <p className="text-sm font-medium text-gray-600">Ingresos Totales</p>
-            <h3 className="text-2xl font-bold text-black">
-              S/. {Number(dashboardData.totalIncome).toFixed(2)}
-            </h3>
-            <p className="text-xs text-gray-500 mt-1">Todos los pagos</p>
-          </div>
-          <div className="bg-white text-black rounded-md shadow p-4 hover:shadow-lg transition-shadow">
-            <p className="text-sm font-medium text-gray-600">Nuevos Clientes</p>
-            <h3 className="text-2xl font-bold text-black">{dashboardData.newClients}</h3>
-            <p className="text-xs text-gray-500 mt-1">Últimos 30 días</p>
-          </div>
-          <div className="bg-white text-black rounded-md shadow p-4 hover:shadow-lg transition-shadow">
-            <p className="text-sm font-medium text-gray-600">Asistencia Hoy</p>
-            <h3 className="text-2xl font-bold text-black">{dashboardData.todayAttendance}</h3>
-            <p className="text-xs text-gray-500 mt-1">Check-ins de hoy</p>
-          </div>
-          <div className="bg-white text-black rounded-md shadow p-4 hover:shadow-lg transition-shadow">
-            <p className="text-sm font-medium text-gray-600">Membresías Activas</p>
-            <h3 className="text-2xl font-bold text-black">{dashboardData.activeMemberships}</h3>
-            <p className="text-xs text-gray-500 mt-1">Clientes activos</p>
-          </div>
-        </section>
-
-        {/* Métricas Adicionales */}
-        <section className="mb-10 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white text-black rounded-md shadow p-4 hover:shadow-lg transition-shadow">
-            <p className="text-sm font-medium text-gray-600">Asistencia Semanal</p>
-            <h3 className="text-2xl font-bold text-black">{dashboardData.classAttendance}</h3>
-            <p className="text-xs text-gray-500 mt-1">Últimos 7 días</p>
-          </div>
-          <div className="bg-white text-black rounded-md shadow p-4 hover:shadow-lg transition-shadow">
-            <p className="text-sm font-medium text-gray-600">Ventas de Productos</p>
-            <h3 className="text-2xl font-bold text-black">
-              S/. {Number(dashboardData.productSales).toFixed(2)}
-            </h3>
-            <p className="text-xs text-gray-500 mt-1">Total vendido</p>
-          </div>
-          <div className="bg-white text-black rounded-md shadow p-4 hover:shadow-lg transition-shadow">
-            <p className="text-sm font-medium text-gray-600">Stock Bajo</p>
-            <h3 className="text-2xl font-bold text-black">{dashboardData.lowStockProducts}</h3>
-            <p className="text-xs text-gray-500 mt-1">Productos ≤ 10 unidades</p>
-          </div>
-        </section>
-
-        {/* Indicador de última actualización */}
-        <div className="mb-6 text-center">
-          <p className="text-sm text-gray-400">
-            Última actualización: {lastUpdatedLabel}
-          </p>
-          <button
+          <Button
             type="button"
             onClick={() => refreshAll(true)}
             disabled={refreshing}
-            className="mt-3 rounded border border-yellow-400 px-4 py-1.5 text-xs text-yellow-400 transition hover:bg-yellow-400 hover:text-black disabled:cursor-not-allowed disabled:opacity-60"
+            variant="outline"
+            className="border-yellow-400/70 bg-transparent text-yellow-300 hover:bg-yellow-400 hover:text-black"
           >
-            {refreshing ? "Actualizando..." : "Actualizar ahora"}
-          </button>
-          {refreshing && (
-            <p className="mt-1 text-xs text-yellow-400">Actualizando datos...</p>
-          )}
+            <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
+            {refreshing ? "Actualizando" : "Actualizar"}
+          </Button>
         </div>
 
-        {/* Clientes Recientes */}
-        <section className="mb-10">
-          <h2 className="text-2xl font-bold text-yellow-400">
-            Clientes Recientes
-          </h2>
+        <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            label="Ingresos totales"
+            value={formatCurrency(dashboardData.totalIncome)}
+            helper="Todos los pagos"
+            tone="success"
+          />
+          <MetricCard
+            label="Nuevos clientes"
+            value={dashboardData.newClients}
+            helper="Últimos 30 días"
+          />
+          <MetricCard
+            label="Asistencia hoy"
+            value={dashboardData.todayAttendance}
+            helper="Check-ins de hoy"
+          />
+          <MetricCard
+            label="Membresías activas"
+            value={dashboardData.activeMemberships}
+            helper="Clientes activos"
+          />
+        </section>
+
+        <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <MetricCard
+            label="Asistencia semanal"
+            value={dashboardData.classAttendance}
+            helper="Últimos 7 días"
+          />
+          <MetricCard
+            label="Ventas de productos"
+            value={formatCurrency(dashboardData.productSales)}
+            helper="Total vendido"
+            tone="success"
+          />
+          <MetricCard
+            label="Stock bajo"
+            value={dashboardData.lowStockProducts}
+            helper="Productos ≤ 10 unidades"
+            tone={dashboardData.lowStockProducts > 0 ? "warning" : "default"}
+          />
+        </section>
+
+        {refreshing && (
+          <p className="mb-6 text-sm text-wolf-primary">Actualizando datos...</p>
+        )}
+
+        <section className="mb-8 rounded-lg border border-yellow-400/25 bg-black p-4">
+          <h2 className="mb-4 text-xl font-semibold text-white">Clientes recientes</h2>
           {loadingClients ? (
-            <p className="text-yellow-400">Cargando clientes...</p>
+            <p className="text-sm text-wolf-primary">Cargando clientes...</p>
           ) : (
-            <Table className="rounded-md overflow-hidden">
-              <TableHeader className="[&_tr]:border-0">
-                <TableRow className="border-0 bg-black">
-                  <TableHead className="text-yellow-300">Nombre</TableHead>
-                  <TableHead className="text-yellow-300">Apellidos</TableHead>
-                  <TableHead className="text-yellow-300">Plan</TableHead>
-                  <TableHead className="text-yellow-300">Inicio</TableHead>
-                  <TableHead className="text-yellow-300">Fin</TableHead>
-                  <TableHead className="text-yellow-300">Días</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentClients.length > 0 ? (
-                  recentClients.map((client) => (
-                    <TableRow key={client.id} className="border-0 hover:bg-zinc-900/60">
-                      <TableCell className="truncate text-white">{client.name}</TableCell>
-                      <TableCell className="text-white">{client.lastName}</TableCell>
-                      <TableCell className="text-white">{client.plan}</TableCell>
-                      <TableCell className="text-zinc-300">{client.membershipStartFormatted}</TableCell>
-                      <TableCell className="text-zinc-300">{client.membershipEndFormatted}</TableCell>
-                      <TableCell className="text-zinc-300">{client.daysRemaining}</TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow className="border-0">
-                    <TableCell colSpan={6} className="text-zinc-400">
-                      No hay clientes disponibles
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-yellow-400/15 hover:bg-transparent">
+                    <TableHead className="text-white">Nombre</TableHead>
+                    <TableHead className="text-white">Apellidos</TableHead>
+                    <TableHead className="text-white">Plan</TableHead>
+                    <TableHead className="text-white">Inicio</TableHead>
+                    <TableHead className="text-white">Fin</TableHead>
+                    <TableHead className="text-white">Días</TableHead>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {recentClients.length > 0 ? (
+                    recentClients.map((client) => (
+                      <TableRow
+                        key={client.id}
+                        className="border-yellow-400/10 hover:bg-yellow-400/5"
+                      >
+                        <TableCell className="max-w-48 truncate text-white">
+                          {client.name}
+                        </TableCell>
+                        <TableCell className="text-white/80">{client.lastName}</TableCell>
+                        <TableCell className="text-white/80">{client.plan}</TableCell>
+                        <TableCell className="text-white/70">
+                          {client.membershipStartFormatted}
+                        </TableCell>
+                        <TableCell className="text-white/70">
+                          {client.membershipEndFormatted}
+                        </TableCell>
+                        <TableCell className="text-white/70">
+                          {client.daysRemaining}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow className="border-yellow-400/10">
+                      <TableCell colSpan={6} className="text-white/50">
+                        No hay clientes disponibles
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </section>
 
-        {/* Productos */}
-        <section>
-          <h2 className="text-2xl font-bold text-yellow-400">
-            Gestión de Productos
-          </h2>
+        <section className="rounded-lg border border-yellow-400/25 bg-black p-4">
+          <h2 className="mb-4 text-xl font-semibold text-white">Gestión de productos</h2>
           {loadingProducts ? (
-            <p className="text-yellow-400">Cargando productos...</p>
+            <p className="text-sm text-wolf-primary">Cargando productos...</p>
           ) : (
-            <Table className="rounded-md overflow-hidden">
-              <TableHeader className="[&_tr]:border-0">
-                <TableRow className="border-0 bg-black">
-                  <TableHead className="text-yellow-300">Nombre</TableHead>
-                  <TableHead className="text-yellow-300">Stock</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {products.length > 0 ? (
-                  products.map((product) => (
-                    <TableRow key={product.item_id} className="border-0 hover:bg-zinc-900/60">
-                      <TableCell className="truncate text-white">
-                        {product.item_name}
-                      </TableCell>
-                      <TableCell className="text-zinc-300">{product.item_stock}</TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow className="border-0">
-                    <TableCell colSpan={2} className="text-zinc-400">
-                      No hay productos disponibles
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-yellow-400/15 hover:bg-transparent">
+                    <TableHead className="text-white">Nombre</TableHead>
+                    <TableHead className="text-white">Stock</TableHead>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {products.length > 0 ? (
+                    products.map((product) => (
+                      <TableRow
+                        key={product.item_id}
+                        className="border-yellow-400/10 hover:bg-yellow-400/5"
+                      >
+                        <TableCell className="max-w-96 truncate text-white">
+                          {product.item_name}
+                        </TableCell>
+                        <TableCell className="text-white/80">
+                          {product.item_stock}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow className="border-yellow-400/10">
+                      <TableCell colSpan={2} className="text-white/50">
+                        No hay productos disponibles
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </section>
       </main>

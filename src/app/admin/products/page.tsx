@@ -29,6 +29,11 @@ type Product = {
 
 type NewProduct = Omit<Product, "id">;
 
+function getDiscountValue(discount?: number | string | null) {
+  const value = Number(discount ?? 0);
+  return Number.isFinite(value) ? value : 0;
+}
+
 export default function ProductList() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -221,12 +226,14 @@ export default function ProductList() {
             <p className="text-sm text-gray-500">
               {product.description || "Sin descripción"}
             </p>
-            <p className="text-yellow-400 font-bold">
+            <p className="text-lg font-extrabold text-yellow-600">
               S/. {(product.price ?? 0).toFixed(2)}
             </p>
-            <p className="text-sm text-green-500">
-              {product.discount > 0 ? `Descuento: ${product.discount}%` : " "}
-            </p>
+            {getDiscountValue(product.discount) > 0 && (
+              <p className="text-sm font-semibold text-orange-600">
+                Descuento: {getDiscountValue(product.discount)}%
+              </p>
+            )}
             <p className="text-sm text-gray-500">
               Stock: {product.stock ?? "Sin stock"}
             </p>

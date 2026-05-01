@@ -36,6 +36,16 @@ type Product = {
   quantity?: number;
 };
 
+function getDiscountValue(discount?: number | string | null) {
+  const value = Number(discount ?? 0);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function getDiscountedPrice(product: Product) {
+  const discount = getDiscountValue(product.discount);
+  return product.price - (product.price * discount) / 100;
+}
+
 export default function PublicProductList() {
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
@@ -276,9 +286,9 @@ export default function PublicProductList() {
               key={prod.id}
               className="relative bg-white border border-gray-300 rounded-lg shadow-lg p-4 text-center transition-transform hover:scale-105"
             >
-              {prod.discount && prod.discount > 0 && (
-                <div className="absolute top-2 left-2 bg-yellow-400 text-black text-xs font-bold px-2 py-1 rounded">
-                  {prod.discount}% OFF
+              {getDiscountValue(prod.discount) > 0 && (
+                <div className="absolute top-2 left-2 rounded bg-orange-500 px-2 py-1 text-xs font-bold text-black">
+                  {getDiscountValue(prod.discount)}% OFF
                 </div>
               )}
               {prod.stock === 0 && (
@@ -295,12 +305,8 @@ export default function PublicProductList() {
               />
               <h2 className="text-lg font-bold text-black">{prod.name}</h2>
               <p className="text-sm text-black">{prod.description}</p>
-              <p className="text-yellow-400 font-bold">
-                S/.{" "}
-                {(
-                  prod.price -
-                  (prod.price * (prod.discount || 0)) / 100
-                ).toFixed(2)}
+              <p className="text-lg font-extrabold text-yellow-600">
+                S/. {getDiscountedPrice(prod).toFixed(2)}
               </p>
               {prod.stock > 0 ? (
                 <button
