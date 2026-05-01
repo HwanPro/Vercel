@@ -12,7 +12,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    const { username, firstName, lastName, phone, emergencyPhone } =
+    const { username, firstName, lastName, phone, emergencyPhone, documentNumber } =
       await request.json();
 
     // Aquí ya no exigimos a la fuerza todos, puedes condicionar:
@@ -24,6 +24,30 @@ export async function PATCH(request: NextRequest) {
         },
         { status: 400 }
       );
+    }
+
+    const cleanedDocument = String(documentNumber || "").replace(/\D/g, "");
+    if (cleanedDocument && cleanedDocument.length !== 8) {
+      return NextResponse.json(
+        { error: "El DNI debe tener 8 dígitos" },
+        { status: 400 }
+      );
+    }
+
+    if (cleanedDocument) {
+      const existingDocument = await prisma.clientProfile.findFirst({
+        where: {
+          documentNumber: cleanedDocument,
+          user_id: { not: token.id as string },
+        },
+        select: { profile_id: true },
+      });
+      if (existingDocument) {
+        return NextResponse.json(
+          { error: "El DNI ya está registrado" },
+          { status: 400 }
+        );
+      }
     }
 
     // Actualizar la tabla User
@@ -51,6 +75,7 @@ export async function PATCH(request: NextRequest) {
           profile_last_name: lastName,
           profile_phone: phone,
           profile_emergency_phone: emergencyPhone || null,
+          documentNumber: cleanedDocument || null,
         },
       });
     } else {
@@ -62,6 +87,7 @@ export async function PATCH(request: NextRequest) {
           profile_last_name: lastName,
           profile_phone: phone,
           profile_emergency_phone: emergencyPhone || null,
+          documentNumber: cleanedDocument || null,
         },
       });
     }

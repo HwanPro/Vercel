@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/ui/dialog";
-import { Phone, Lock, Camera } from "lucide-react";
+import { Phone, Lock, Camera, IdCard } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import "react-toastify/dist/ReactToastify.css";
@@ -32,6 +32,7 @@ export interface ProfileModalProps {
   userLastName?: string;
   userPhone?: string;
   userEmergencyPhone?: string;
+  userDocumentNumber?: string;
   userRole?: string;
   profileImage?: string | null;
 }
@@ -46,6 +47,7 @@ export default function ProfileModal({
   userLastName = "",
   userPhone = "",
   userEmergencyPhone = "",
+  userDocumentNumber = "",
   userRole = "",
   profileImage,
 }: ProfileModalProps) {
@@ -58,6 +60,7 @@ export default function ProfileModal({
   const [lastName, setLastName] = useState<string>(userLastName);
   const [phone, setPhone] = useState<string>(userPhone);
   const [emergencyPhone, setEmergencyPhone] = useState<string>(userEmergencyPhone);
+  const [documentNumber, setDocumentNumber] = useState<string>(userDocumentNumber);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [currentProfileImage, setCurrentProfileImage] = useState<string | null>(profileImage || null);
@@ -68,9 +71,18 @@ export default function ProfileModal({
     setCurrentProfileImage(profileImage || null);
   }, [profileImage]);
 
+  useEffect(() => {
+    setDocumentNumber(userDocumentNumber || "");
+  }, [userDocumentNumber]);
+
   function validateFields() {
     if (!username.trim() || !firstNameLocal.trim() || !lastName.trim() || !phone.trim()) {
       toast.error("❌ Faltan campos (usuario, nombre, apellidos, teléfono).");
+      return false;
+    }
+    const dni = documentNumber.replace(/\D/g, "");
+    if (dni && dni.length !== 8) {
+      toast.error("❌ El DNI debe tener 8 dígitos.");
       return false;
     }
     return true;
@@ -181,6 +193,7 @@ export default function ProfileModal({
           lastName: lastName.trim(),
           phone: phone.trim(),
           emergencyPhone: emergencyPhone.trim(),
+          documentNumber: documentNumber.replace(/\D/g, "").slice(0, 8),
         }),
       });
 
@@ -328,6 +341,25 @@ export default function ProfileModal({
               />
               <Button size="icon" variant="outline" className="shrink-0 !border-wolf-border !bg-white !text-wolf-primary-strong hover:!bg-wolf-muted">
                 <Phone className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* DNI */}
+          <div className="space-y-2">
+            <Label htmlFor="documentNumber" className="text-wolf-ink">DNI</Label>
+            <div className="flex gap-2">
+              <Input
+                id="documentNumber"
+                value={documentNumber}
+                onChange={(e) =>
+                  setDocumentNumber(e.target.value.replace(/\D/g, "").slice(0, 8))
+                }
+                placeholder="8 dígitos"
+                className="border border-wolf-border bg-white text-wolf-ink"
+              />
+              <Button size="icon" variant="outline" className="shrink-0 !border-wolf-border !bg-white !text-wolf-primary-strong hover:!bg-wolf-muted">
+                <IdCard className="h-4 w-4" />
               </Button>
             </div>
           </div>

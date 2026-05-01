@@ -3,14 +3,27 @@ import prisma from "@/infrastructure/prisma/prisma";
 
 export async function POST(req: Request) {
   try {
-    const { userId, phone } = await req.json();
-    const normalized = String(phone || "").replace(/\D/g, "").slice(-9);
-    if (!userId || normalized.length !== 9) {
-      return NextResponse.json({ ok: false, message: "Datos inválidos" }, { status: 400 });
+    const { userId, phone, identifier, dni } = await req.json();
+    const raw = String(identifier || dni || phone || "").replace(/\D/g, "");
+    const normalizedPhone = raw.length >= 9 ? raw.slice(-9) : "";
+    const normalizedDni = raw.length === 8 ? raw : "";
+
+    if (!userId || (!normalizedPhone && !normalizedDni)) {
+      return NextResponse.json(
+        { ok: false, message: "Ingresa teléfono de 9 dígitos o DNI de 8 dígitos" },
+        { status: 400 },
+      );
     }
 
     const profile = await prisma.clientProfile.findFirst({
-      where: { OR: [{ profile_phone: normalized }, { profile_phone: `+51${normalized}` }] },
+      where: {
+        OR: [
+          ...(normalizedPhone
+            ? [{ profile_phone: normalizedPhone }, { profile_phone: `+51${normalizedPhone}` }]
+            : []),
+          ...(normalizedDni ? [{ documentNumber: normalizedDni }] : []),
+        ],
+      },
       include: { user: true },
     });
 

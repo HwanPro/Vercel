@@ -20,6 +20,7 @@ type AdminMe = {
   role: string;
   profile?: {
     profile_emergency_phone?: string | null;
+    documentNumber?: string | null;
   } | null;
 };
 
@@ -138,6 +139,14 @@ export default function AdminProfilePage() {
                   {adminMe.profile?.profile_emergency_phone || "No definido"}
                 </dd>
               </div>
+              <div className="rounded border border-wolf-border bg-wolf-muted p-3 sm:col-span-2">
+                <dt className="text-xs font-semibold text-wolf-subtle">
+                  DNI
+                </dt>
+                <dd className="mt-1 text-sm font-medium text-wolf-ink">
+                  {adminMe.profile?.documentNumber || "No definido"}
+                </dd>
+              </div>
             </dl>
 
             <div className="mt-6 flex justify-end">
@@ -165,6 +174,7 @@ export default function AdminProfilePage() {
           userLastName={adminMe?.lastName ?? session?.user?.lastName ?? ""}
           userPhone={adminMe?.phoneNumber ?? session?.user?.phoneNumber ?? ""}
           userEmergencyPhone={adminMe?.profile?.profile_emergency_phone ?? ""}
+          userDocumentNumber={adminMe?.profile?.documentNumber ?? ""}
           userRole={adminMe?.role ?? session?.user?.role ?? "admin"}
           profileImage={adminMe?.image ?? session?.user?.image ?? ""}
         />

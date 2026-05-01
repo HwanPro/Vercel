@@ -288,6 +288,7 @@ export default function ClientDashboard() {
             userLastName={lastName}
             userPhone={clientData.profile?.profile_phone || ""}
             userEmergencyPhone={clientData.profile?.profile_emergency_phone || ""}
+            userDocumentNumber={clientData.profile?.documentNumber || ""}
             userRole={clientData.role}
             profileImage={clientData.image}
           />

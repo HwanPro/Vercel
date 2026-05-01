@@ -16,7 +16,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Parsear el body y extraer los campos necesarios
-    const { userId, username, firstName, lastName, phone, emergencyPhone } =
+    const { userId, username, firstName, lastName, phone, emergencyPhone, documentNumber } =
       await request.json();
     if (!userId || !username || !firstName || !lastName || !phone) {
       return NextResponse.json(
@@ -26,6 +26,30 @@ export async function PATCH(request: NextRequest) {
         },
         { status: 400 }
       );
+    }
+
+    const cleanedDocument = String(documentNumber || "").replace(/\D/g, "");
+    if (cleanedDocument && cleanedDocument.length !== 8) {
+      return NextResponse.json(
+        { error: "El DNI debe tener 8 dígitos" },
+        { status: 400 }
+      );
+    }
+
+    if (cleanedDocument) {
+      const existingDocument = await prisma.clientProfile.findFirst({
+        where: {
+          documentNumber: cleanedDocument,
+          user_id: { not: userId },
+        },
+        select: { profile_id: true },
+      });
+      if (existingDocument) {
+        return NextResponse.json(
+          { error: "El DNI ya está registrado" },
+          { status: 400 }
+        );
+      }
     }
 
     // Actualizar el usuario en la tabla User
@@ -53,6 +77,18 @@ export async function PATCH(request: NextRequest) {
             profile_last_name: lastName,
             profile_phone: phone,
             profile_emergency_phone: emergencyPhone || null,
+            documentNumber: cleanedDocument || null,
+          },
+        });
+      } else {
+        await prisma.clientProfile.create({
+          data: {
+            user_id: userId,
+            profile_first_name: firstName,
+            profile_last_name: lastName,
+            profile_phone: phone,
+            profile_emergency_phone: emergencyPhone || null,
+            documentNumber: cleanedDocument || null,
           },
         });
       }

@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
         profile: {
           select: {
             profile_emergency_phone: true,
+            documentNumber: true,
           },
         },
       },
