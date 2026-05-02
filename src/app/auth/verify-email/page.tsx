@@ -7,7 +7,13 @@ export const revalidate = 0;
 
 export default function Page() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Verificando…</div>}>
+    <Suspense
+      fallback={
+        <div className="grid min-h-screen place-items-center bg-[#F5F5F4] text-[#0A0A0A]">
+          Verificando...
+        </div>
+      }
+    >
       <VerifyEmailClient />
     </Suspense>
   );

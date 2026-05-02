@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/ui/button";
 import { toast } from "react-toastify";
-import { CheckCircle, AlertCircle, Mail } from "lucide-react";
+import { CheckCircle, AlertCircle, Mail, ArrowLeft } from "lucide-react";
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
@@ -51,33 +51,47 @@ function VerifyEmailContent() {
   }, [verifyEmailToken]);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+    <div className="grid min-h-screen place-items-center bg-[#F5F5F4] px-4 py-12 text-[#0A0A0A] sm:px-6 lg:px-8">
+      <div className="w-full max-w-md">
+        <button
+          type="button"
+          onClick={() => router.push("/auth/login")}
+          className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-[#6B6B68] hover:text-[#FF7A1A]"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Volver al login
+        </button>
         <div className="text-center">
-          <Mail className="mx-auto h-12 w-12 text-blue-600" />
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            Verificación de Email
+          <div className="mx-auto grid h-16 w-16 place-items-center bg-[#0A0A0A]">
+            <Mail className="h-8 w-8 text-[#FFC21A]" />
+          </div>
+          <p className="mt-6 text-xs font-black uppercase text-[#FF7A1A]">
+            Seguridad
+          </p>
+          <h2 className="mt-2 text-4xl font-black uppercase text-[#0A0A0A]">
+            Verificación de email
           </h2>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="mt-8 border border-[#E7E5E1] bg-white p-6 shadow-sm">
           {isVerifying && (
             <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4" />
-              <p className="text-gray-600">Verificando tu email...</p>
+              <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-b-2 border-[#FFC21A]" />
+              <p className="text-[#6B6B68]">Verificando tu email...</p>
             </div>
           )}
 
           {isVerified && !isVerifying && (
             <div className="text-center">
-              <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                ¡Email Verificado!
+              <CheckCircle className="mx-auto mb-4 h-16 w-16 text-[#2EBD75]" />
+              <h3 className="mb-2 text-lg font-black uppercase text-[#0A0A0A]">
+                Email verificado
               </h3>
-              <p className="text-gray-600 mb-4">
-                Tu email ha sido verificado exitosamente. Tu nombre de usuario ha sido actualizado.
+              <p className="mb-4 text-[#6B6B68]">
+                Tu email ha sido verificado exitosamente. Tu nombre de usuario
+                ha sido actualizado.
               </p>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-[#6B6B68]">
                 Serás redirigido al dashboard en unos segundos...
               </p>
             </div>
@@ -85,32 +99,32 @@ function VerifyEmailContent() {
 
           {!isVerified && !isVerifying && error && (
             <div className="text-center">
-              <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Error de Verificación
+              <AlertCircle className="mx-auto mb-4 h-16 w-16 text-[#E5484D]" />
+              <h3 className="mb-2 text-lg font-black uppercase text-[#0A0A0A]">
+                Error de verificación
               </h3>
-              <p className="text-red-600 mb-4">{error}</p>
+              <p className="mb-4 text-[#B42318]">{error}</p>
               <Button
                 onClick={() => router.push("/profile/security")}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-[#FFC21A] font-bold text-[#0A0A0A] hover:bg-[#E5A800]"
               >
-                Intentar de Nuevo
+                Intentar de nuevo
               </Button>
             </div>
           )}
 
           {!token && !isVerifying && !isVerified && !error && (
             <div className="text-center">
-              <AlertCircle className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Token de Verificación Requerido
+              <AlertCircle className="mx-auto mb-4 h-16 w-16 text-[#FFC21A]" />
+              <h3 className="mb-2 text-lg font-black uppercase text-[#0A0A0A]">
+                Token requerido
               </h3>
-              <p className="text-gray-600 mb-4">
+              <p className="mb-4 text-[#6B6B68]">
                 No se encontró un token de verificación válido en la URL.
               </p>
               <Button
                 onClick={() => router.push("/profile/security")}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-[#FFC21A] font-bold text-[#0A0A0A] hover:bg-[#E5A800]"
               >
                 Ir a Configuración de Seguridad
               </Button>
@@ -124,14 +138,16 @@ function VerifyEmailContent() {
 
 export default function VerifyEmailClient() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">Cargando verificación...</p>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-[#F5F5F4]">
+          <div className="text-center">
+            <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-b-2 border-[#FFC21A]" />
+            <p className="text-[#6B6B68]">Cargando verificación...</p>
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <VerifyEmailContent />
     </Suspense>
   );

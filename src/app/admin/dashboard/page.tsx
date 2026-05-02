@@ -71,6 +71,7 @@ const emptyDashboardData: DashboardData = {
 const navigationItems = [
   { href: "/admin/clients", label: "Clientes" },
   { href: "/admin/products", label: "Productos" },
+  { href: "/admin/sales", label: "Ventas" },
   { href: "/admin/images", label: "Imágenes" },
   { href: "/admin/reportes", label: "Reportes" },
   { href: "/admin/profile", label: "Perfil" },

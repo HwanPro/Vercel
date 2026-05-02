@@ -464,7 +464,7 @@ export default function WolfGymLanding() {
           <div className="absolute inset-y-0 right-0 hidden w-1/2 border-l border-[#FFC21A]/10 bg-[#141414] lg:block" />
           <div className="absolute -right-20 top-10 hidden opacity-10 lg:block">
             <Image
-              src="/icons/icon-512.png"
+              src="/uploads/images/logo2-SinFondo.png"
               alt=""
               width={520}
               height={520}

@@ -34,6 +34,8 @@ internal static class Program
             var updateStarted = await CheckAndInstallUpdateAsync(root);
             if (updateStarted)
             {
+                // Si hay instancia previa de web/biometrico corriendo, detenerla antes de salir.
+                StopKnownRuntimeProcesses();
                 Http.Dispose();
                 UpdateHttp.Dispose();
                 return 0;
@@ -287,6 +289,7 @@ try {
 
     Get-Process -Name "WolfGym.BiometricService" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
     Get-Process -Name "node" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Get-Process -Name "npm" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
     Start-Sleep -Milliseconds 700
 
     Get-ChildItem -LiteralPath $Root -Force |
@@ -437,6 +440,40 @@ try {
             finally
             {
                 process.Dispose();
+            }
+        }
+
+        // Refuerzo: si quedaron procesos vivos por fuera de StartedProcesses, cerrarlos también.
+        StopKnownRuntimeProcesses();
+    }
+
+    private static void StopKnownRuntimeProcesses()
+    {
+        foreach (var processName in new[] { "WolfGym.BiometricService", "node", "npm" })
+        {
+            try
+            {
+                foreach (var process in Process.GetProcessesByName(processName))
+                {
+                    try
+                    {
+                        if (process.HasExited) continue;
+                        process.Kill(entireProcessTree: true);
+                        process.WaitForExit(3000);
+                    }
+                    catch
+                    {
+                        // best effort
+                    }
+                    finally
+                    {
+                        process.Dispose();
+                    }
+                }
+            }
+            catch
+            {
+                // Best-effort shutdown.
             }
         }
     }

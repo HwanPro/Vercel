@@ -1,8 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowRight } from "lucide-react";
+import {
+  AuthField,
+  AuthShell,
+  wolfInputClass,
+  wolfPrimaryButtonClass,
+} from "../auth-shell";
 
 export default function ForgotPasswordPage() {
+  const router = useRouter();
   const [identifier, setIdentifier] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +59,7 @@ export default function ForgotPasswordPage() {
         setError(data.message);
         setMessage(null);
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error("Error en solicitud:", err);
       setError("Hubo un error, intenta nuevamente.");
     } finally {
@@ -59,39 +68,49 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white p-8 rounded shadow-md w-full max-w-md"
-      >
-        <h1 className="text-2xl font-bold mb-2">Recuperar contraseña</h1>
-        <p className="mb-4 text-sm text-gray-600">
-          Ingresa tu usuario o correo registrado. Si existe un correo asociado,
-          enviaremos un enlace de recuperación.
-        </p>
-        {message && <p className="text-green-600">{message}</p>}
-        {error && <p className="text-red-500">{error}</p>}
-        <input
-          type="text"
-          placeholder="Usuario o correo electrónico"
-          className="border p-2 w-full mb-4"
-          value={identifier}
-          onChange={(e) => setIdentifier(e.target.value)}
-          autoComplete="username"
-          required
-        />
+    <AuthShell
+      compact
+      eyebrow="Seguridad"
+      title="Recuperar clave"
+      description="Ingresa tu usuario o correo registrado. Si existe un correo asociado, enviaremos un enlace de recuperación."
+      backLabel="Volver al login"
+      onBack={() => router.push("/auth/login")}
+    >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {message && (
+          <p className="border border-[#2EBD75]/30 bg-[#2EBD75]/10 px-3 py-2 text-sm font-semibold text-[#146C43]">
+            {message}
+          </p>
+        )}
+        {error && (
+          <p className="border border-[#E5484D]/30 bg-[#E5484D]/10 px-3 py-2 text-sm font-semibold text-[#B42318]">
+            {error}
+          </p>
+        )}
+        <AuthField label="Usuario o correo">
+          <input
+            type="text"
+            placeholder="Usuario o correo electrónico"
+            className={wolfInputClass}
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            autoComplete="username"
+            required
+          />
+        </AuthField>
         <button
           type="submit"
           disabled={cooldown > 0 || isLoading}
-          className="bg-yellow-400 text-black p-2 w-full rounded hover:bg-yellow-500 disabled:cursor-not-allowed disabled:opacity-60"
+          className={wolfPrimaryButtonClass}
         >
           {isLoading
             ? "Enviando..."
             : cooldown > 0
               ? `Espera ${cooldown} segundos`
               : "Enviar enlace"}
+          {!isLoading && cooldown === 0 && <ArrowRight className="h-4 w-4" />}
         </button>
       </form>
-    </div>
+    </AuthShell>
   );
 }

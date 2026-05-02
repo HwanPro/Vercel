@@ -4,8 +4,14 @@ import { useForm, SubmitHandler } from "react-hook-form";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useSession } from "next-auth/react";
+import {
+  AuthField,
+  AuthShell,
+  wolfInputClass,
+  wolfPrimaryButtonClass,
+} from "../auth-shell";
 
 type FormData = {
   username: string;
@@ -22,12 +28,11 @@ export default function AuthPage() {
   useEffect(() => {
     // Si ya hay sesión, decidimos adónde redirigir según rol
     if (status === "authenticated") {
-      const role = (session.user as { role?: string })?.role
-      if (role === "admin") router.push("/admin/dashboard")
-      else router.push("/client/dashboard")
+      const role = (session.user as { role?: string })?.role;
+      if (role === "admin") router.push("/admin/dashboard");
+      else router.push("/client/dashboard");
     }
-  }, [session, status, router])
-
+  }, [session, status, router]);
 
   const {
     register,
@@ -54,31 +59,21 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="bg-white p-6 rounded shadow-md w-full max-w-md">
-        <button
-          onClick={() => router.push("/")}
-          className="flex items-center text-gray-700 hover:text-yellow-500 mb-4"
-        >
-          <ArrowLeft className="w-5 h-5 mr-2" />
-          Volver al inicio
-        </button>
+    <AuthShell
+      compact
+      eyebrow="Bienvenido de vuelta"
+      title="Inicia sesión"
+      description="Entra a tu cuenta para ver tu plan, tus rutinas y tu progreso."
+      onBack={() => router.push("/")}
+    >
+      <form onSubmit={handleSubmit(handleLogin)} className="space-y-5">
+        {error && (
+          <p className="border border-[#E5484D]/30 bg-[#E5484D]/10 px-3 py-2 text-sm font-semibold text-[#B42318]">
+            {error}
+          </p>
+        )}
 
-        <form onSubmit={handleSubmit(handleLogin)}>
-          {error && (
-            <p className="bg-red-500 text-white p-3 rounded mb-4">{error}</p>
-          )}
-
-          <h2 className="text-black text-2xl font-bold text-center mb-6">
-            Inicia sesión
-          </h2>
-
-          <label
-            htmlFor="username"
-            className="text-slate-500 mb-2 block text-sm"
-          >
-            Usuario:
-          </label>
+        <AuthField label="Usuario" error={errors.username?.message}>
           <input
             id="username"
             type="text"
@@ -86,22 +81,13 @@ export default function AuthPage() {
             {...register("username", {
               required: { value: true, message: "El usuario es obligatorio" },
             })}
-            className="border rounded-lg p-2 w-full mb-4 text-gray-800"
-            placeholder="Tu usuario"
+            className={wolfInputClass}
+            placeholder="tu_usuario"
           />
-          {errors.username && (
-            <span className="text-red-500 text-xs mb-2 block">
-              {errors.username.message}
-            </span>
-          )}
+        </AuthField>
 
-          <label
-            htmlFor="password"
-            className="text-slate-500 mb-2 block text-sm"
-          >
-            Contraseña:
-          </label>
-          <div className="relative mb-4">
+        <AuthField label="Contraseña" error={errors.password?.message}>
+          <div className="relative">
             <input
               id="password"
               type={showPassword ? "text" : "password"}
@@ -109,42 +95,49 @@ export default function AuthPage() {
               {...register("password", {
                 required: { value: true, message: "Contraseña obligatoria" },
               })}
-              className="border rounded-lg p-2 w-full text-gray-800"
-              placeholder="*********"
+              className={`${wolfInputClass} pr-11`}
+              placeholder="********"
             />
             <button
               type="button"
-              className="absolute inset-y-0 right-3 flex items-center text-gray-500"
+              className="absolute inset-y-0 right-3 grid place-items-center text-[#6B6B68] hover:text-[#0A0A0A]"
               onClick={() => setShowPassword((prev) => !prev)}
+              aria-label={
+                showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
+              }
             >
-              {showPassword ? <EyeOff /> : <Eye />}
+              {showPassword ? (
+                <EyeOff className="h-5 w-5" />
+              ) : (
+                <Eye className="h-5 w-5" />
+              )}
             </button>
           </div>
-          {errors.password && (
-            <span className="text-red-500 text-xs mb-4 block">
-              {errors.password.message}
-            </span>
-          )}
+        </AuthField>
 
+        <button
+          type="button"
+          onClick={() => router.push("/auth/forgot-password")}
+          className="text-sm font-bold text-[#FF7A1A] hover:text-[#0A0A0A]"
+        >
+          ¿Olvidaste tu contraseña?
+        </button>
+
+        <button type="submit" className={wolfPrimaryButtonClass}>
+          Iniciar sesión
+          <ArrowRight className="h-4 w-4" />
+        </button>
+
+        <div className="text-center text-sm text-[#6B6B68]">
           <button
-            type="submit"
-            className="w-full bg-yellow-400 text-black hover:bg-yellow-500 p-2 mb-6"
+            onClick={() => router.push("/auth/register")}
+            className="font-semibold text-[#0A0A0A] hover:text-[#FF7A1A]"
+            type="button"
           >
-            Iniciar sesión
+            ¿No tienes cuenta? Regístrate
           </button>
-
-          <div className="text-center mb-2">
-            <button
-              onClick={() => router.push("/auth/register")}
-              className="text-black"
-              type="button"
-            >
-              ¿No tienes cuenta?{" "}
-              <span className="text-yellow-500">Regístrate</span>
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        </div>
+      </form>
+    </AuthShell>
   );
 }
