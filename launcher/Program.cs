@@ -145,14 +145,30 @@ internal static class Program
             }
 
             var scriptPath = WriteUpdateScript(root, zipPath);
+            var updaterLog = Path.Combine(_logDir, "updater.log");
             var psi = new ProcessStartInfo
             {
                 FileName = "powershell.exe",
-                Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{scriptPath}\" -Root \"{root}\" -Zip \"{zipPath}\" -Pid {Environment.ProcessId}",
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{scriptPath}\" -Root \"{root}\" -Zip \"{zipPath}\" -Pid {Environment.ProcessId} -Log \"{updaterLog}\"",
                 UseShellExecute = true,
                 WorkingDirectory = root,
             };
-            Process.Start(psi);
+            var updaterProcess = Process.Start(psi);
+            if (updaterProcess is null)
+            {
+                AppendLog(updaterLog, "No se pudo iniciar el actualizador.");
+                return false;
+            }
+
+            await Task.Delay(1500);
+            updaterProcess.Refresh();
+            if (updaterProcess.HasExited && updaterProcess.ExitCode != 0)
+            {
+                AppendLog(updaterLog, $"Actualizador finalizo demasiado pronto. ExitCode={updaterProcess.ExitCode}");
+                return false;
+            }
+
+            AppendLog(updaterLog, $"Actualizador iniciado. PID={updaterProcess.Id}");
             Console.WriteLine("El actualizador terminara la instalacion y reabrira WolfGym.");
             return true;
         }
@@ -210,7 +226,8 @@ internal static class Program
 param(
     [Parameter(Mandatory=$true)][string]$Root,
     [Parameter(Mandatory=$true)][string]$Zip,
-    [Parameter(Mandatory=$true)][int]$Pid
+    [Parameter(Mandatory=$true)][int]$Pid,
+    [Parameter(Mandatory=$true)][string]$Log
 )
 
 $ErrorActionPreference = "Stop"
@@ -226,7 +243,15 @@ $preserve = @(
 )
 $preserveDir = Join-Path $env:TEMP ("WolfGym-preserve-" + [guid]::NewGuid().ToString("N"))
 
+function Write-Log([string]$message) {
+    try {
+        $line = "[{0}] {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $message
+        Add-Content -Path $Log -Value $line -Encoding UTF8
+    } catch { }
+}
+
 Write-Host "Actualizando WolfGym..." -ForegroundColor Yellow
+Write-Log "Inicio de actualizacion. Root=$Root Zip=$Zip"
 while (Get-Process -Id $Pid -ErrorAction SilentlyContinue) {
     Start-Sleep -Milliseconds 300
 }
@@ -249,14 +274,30 @@ try {
     $payload = $stage
     $nested = Join-Path $stage "WolfGym"
     if (Test-Path $nested) { $payload = $nested }
+    if (-not (Test-Path (Join-Path $payload "WolfGymLauncher.exe"))) {
+        throw "ZIP invalido: no contiene WolfGymLauncher.exe"
+    }
+    if (-not (Test-Path (Join-Path $payload "webapp"))) {
+        throw "ZIP invalido: no contiene carpeta webapp"
+    }
+    if (-not (Test-Path (Join-Path $payload "biometric"))) {
+        throw "ZIP invalido: no contiene carpeta biometric"
+    }
+    Write-Log "Payload validado correctamente."
+
+    Get-Process -Name "WolfGym.BiometricService" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Get-Process -Name "node" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Milliseconds 700
 
     Get-ChildItem -LiteralPath $Root -Force |
         Where-Object { $_.Name -notlike "_backup_*" } |
         ForEach-Object {
             Move-Item -LiteralPath $_.FullName -Destination (Join-Path $backup $_.Name) -Force
         }
+    Write-Log "Contenido actual movido a backup: $backup"
 
     Copy-Item -Path (Join-Path $payload "*") -Destination $Root -Recurse -Force
+    Write-Log "Payload copiado a raiz."
 
     foreach ($item in $preserve) {
         $src = Join-Path $preserveDir $item
@@ -266,21 +307,27 @@ try {
             Copy-Item -LiteralPath $src -Destination $dst -Recurse -Force
         }
     }
+    Write-Log "Archivos preservados restaurados."
 
     Write-Host "Actualizacion completada. Reiniciando..." -ForegroundColor Green
+    Write-Log "Actualizacion completada. Reiniciando launcher."
     Start-Process -FilePath $launcher -ArgumentList "--skip-update" -WorkingDirectory $Root
 } catch {
     Write-Host ("Error actualizando: " + $_.Exception.Message) -ForegroundColor Red
+    Write-Log ("ERROR: " + $_.Exception.Message)
     if (Test-Path $backup) {
         Copy-Item -Path (Join-Path $backup "*") -Destination $Root -Recurse -Force
+        Write-Log "Rollback aplicado desde backup."
     }
     if (Test-Path $launcher) {
+        Write-Log "Reiniciando launcher tras fallo."
         Start-Process -FilePath $launcher -ArgumentList "--skip-update" -WorkingDirectory $Root
     }
 } finally {
     Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $preserveDir -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $Zip -Force -ErrorAction SilentlyContinue
+    Write-Log "Fin de updater."
 }
 """;
         File.WriteAllText(scriptPath, script);
