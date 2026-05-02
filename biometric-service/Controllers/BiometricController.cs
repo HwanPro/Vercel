@@ -53,7 +53,7 @@ public class BiometricController : ControllerBase
                 _fingerService.DeviceSerial,
                 _fingerService.FpWidth,
                 _fingerService.FpHeight,
-                _fingerService.TemplateVersion
+                "ZK"
             ));
         }
         catch (Exception ex)
@@ -86,12 +86,7 @@ public class BiometricController : ControllerBase
             _fingerService.IsDeviceOpen,
             _fingerService.DeviceSerial,
             _fingerService.HasDatabase,
-            _fingerService.SdkVersion,
-            _fingerService.FpWidth,
-            _fingerService.FpHeight,
-            _fingerService.Dpi,
-            _fingerService.TemplateVersion,
-            _fingerService.CachedFingerprintCount
+            "10.0"
         ));
     }
 
@@ -104,6 +99,8 @@ public class BiometricController : ControllerBase
             
             if (!success)
             {
+                // Cerrar el dispositivo si hay error
+                _fingerService.CloseDevice();
                 return Ok(new CaptureResponse(false, null, null, 0, 0, error));
             }
 
@@ -112,6 +109,9 @@ public class BiometricController : ControllerBase
                 : null;
 
             var imageB64 = _fingerService.GetLastCapturedImageBase64();
+
+            // Cerrar el dispositivo después de la captura exitosa
+            _fingerService.CloseDevice();
 
             return Ok(new CaptureResponse(
                 true,
@@ -125,6 +125,8 @@ public class BiometricController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error capturing fingerprint");
+            // Cerrar el dispositivo si hay excepción
+            _fingerService.CloseDevice();
             return Ok(new CaptureResponse(false, null, null, 0, 0, ex.Message));
         }
     }
@@ -153,31 +155,34 @@ public class BiometricController : ControllerBase
             // Convertir muestras de base64 a byte arrays
             var samples = request.SamplesB64.Select(s => Convert.FromBase64String(s)).ToList();
 
-            // Validar que las 3 muestras son del mismo dedo.
-            // Umbral mínimo de enrollamiento: 20 (más bajo que operación pero descarta dedos distintos).
-            // Se validan los 3 pares: (0,1), (1,2) y (0,2) para evitar templates mezclados.
-            const int EnrollMinScore = 20;
-            var enrollPairs = new[] { (0, 1), (1, 2), (0, 2) };
-            foreach (var (a, b) in enrollPairs)
+            // Validar que las 3 muestras son del mismo dedo usando DBMatch
+            // Como en el demo oficial: solo verificar que score > 0 (NO usar threshold específico)
+            for (int i = 0; i < samples.Count - 1; i++)
             {
+                // applyThreshold=false => solo verifica score > 0
                 var (success, match, score, error) = _fingerService.VerifyTemplate(
-                    samples[a], samples[b], applyThreshold: false);
-
+                    samples[i], samples[i + 1], applyThreshold: false);
+                
                 if (!success)
+                {
                     return Ok(new EnrollResponse(false, error ?? "Verification failed", 0));
-
-                if (score < EnrollMinScore)
+                }
+                
+                // Demo oficial usa: if (DBMatch <= 0) => error
+                if (!match || score <= 0)
                 {
                     _logger.LogWarning(
-                        "Enrollment: samples {A} and {B} no coinciden (score={Score} < min={Min})",
-                        a + 1, b + 1, score, EnrollMinScore);
+                        "Enrollment validation failed: Samples {i} and {j} don't match (score={Score})",
+                        i + 1, i + 2, score);
                     return Ok(new EnrollResponse(
                         false,
-                        "Por favor presione el mismo dedo las 3 veces (las muestras no coinciden)",
-                        0));
+                        $"Please press the same finger 3 times for the enrollment",
+                        0
+                    ));
                 }
-
-                _logger.LogInformation("Enrollment: muestras {A} y {B} OK (score={Score})", a + 1, b + 1, score);
+                
+                _logger.LogInformation("Enrollment validation: Samples {i} and {j} match OK (score={Score})", 
+                    i + 1, i + 2, score);
             }
 
             // Fusionar las 3 muestras
@@ -213,8 +218,6 @@ public class BiometricController : ControllerBase
             {
                 return Ok(new EnrollResponse(false, "User not found or database error", 0));
             }
-
-            await RefreshCacheAsync();
 
             _logger.LogInformation(
                 "Enrollment successful for user {UserId}, finger {FingerIndex}",
@@ -295,10 +298,10 @@ public class BiometricController : ControllerBase
                 return BadRequest(new IdentifyResponse(false, false, null, 0, 0, 0, "TemplateB64 is required"));
             }
 
-            if (_fingerService.CachedFingerprintCount == 0)
-                await RefreshCacheAsync();
-
-            if (_fingerService.CachedFingerprintCount == 0)
+            // Cargar todas las huellas de la base de datos
+            var allFingerprints = await _repository.GetAllFingerprintsAsync();
+            
+            if (allFingerprints.Count == 0)
             {
                 return Ok(new IdentifyResponse(
                     true,
@@ -314,8 +317,12 @@ public class BiometricController : ControllerBase
             // Convertir plantilla capturada de base64
             var capturedTemplate = Convert.FromBase64String(request.TemplateB64);
 
-            // Identificar usando DBMatch oficial contra la cache en memoria
-            var (success, match, entry, bestScore, secondBest, error) = _fingerService.IdentifyCachedTemplate(capturedTemplate);
+            // Identificar usando DBMatch contra todas las plantillas
+            var templates = allFingerprints.Select(f => f.template).ToList();
+            var (success, match, bestIndex, bestScore, error) = _fingerService.IdentifyTemplate(
+                capturedTemplate,
+                templates
+            );
 
             if (!success)
             {
@@ -330,17 +337,19 @@ public class BiometricController : ControllerBase
                 ));
             }
 
-            if (match && entry != null)
+            if (match && bestIndex >= 0)
             {
+                var (userId, fingerIndex, _) = allFingerprints[bestIndex];
+                
                 _logger.LogInformation(
-                    "Identification successful: User {UserId}, Finger {FingerIndex}, Score {Score}, SecondBest {SecondBest}",
-                    entry.UserId, entry.FingerIndex, bestScore, secondBest);
+                    "Identification successful: User {UserId}, Finger {FingerIndex}, Score {Score}",
+                    userId, fingerIndex, bestScore);
 
                 return Ok(new IdentifyResponse(
                     true,
                     true,
-                    entry.UserId,
-                    entry.FingerIndex,
+                    userId,
+                    fingerIndex,
                     bestScore,
                     _fingerService.Threshold
                 ));
@@ -360,21 +369,6 @@ public class BiometricController : ControllerBase
         {
             _logger.LogError(ex, "Error identifying fingerprint");
             return Ok(new IdentifyResponse(false, false, null, 0, 0, _fingerService.Threshold, ex.Message));
-        }
-    }
-
-    [HttpPost("cache/reload")]
-    public async Task<IActionResult> ReloadCache()
-    {
-        try
-        {
-            var count = await RefreshCacheAsync();
-            return Ok(new { ok = true, count });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error reloading fingerprint cache");
-            return Ok(new { ok = false, message = ex.Message });
         }
     }
 
@@ -398,42 +392,13 @@ public class BiometricController : ControllerBase
         }
     }
 
-    [HttpGet("stream")]
-    public async Task Stream(CancellationToken cancellationToken)
-    {
-        Response.StatusCode = StatusCodes.Status200OK;
-        Response.ContentType = "multipart/x-mixed-replace; boundary=frame";
-        Response.Headers.CacheControl = "no-store";
-
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            var (success, jpeg, error) = await _fingerService.CaptureImageSnapshot();
-            if (success && jpeg is { Length: > 0 })
-            {
-                await Response.WriteAsync("--frame\r\n", cancellationToken);
-                await Response.WriteAsync("Content-Type: image/jpeg\r\n", cancellationToken);
-                await Response.WriteAsync($"Content-Length: {jpeg.Length}\r\n\r\n", cancellationToken);
-                await Response.Body.WriteAsync(jpeg, cancellationToken);
-                await Response.WriteAsync("\r\n", cancellationToken);
-                await Response.Body.FlushAsync(cancellationToken);
-            }
-            else if (!string.IsNullOrWhiteSpace(error))
-            {
-                _logger.LogDebug("Stream frame skipped: {Error}", error);
-            }
-
-            await Task.Delay(250, cancellationToken);
-        }
-    }
-
     [HttpGet("config")]
     public IActionResult GetConfig()
     {
         return Ok(new ConfigResponse(
             _fingerService.Threshold,
             _fingerService.CaptureTimeout,
-            _fingerService.MergeSamples,
-            _fingerService.AmbiguityMargin
+            _fingerService.MergeSamples
         ));
     }
 
@@ -455,24 +420,10 @@ public class BiometricController : ControllerBase
             _fingerService.MergeSamples = request.MergeSamples.Value;
         }
 
-        if (request.AmbiguityMargin.HasValue && request.AmbiguityMargin.Value >= 0)
-        {
-            _fingerService.AmbiguityMargin = request.AmbiguityMargin.Value;
-        }
-
         return Ok(new ConfigResponse(
             _fingerService.Threshold,
             _fingerService.CaptureTimeout,
-            _fingerService.MergeSamples,
-            _fingerService.AmbiguityMargin
+            _fingerService.MergeSamples
         ));
-    }
-
-    private async Task<int> RefreshCacheAsync()
-    {
-        var allFingerprints = await _repository.GetAllFingerprintsAsync();
-        var entries = allFingerprints.Select(f => new FingerprintCacheEntry(f.userId, f.fingerIndex, f.template));
-        _fingerService.ReplaceFingerprintCache(entries);
-        return _fingerService.CachedFingerprintCount;
     }
 }

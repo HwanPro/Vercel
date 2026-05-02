@@ -34,6 +34,7 @@ model User {
   programAssignments  UserProgramAssignment[]      @relation("UserProgramAssignments")
   routineAssignments  UserRoutineAssignment[]      @relation("UserRoutineAssignments")
   workoutSessions     WorkoutSession[]             @relation("UserWorkoutSessions")
+  passwordResetToken   PasswordResetToken?
 
   @@map("users")
 }
@@ -232,6 +233,20 @@ model EmailVerification {
   updatedAt DateTime @updatedAt
 
   @@map("email_verifications")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String    @unique
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
 }
 
 model DailyDebt {

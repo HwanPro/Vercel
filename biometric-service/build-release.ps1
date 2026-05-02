@@ -15,7 +15,6 @@ Write-Host ""
 $ProjectDir = $PSScriptRoot
 $ProjectFile = Join-Path $ProjectDir "WolfGym.BiometricService.csproj"
 $PublishDir = Join-Path $ProjectDir "bin\$Configuration\net8.0\win-x64\publish"
-$VendorDir = Join-Path $ProjectDir "vendor\zkfinger\x64"
 
 # Limpiar si se solicita
 if ($Clean) {
@@ -29,28 +28,14 @@ if ($Clean) {
 }
 
 # Verificar que libzkfp.dll x64 nativa esté disponible
-$NativeDllSource = @(
-    (Join-Path $VendorDir "libzkfp.dll"),
-    (Join-Path $ProjectDir "bin\$Configuration\net8.0\win-x64\publish\libzkfp.dll"),
-    (Join-Path $ProjectDir "..\x64\Release\libzkfp.dll"),
-    "D:\Downloads\ZKFinger SDK V10.0-Windows-Lite\C#\lib\x64\libzkfp.dll",
-    "D:\Downloads\ZKFinger SDK V10.0-Windows-Lite\C\libs\x64\libzkfp.dll",
-    "C:\ZKFinger10\x64\libzkfp.dll",
-    "$env:SystemRoot\System32\libzkfp.dll"
-) | Where-Object { Test-Path $_ } | Select-Object -First 1
-
-$CSharpDllSource = @(
-    (Join-Path $VendorDir "libzkfpcsharp.dll"),
-    "D:\Downloads\ZKFinger SDK V10.0-Windows-Lite\C#\lib\x64\libzkfpcsharp.dll",
-    (Join-Path $ProjectDir "bin\$Configuration\net8.0\win-x64\publish\libzkfpcsharp.dll"),
-    "C:\ZKFinger10\x64\libzkfpcsharp.dll",
-    "$env:SystemRoot\System32\libzkfpcsharp.dll"
-) | Where-Object { Test-Path $_ } | Select-Object -First 1
-
-if (-not $NativeDllSource) {
-    Write-Host "ADVERTENCIA: libzkfp.dll x64 no encontrada." -ForegroundColor Yellow
-    Write-Host "Debe estar en el driver instalado o copiarse manualmente al publish." -ForegroundColor Yellow
-    Write-Host ""
+$NativeDllSource = Join-Path $ProjectDir "..\x64\Release\libzkfp.dll"
+if (-not (Test-Path $NativeDllSource)) {
+    $NativeDllSource = "C:\ZKFinger10\x64\libzkfp.dll"  # Ubicación típica
+    if (-not (Test-Path $NativeDllSource)) {
+        Write-Host "ADVERTENCIA: libzkfp.dll x64 no encontrada." -ForegroundColor Yellow
+        Write-Host "Deberás copiarla manualmente a la carpeta publish después de compilar." -ForegroundColor Yellow
+        Write-Host ""
+    }
 }
 
 # Restaurar dependencias
@@ -73,7 +58,7 @@ if ($LASTEXITCODE -ne 0) {
 
 # Publicar
 Write-Host "Publicando aplicación..." -ForegroundColor Cyan
-dotnet publish $ProjectFile -c $Configuration -r win-x64 --self-contained true --no-build
+dotnet publish $ProjectFile -c $Configuration -r win-x64 --self-contained false --no-build
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Error al publicar." -ForegroundColor Red
@@ -81,14 +66,9 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # Copiar libzkfp.dll nativa si existe
-if ($NativeDllSource -and (Test-Path $NativeDllSource)) {
+if (Test-Path $NativeDllSource) {
     Write-Host "Copiando libzkfp.dll nativa..." -ForegroundColor Cyan
     Copy-Item $NativeDllSource -Destination $PublishDir -Force
-}
-
-if ($CSharpDllSource -and (Test-Path $CSharpDllSource)) {
-    Write-Host "Copiando libzkfpcsharp.dll x64..." -ForegroundColor Cyan
-    Copy-Item $CSharpDllSource -Destination $PublishDir -Force
 }
 
 # Resumen

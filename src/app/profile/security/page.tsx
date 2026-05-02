@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { Button } from "@/ui/button";
 import { toast } from "react-toastify";
-import { Mail, Shield, CheckCircle, AlertCircle } from "lucide-react";
+import { Mail, Shield, CheckCircle, AlertCircle, Lock, Eye, EyeOff } from "lucide-react";
 
 export default function SecuritySettingsPage() {
   const { data: session } = useSession();
@@ -13,10 +13,56 @@ export default function SecuritySettingsPage() {
   const [isEmailSent, setIsEmailSent] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [verificationMethod, setVerificationMethod] = useState<"code" | "link">("code");
 
   const currentUsername = session?.user?.name || "";
   const isEmailUsername = currentUsername.includes("@");
+
+  const changePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast.error("Completa todos los campos de contraseña");
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      toast.error("La nueva contraseña debe tener al menos 8 caracteres");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error("Las contraseñas no coinciden");
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      const response = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success(data.message || "Contraseña actualizada");
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+      } else {
+        toast.error(data.message || "No se pudo cambiar la contraseña");
+      }
+    } catch {
+      toast.error("Error al cambiar la contraseña");
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
 
   const sendVerificationEmail = async () => {
     if (!email || !session?.user?.id) {
@@ -114,6 +160,73 @@ export default function SecuritySettingsPage() {
                   </span>
                 </>
               )}
+            </div>
+          </div>
+
+          <div className="mb-8 rounded-lg border p-4">
+            <div className="mb-4 flex items-center">
+              <Lock className="mr-2 h-5 w-5 text-yellow-600" />
+              <h2 className="text-lg font-semibold">Cambiar contraseña</h2>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Contraseña actual
+                </label>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={currentPassword}
+                  onChange={(event) => setCurrentPassword(event.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                  autoComplete="current-password"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Nueva contraseña
+                </label>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                  autoComplete="new-password"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Confirmar nueva contraseña
+                </label>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                  autoComplete="new-password"
+                />
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button
+                  onClick={changePassword}
+                  disabled={isChangingPassword}
+                  className="flex-1 bg-yellow-500 text-black hover:bg-yellow-600"
+                >
+                  {isChangingPassword ? "Guardando..." : "Guardar contraseña"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowPassword((value) => !value)}
+                  className="flex items-center justify-center gap-2"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showPassword ? "Ocultar" : "Mostrar"}
+                </Button>
+              </div>
             </div>
           </div>
 

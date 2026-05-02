@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using WolfGym.BiometricService.SDK;
 using WolfGym.BiometricService.Utils;
 
@@ -9,9 +10,6 @@ public class ZKFingerService : IDisposable
     private IntPtr _dbHandle = IntPtr.Zero;
     private bool _isInitialized = false;
     private string? _deviceSerial;
-    private string? _templateVersion = "ZK";
-    private string? _sdkVersion = "10.0";
-    private int _dpi = 0;
     private int _fpWidth = 0;
     private int _fpHeight = 0;
     private byte[]? _lastCapturedImage;
@@ -22,22 +20,15 @@ public class ZKFingerService : IDisposable
     public int Threshold { get; set; } = 30;   // Threshold recomendado para 1:1 según ZKTeco (25-35)
     public int CaptureTimeout { get; set; } = 5000;
     public bool MergeSamples { get; set; } = true;
-    public int AmbiguityMargin { get; set; } = 3;
 
     private readonly ILogger<ZKFingerService> _logger;
     private readonly SemaphoreSlim _captureLock = new(1, 1);
-    private readonly List<FingerprintCacheEntry> _fingerprintCache = [];
-    private readonly object _cacheLock = new();
 
     public bool IsDeviceOpen => _deviceHandle != IntPtr.Zero;
     public bool HasDatabase  => _dbHandle != IntPtr.Zero;
     public string? DeviceSerial => _deviceSerial;
-    public string? TemplateVersion => _templateVersion;
-    public string? SdkVersion => _sdkVersion;
-    public int Dpi => _dpi;
     public int FpWidth => _fpWidth;
     public int FpHeight => _fpHeight;
-    public int CachedFingerprintCount { get { lock (_cacheLock) return _fingerprintCache.Count; } }
 
     public ZKFingerService(ILogger<ZKFingerService> logger)
     {
@@ -62,7 +53,7 @@ public class ZKFingerService : IDisposable
     }
 
     /// <summary>Garantiza SDK inicializado, dispositivo abierto y DB lista.</summary>
-    public (bool success, string? error) EnsureOpenWithDb()
+    private (bool success, string? error) EnsureOpenWithDb()
     {
         if (!_isInitialized)
         {
@@ -94,7 +85,7 @@ public class ZKFingerService : IDisposable
 
             var ret = zkfp2.Init();
             if (ret != zkfperrdef.ZKFP_ERR_OK && ret != zkfperrdef.ZKFP_ERR_ALREADY_INIT)
-                return (false, DescribeSdkError(ret), 0);
+                return (false, $"Failed to initialize SDK, error code: {ret}", 0);
 
             _isInitialized = true;
             int count = zkfp2.GetDeviceCount();
@@ -147,7 +138,7 @@ public class ZKFingerService : IDisposable
             if (_deviceHandle == IntPtr.Zero)
             {
                 _logger.LogError("zkfp2.OpenDevice returned IntPtr.Zero");
-                return (false, "No se pudo abrir el lector ZK9500. Verifique que el USB este conectado, que el driver ZKTeco este instalado y que ninguna otra app este usando el lector.");
+                return (false, "Failed to open device");
             }
 
             if (!EnsureDb())
@@ -159,10 +150,17 @@ public class ZKFingerService : IDisposable
             }
 
             // Parámetros del dispositivo
-            ReadDeviceMetadata();
+            byte[] paramValue = new byte[4];
+            int size = 4;
 
-            _logger.LogInformation("Device opened successfully. Width: {Width}, Height: {Height}, DPI: {Dpi}, Serial: {Serial}",
-                _fpWidth, _fpHeight, _dpi, _deviceSerial ?? "unknown");
+            zkfp2.GetParameters(_deviceHandle, 1, paramValue, ref size); // width
+            zkfp2.ByteArray2Int(paramValue, ref _fpWidth);
+
+            size = 4;
+            zkfp2.GetParameters(_deviceHandle, 2, paramValue, ref size); // height
+            zkfp2.ByteArray2Int(paramValue, ref _fpHeight);
+
+            _logger.LogInformation("Device opened successfully. Width: {Width}, Height: {Height}", _fpWidth, _fpHeight);
             return (true, null);
         }
         catch (Exception ex)
@@ -170,90 +168,6 @@ public class ZKFingerService : IDisposable
             _logger.LogError(ex, "Exception in OpenDevice");
             return (false, ex.Message);
         }
-    }
-
-    public (bool success, string? error) RecoverDevice()
-    {
-        try
-        {
-            CloseDevice();
-            if (_isInitialized)
-            {
-                zkfp2.Terminate();
-                _isInitialized = false;
-            }
-            return EnsureOpenWithDb();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error recovering device");
-            return (false, ex.Message);
-        }
-    }
-
-    private void ReadDeviceMetadata()
-    {
-        var width = 0;
-        var height = 0;
-        var dpi = 0;
-        if (zkfp2.GetCaptureParamsEx(_deviceHandle, ref width, ref height, ref dpi) == zkfperrdef.ZKFP_ERR_OK)
-        {
-            _fpWidth = width;
-            _fpHeight = height;
-            _dpi = dpi;
-        }
-
-        if (_fpWidth <= 0)
-            _fpWidth = ReadIntParameter(1);
-        if (_fpHeight <= 0)
-            _fpHeight = ReadIntParameter(2);
-
-        _deviceSerial = ReadFirstStringParameter(110, 101, 6, 5, 4) ?? _deviceSerial;
-        _templateVersion = ReadFirstStringParameter(106, 105, 104) ?? "ZK";
-        _sdkVersion = "10.0";
-    }
-
-    private int ReadIntParameter(int code)
-    {
-        try
-        {
-            byte[] paramValue = new byte[4];
-            int size = 4;
-            if (zkfp2.GetParameters(_deviceHandle, code, paramValue, ref size) != zkfperrdef.ZKFP_ERR_OK)
-                return 0;
-
-            int value = 0;
-            zkfp2.ByteArray2Int(paramValue, ref value);
-            return value;
-        }
-        catch
-        {
-            return 0;
-        }
-    }
-
-    private string? ReadFirstStringParameter(params int[] codes)
-    {
-        foreach (var code in codes)
-        {
-            try
-            {
-                byte[] paramValue = new byte[128];
-                int size = paramValue.Length;
-                if (zkfp2.GetParameters(_deviceHandle, code, paramValue, ref size) != zkfperrdef.ZKFP_ERR_OK || size <= 0)
-                    continue;
-
-                var text = System.Text.Encoding.ASCII.GetString(paramValue, 0, Math.Min(size, paramValue.Length)).Trim('\0', ' ', '\r', '\n', '\t');
-                if (text.Length >= 3 && text.All(c => c >= 32 && c <= 126) && text.Any(char.IsLetterOrDigit))
-                    return text;
-            }
-            catch
-            {
-                // Best effort: parameter codes vary by SDK build.
-            }
-        }
-
-        return null;
     }
 
     /// <summary>Cierra DB y dispositivo.</summary>
@@ -295,9 +209,6 @@ public class ZKFingerService : IDisposable
         try
         {
             int imageSize = _fpWidth * _fpHeight;
-            if (imageSize <= 0)
-                return (false, null, 0, null, "Invalid image dimensions");
-
             byte[] fpImage = new byte[imageSize];
             byte[] fpTemplate = new byte[2048];
             int tempLen = 2048;
@@ -327,15 +238,10 @@ public class ZKFingerService : IDisposable
 
                 lastErrorCode = ret;
 
-                if (ret == zkfperrdef.ZKFP_ERR_CAPTURE || ret == zkfperrdef.ZKFP_ERR_BUSY || ret == zkfperrdef.ZKFP_ERR_TIMEOUT)
+                if (ret == zkfperrdef.ZKFP_ERR_BUSY || ret == -10) // ocupado/no finger
                 {
                     await Task.Delay(120);
                     continue;
-                }
-                if (ret == zkfperrdef.ZKFP_ERR_INVALID_HANDLE || ret == zkfperrdef.ZKFP_ERR_NOT_OPEN || ret == zkfperrdef.ZKFP_ERR_NO_DEVICE)
-                {
-                    _logger.LogWarning("Capture returned device error {Code}; attempting recovery", ret);
-                    RecoverDevice();
                 }
                 break; // otros errores => salir
             }
@@ -343,11 +249,10 @@ public class ZKFingerService : IDisposable
             var errorMessage = lastErrorCode switch
             {
                 zkfperrdef.ZKFP_ERR_BUSY => "Device busy",
-                zkfperrdef.ZKFP_ERR_CAPTURE => "No finger detected (timeout)",
-                zkfperrdef.ZKFP_ERR_TIMEOUT => "No finger detected (timeout)",
+                -10 => "No finger detected (timeout)",
+                zkfperrdef.ZKFP_ERR_CAPTURE => "Capture failed",
                 zkfperrdef.ZKFP_ERR_NOT_OPEN => "Device not open",
-                zkfperrdef.ZKFP_ERR_NO_DEVICE => "No device connected",
-                _ => DescribeSdkError(lastErrorCode)
+                _ => $"Capture failed with code: {lastErrorCode}"
             };
 
             _logger.LogWarning("Fingerprint capture failed/timeout. Last error: {Code}", lastErrorCode);
@@ -357,44 +262,6 @@ public class ZKFingerService : IDisposable
         {
             _logger.LogError(ex, "Error capturing fingerprint");
             return (false, null, 0, null, ex.Message);
-        }
-        finally
-        {
-            _captureLock.Release();
-        }
-    }
-
-    public async Task<(bool success, byte[]? jpeg, string? error)> CaptureImageSnapshot()
-    {
-        var okOpen = EnsureOpenWithDb();
-        if (!okOpen.success)
-            return (false, null, okOpen.error);
-
-        await _captureLock.WaitAsync();
-        try
-        {
-            int imageSize = _fpWidth * _fpHeight;
-            if (imageSize <= 0)
-                return (false, null, "Invalid image dimensions");
-
-            byte[] fpImage = new byte[imageSize];
-            var ret = zkfp2.AcquireFingerprintImage(_deviceHandle, fpImage, imageSize);
-            if (ret == zkfperrdef.ZKFP_ERR_OK)
-            {
-                _lastCapturedImage = fpImage;
-                return (true, BitmapHelper.ConvertRawToJpeg(fpImage, _fpWidth, _fpHeight), null);
-            }
-
-            var existing = GetLastCapturedImageJpeg();
-            if (existing is { Length: > 0 })
-                return (true, existing, null);
-
-            return (false, null, $"Image capture failed with code: {ret}");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error capturing image snapshot");
-            return (false, null, ex.Message);
         }
         finally
         {
@@ -508,9 +375,7 @@ public class ZKFingerService : IDisposable
                 }
             }
 
-            // Con un solo template, secondBest=0 → el check de ambiguedad no aplica.
-            // Con múltiples templates, exigir diferencia mínima de 5 puntos (más estricto que 3).
-            bool ambiguous = storedTemplates.Count > 1 && (bestScore - secondBest) < 5;
+            bool ambiguous = (bestScore - secondBest) < 3;
             bool match = bestScore >= Threshold && !ambiguous;
 
             _logger.LogDebug("Identify best={Best} second={Second} thr={Thr} match={Match} ambiguous={Amb}",
@@ -525,69 +390,6 @@ public class ZKFingerService : IDisposable
         {
             _logger.LogError(ex, "Error identifying template");
             return (false, false, -1, 0, ex.Message);
-        }
-    }
-
-    public void ReplaceFingerprintCache(IEnumerable<FingerprintCacheEntry> entries)
-    {
-        lock (_cacheLock)
-        {
-            _fingerprintCache.Clear();
-            _fingerprintCache.AddRange(entries.Where(e => e.Template.Length > 0));
-        }
-
-        _logger.LogInformation("Fingerprint cache loaded with {Count} templates", CachedFingerprintCount);
-    }
-
-    public List<FingerprintCacheEntry> GetFingerprintCacheSnapshot()
-    {
-        lock (_cacheLock)
-            return _fingerprintCache.ToList();
-    }
-
-    public (bool success, bool match, FingerprintCacheEntry? entry, int bestScore, int secondBest, string? error) IdentifyCachedTemplate(
-        byte[] capturedTemplate)
-    {
-        var ok = EnsureOpenWithDb();
-        if (!ok.success) return (false, false, null, 0, 0, ok.error);
-
-        var entries = GetFingerprintCacheSnapshot();
-        if (entries.Count == 0)
-            return (true, false, null, 0, 0, "No fingerprints in cache");
-
-        try
-        {
-            int bestScore = 0;
-            int secondBest = 0;
-            FingerprintCacheEntry? bestEntry = null;
-
-            foreach (var entry in entries)
-            {
-                int score = zkfp2.DBMatch(_dbHandle, capturedTemplate, capturedTemplate.Length, entry.Template, entry.Template.Length);
-                if (score > bestScore)
-                {
-                    secondBest = bestScore;
-                    bestScore = score;
-                    bestEntry = entry;
-                }
-                else if (score > secondBest)
-                {
-                    secondBest = score;
-                }
-            }
-
-            bool ambiguous = entries.Count > 1 && (bestScore - secondBest) < AmbiguityMargin;
-            bool match = bestScore >= Threshold && !ambiguous;
-
-            if (ambiguous && bestScore >= Threshold)
-                return (true, false, null, bestScore, secondBest, "Ambiguous match detected");
-
-            return (true, match, match ? bestEntry : null, bestScore, secondBest, null);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error identifying cached template");
-            return (false, false, null, 0, 0, ex.Message);
         }
     }
 
@@ -633,26 +435,4 @@ public class ZKFingerService : IDisposable
         }
         _captureLock.Dispose();
     }
-
-    private static string DescribeSdkError(int code)
-    {
-        return code switch
-        {
-            zkfperrdef.ZKFP_ERR_INITLIB =>
-                "No se pudo inicializar el SDK ZKFinger (codigo -1). Instale el driver/runtime ZKTeco ZK9500 x64 y conecte el lector. Si esta en VirtualBox, habilite USB 2.0/3.0, Extension Pack y pase el dispositivo USB ZK9500 a la maquina virtual.",
-            zkfperrdef.ZKFP_ERR_INIT =>
-                "No se pudo inicializar el lector ZK9500 (codigo -2). Reinicie el servicio y reconecte el USB.",
-            zkfperrdef.ZKFP_ERR_NO_DEVICE =>
-                "No se detecto lector ZK9500 conectado (codigo -3). Conecte el USB o paselo a la maquina virtual.",
-            zkfperrdef.ZKFP_ERR_OPEN =>
-                "No se pudo abrir el lector ZK9500 (codigo -6). Cierre otras apps que usen el lector y reconecte el USB.",
-            zkfperrdef.ZKFP_ERR_NOT_SUPPORT =>
-                "El lector o driver no es compatible con este SDK ZKFinger x64 (codigo -4).",
-            zkfperrdef.ZKFP_ERR_NOT_INIT =>
-                "El SDK ZKFinger no esta inicializado (codigo -24).",
-            _ => $"Error del SDK ZKFinger, codigo: {code}"
-        };
-    }
 }
-
-public sealed record FingerprintCacheEntry(string UserId, int FingerIndex, byte[] Template);

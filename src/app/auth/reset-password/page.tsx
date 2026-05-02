@@ -1,191 +1,166 @@
 "use client";
-export const dynamic = "force-dynamic"; // Forzar renderizado dinámico para evitar errores de prerendering
 
-import { useForm, SubmitHandler } from "react-hook-form";
-import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
-import { Eye, EyeOff, ArrowLeft } from "lucide-react";
-import { useSession } from "next-auth/react";
-import "react-toastify/dist/ReactToastify.css";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 
-type FormData = {
-  username: string;
-  password: string;
-};
+export const dynamic = "force-dynamic";
 
-export default function AuthPage() {
+function ResetPasswordForm() {
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token") || "";
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState<boolean>(false);
-  const [failedAttempts, setFailedAttempts] = useState(0);
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<FormData>();
+  const [isLoading, setIsLoading] = useState(false);
 
-  const [usernameError, setUsernameError] = useState(false);
-  const [passwordError, setPasswordError] = useState(false);
-
-  useEffect(() => {
-    if (status === "authenticated") {
-      if ((session?.user as { role?: string })?.role === "admin") {
-        router.push("/admin/dashboard");
-      } else {
-        router.push("/client/dashboard");
-      }
-    }
-  }, [session, status, router]);
-
-  const handleLogin: SubmitHandler<FormData> = async (data) => {
-    setUsernameError(false);
-    setPasswordError(false);
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setError(null);
+    setMessage(null);
 
-    const res = await signIn("credentials", {
-      redirect: false,
-      username: data.username,
-      password: data.password,
-      callbackUrl: "/client/dashboard", // Por defecto
-    });
+    if (!token) {
+      setError("El enlace de recuperación no es válido.");
+      return;
+    }
 
-    if (res?.error) {
-      setError(res.error);
+    if (newPassword.length < 8) {
+      setError("La contraseña debe tener al menos 8 caracteres.");
+      return;
+    }
 
-      if (res.error.toLowerCase().includes("contraseña")) {
-        setPasswordError(true);
+    if (newPassword !== confirmPassword) {
+      setError("Las contraseñas no coinciden.");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const response = await fetch("/api/auth/set-new-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, newPassword }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message || "No se pudo restablecer la contraseña.");
+        return;
       }
-      if (res.error.toLowerCase().includes("usuario")) {
-        setUsernameError(true);
-      }
 
-      setFailedAttempts((prev) => prev + 1);
-    } else {
-      router.push(res?.url || "/client/dashboard");
+      setMessage(data.message || "Contraseña actualizada.");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      console.error("Error restableciendo contraseña:", err);
+      setError("Hubo un error, intenta nuevamente.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="bg-white p-6 rounded shadow-md w-full max-w-md">
+    <div className="flex min-h-screen items-center justify-center bg-gray-100 px-4">
+      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-md">
         <button
-          onClick={() => router.push("/")}
-          className="flex items-center text-gray-700 hover:text-yellow-500 mb-4"
+          type="button"
+          onClick={() => router.push("/auth/login")}
+          className="mb-4 flex items-center text-gray-700 hover:text-yellow-500"
         >
-          <ArrowLeft className="w-5 h-5 mr-2" />
-          Volver al inicio
+          <ArrowLeft className="mr-2 h-5 w-5" />
+          Volver al login
         </button>
 
-        <form onSubmit={handleSubmit(handleLogin)}>
-          {error && (
-            <p className="bg-red-500 text-white p-3 rounded mb-4">{error}</p>
-          )}
+        <h1 className="mb-2 text-center text-2xl font-bold text-gray-900">
+          Nueva contraseña
+        </h1>
+        <p className="mb-6 text-center text-sm text-gray-600">
+          Crea una contraseña segura para recuperar el acceso a tu cuenta.
+        </p>
 
-          {failedAttempts >= 3 && (
-            <p className="text-red-600 text-center mb-4">
-              ¿Has olvidado tu contraseña?{" "}
-              <button
-                type="button"
-                onClick={() => router.push("/auth/forgot-password")}
-                className="text-yellow-500 underline"
-              >
-                Recupérala aquí
-              </button>
-            </p>
-          )}
-
-          <h2 className="text-black text-2xl font-bold text-center mb-6">
-            Inicia sesión
-          </h2>
-
-          <label
-            htmlFor="username"
-            className="text-slate-500 mb-2 block text-sm"
-          >
-            Usuario:
-          </label>
-          <input
-            id="username"
-            type="text"
-            autoComplete="username"
-            {...register("username", {
-              required: { value: true, message: "El usuario es obligatorio" },
-            })}
-            className={`border rounded-lg p-2 w-full mb-4 text-gray-800 ${
-              usernameError ? "border-red-500" : ""
-            }`}
-            placeholder="Tu usuario"
-          />
-          {errors.username && (
-            <span className="text-red-500 text-xs mb-2 block">
-              {errors.username.message}
-            </span>
-          )}
-
-          <label
-            htmlFor="password"
-            className="text-slate-500 mb-2 block text-sm"
-          >
-            Contraseña:
-          </label>
-          <div className="relative mb-4">
-            <input
-              id="password"
-              type={showPassword ? "text" : "password"}
-              autoComplete="current-password"
-              {...register("password", {
-                required: { value: true, message: "Contraseña obligatoria" },
-              })}
-              className={`border rounded-lg p-2 w-full text-gray-800 ${
-                passwordError ? "border-red-500" : ""
-              }`}
-              placeholder="*********"
-            />
+        {message && (
+          <div className="mb-4 rounded bg-green-100 p-3 text-sm text-green-700">
+            {message}
             <button
               type="button"
-              className="absolute inset-y-0 right-3 flex items-center text-gray-500"
-              onClick={() => setShowPassword((prev) => !prev)}
+              onClick={() => router.push("/auth/login")}
+              className="mt-3 block font-semibold underline"
             >
-              {showPassword ? <EyeOff /> : <Eye />}
+              Iniciar sesión
             </button>
           </div>
-          {errors.password && (
-            <span className="text-red-500 text-xs mb-4 block">
-              {errors.password.message}
-            </span>
-          )}
+        )}
+
+        {error && (
+          <div className="mb-4 rounded bg-red-100 p-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="newPassword" className="mb-2 block text-sm text-gray-700">
+              Nueva contraseña
+            </label>
+            <div className="relative">
+              <input
+                id="newPassword"
+                type={showPassword ? "text" : "password"}
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                className="w-full rounded-lg border p-2 pr-10 text-gray-800"
+                autoComplete="new-password"
+                minLength={8}
+                required
+              />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-3 flex items-center text-gray-500"
+                onClick={() => setShowPassword((value) => !value)}
+                aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+              >
+                {showPassword ? <EyeOff /> : <Eye />}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="confirmPassword" className="mb-2 block text-sm text-gray-700">
+              Confirmar contraseña
+            </label>
+            <input
+              id="confirmPassword"
+              type={showPassword ? "text" : "password"}
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              className="w-full rounded-lg border p-2 text-gray-800"
+              autoComplete="new-password"
+              minLength={8}
+              required
+            />
+          </div>
 
           <button
             type="submit"
-            className="w-full bg-yellow-400 text-black hover:bg-yellow-500 p-2 mb-6"
+            disabled={isLoading || !token}
+            className="w-full rounded bg-yellow-400 p-2 font-semibold text-black hover:bg-yellow-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Iniciar sesión
+            {isLoading ? "Guardando..." : "Restablecer contraseña"}
           </button>
-
-          <div className="text-center mb-2">
-            <button
-              onClick={() => router.push("/auth/register")}
-              className="text-black"
-              type="button"
-            >
-              ¿No tienes cuenta?{" "}
-              <span className="text-yellow-500">Regístrate</span>
-            </button>
-          </div>
-          <div className="text-center">
-            <button
-              onClick={() => router.push("/auth/forgot-password")}
-              className="text-black"
-              type="button"
-            >
-              ¿Olvidaste tu contraseña?{" "}
-              <span className="text-yellow-500">Recupérala aquí</span>
-            </button>
-          </div>
         </form>
       </div>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-100" />}>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }

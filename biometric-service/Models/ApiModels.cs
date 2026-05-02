@@ -20,26 +20,17 @@ public record DeviceStatusResponse(
     bool Opened,
     string? Serial,
     bool HasDB,
-    string? SdkVersion,
-    int Width = 0,
-    int Height = 0,
-    int Dpi = 0,
-    string? FpVersion = null,
-    int CachedFingerprints = 0
+    string? SdkVersion
 );
 
 public record CaptureResponse(
     bool Ok,
-    [property: JsonPropertyName("template_b64")] string? TemplateB64,
-    [property: JsonPropertyName("image_b64")] string? ImageB64,
+    [property: JsonPropertyName("template")] string? TemplateB64,
+    [property: JsonPropertyName("image")] string? ImageB64,
     int Length,
     int Quality,
     string? Message = null
-)
-{
-    public string? Template => TemplateB64;
-    public string? Image => ImageB64;
-}
+);
 
 public record EnrollRequest(
     string UserId,
@@ -84,15 +75,13 @@ public record HealthResponse(bool Ok, string Status = "healthy");
 public record ConfigResponse(
     int Threshold,
     int Timeout,
-    bool MergeSamples,
-    int AmbiguityMargin = 3
+    bool MergeSamples
 );
 
 public record ConfigUpdateRequest(
     int? Threshold,
     int? Timeout,
-    bool? MergeSamples,
-    int? AmbiguityMargin
+    bool? MergeSamples
 );
 
 // Modelos de dominio

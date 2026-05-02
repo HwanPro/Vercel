@@ -67,6 +67,7 @@ export const authOptions: AuthOptions = {
       if (user) {
         token.id = user.id;
         token.role = user.role;
+        token.username = (user as { username?: string }).username || "";
         token.phoneNumber = user.phoneNumber;
         // añadimos los nuevos campos
         token.firstName = (user as { firstName?: string }).firstName || "";
@@ -83,6 +84,7 @@ export const authOptions: AuthOptions = {
             lastName: true,
             image: true,
             phoneNumber: true,
+            username: true,
           },
         });
         
@@ -91,6 +93,7 @@ export const authOptions: AuthOptions = {
           token.lastName = updatedUser.lastName || "";
           token.image = updatedUser.image || null;
           token.phoneNumber = updatedUser.phoneNumber || "";
+          token.username = updatedUser.username || "";
         }
       }
       

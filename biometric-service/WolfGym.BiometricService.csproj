@@ -21,22 +21,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Runtime portable opcional: colocar DLLs permitidas por licencia en vendor\zkfinger\x64 -->
-    <Content Include="vendor\zkfinger\x64\libzkfpcsharp.dll" Condition="Exists('vendor\zkfinger\x64\libzkfpcsharp.dll')">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Link>libzkfpcsharp.dll</Link>
-    </Content>
-    <Content Include="vendor\zkfinger\x64\libzkfp.dll" Condition="Exists('vendor\zkfinger\x64\libzkfp.dll')">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Link>libzkfp.dll</Link>
-    </Content>
-    <!-- Copiar DLL C# del SDK Lite V10 si está disponible localmente -->
-    <Content Include="D:\Downloads\ZKFinger SDK V10.0-Windows-Lite\C#\lib\x64\libzkfpcsharp.dll" Condition="!Exists('vendor\zkfinger\x64\libzkfpcsharp.dll') And Exists('D:\Downloads\ZKFinger SDK V10.0-Windows-Lite\C#\lib\x64\libzkfpcsharp.dll')">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Link>libzkfpcsharp.dll</Link>
-    </Content>
-    <!-- Fallback para instalaciones del SDK Standard -->
-    <Content Include="..\..\..\..\Program Files\ZKFingerSDK_Windows_Standard\ZKFinger Standard SDK 5.3.0.33\C#\lib\x64\libzkfpcsharp.dll" Condition="!Exists('D:\Downloads\ZKFinger SDK V10.0-Windows-Lite\C#\lib\x64\libzkfpcsharp.dll') And Exists('..\..\..\..\Program Files\ZKFingerSDK_Windows_Standard\ZKFinger Standard SDK 5.3.0.33\C#\lib\x64\libzkfpcsharp.dll')">
+    <!-- Copiar DLL C# del SDK -->
+    <Content Include="..\..\..\..\Program Files\ZKFingerSDK_Windows_Standard\ZKFinger Standard SDK 5.3.0.33\C#\lib\x64\libzkfpcsharp.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>libzkfpcsharp.dll</Link>
     </Content>

@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/ui/dialog";
-import { Phone, Lock, Camera } from "lucide-react";
+import { Phone, Lock, Camera, IdCard } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import "react-toastify/dist/ReactToastify.css";
@@ -32,6 +32,7 @@ export interface ProfileModalProps {
   userLastName?: string;
   userPhone?: string;
   userEmergencyPhone?: string;
+  userDocumentNumber?: string;
   userRole?: string;
   profileImage?: string | null;
 }
@@ -46,6 +47,7 @@ export default function ProfileModal({
   userLastName = "",
   userPhone = "",
   userEmergencyPhone = "",
+  userDocumentNumber = "",
   userRole = "",
   profileImage,
 }: ProfileModalProps) {
@@ -58,6 +60,7 @@ export default function ProfileModal({
   const [lastName, setLastName] = useState<string>(userLastName);
   const [phone, setPhone] = useState<string>(userPhone);
   const [emergencyPhone, setEmergencyPhone] = useState<string>(userEmergencyPhone);
+  const [documentNumber, setDocumentNumber] = useState<string>(userDocumentNumber);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [currentProfileImage, setCurrentProfileImage] = useState<string | null>(profileImage || null);
@@ -68,9 +71,23 @@ export default function ProfileModal({
     setCurrentProfileImage(profileImage || null);
   }, [profileImage]);
 
+  useEffect(() => {
+    setUsername(userName || "");
+    setFirstNameLocal(firstName || "");
+    setLastName(userLastName || "");
+    setPhone(userPhone || "");
+    setEmergencyPhone(userEmergencyPhone || "");
+    setDocumentNumber(userDocumentNumber || "");
+  }, [firstName, userDocumentNumber, userEmergencyPhone, userLastName, userName, userPhone]);
+
   function validateFields() {
     if (!username.trim() || !firstNameLocal.trim() || !lastName.trim() || !phone.trim()) {
       toast.error("❌ Faltan campos (usuario, nombre, apellidos, teléfono).");
+      return false;
+    }
+    const dni = documentNumber.replace(/\D/g, "");
+    if (dni && dni.length !== 8) {
+      toast.error("❌ El DNI debe tener 8 dígitos.");
       return false;
     }
     return true;
@@ -181,6 +198,8 @@ export default function ProfileModal({
           lastName: lastName.trim(),
           phone: phone.trim(),
           emergencyPhone: emergencyPhone.trim(),
+          documentNumber: documentNumber.replace(/\D/g, "").slice(0, 8),
+          dni: documentNumber.replace(/\D/g, "").slice(0, 8),
         }),
       });
 
@@ -332,6 +351,25 @@ export default function ProfileModal({
             </div>
           </div>
 
+          {/* DNI */}
+          <div className="space-y-2">
+            <Label htmlFor="documentNumber" className="text-wolf-ink">DNI</Label>
+            <div className="flex gap-2">
+              <Input
+                id="documentNumber"
+                value={documentNumber}
+                onChange={(e) =>
+                  setDocumentNumber(e.target.value.replace(/\D/g, "").slice(0, 8))
+                }
+                placeholder="8 dígitos"
+                className="border border-wolf-border bg-white text-wolf-ink"
+              />
+              <Button size="icon" variant="outline" className="shrink-0 !border-wolf-border !bg-white !text-wolf-primary-strong hover:!bg-wolf-muted">
+                <IdCard className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
           {/* Botón guardar */}
           <Button
             className="w-full bg-wolf-primary font-semibold text-wolf-ink hover:bg-yellow-300"
@@ -341,12 +379,15 @@ export default function ProfileModal({
             {isSubmitting ? "Guardando..." : "Guardar cambios"}
           </Button>
 
-          {/* Cambiar contraseña - DESACTIVADO */}
+          {/* Cambiar contraseña */}
           <Button
-            className="w-full cursor-not-allowed bg-slate-100 text-wolf-subtle"
-            disabled
+            className="w-full bg-slate-900 text-white hover:bg-slate-800"
+            onClick={() => {
+              onClose();
+              router.push("/profile/security");
+            }}
           >
-            Cambiar contraseña (Próximamente)
+            Cambiar contraseña
             <Lock className="ml-2 h-4 w-4" />
           </Button>
 

@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react";
 
 export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -29,9 +30,13 @@ export default function ForgotPasswordPage() {
     if (cooldown > 0) return; // Evita nuevos envíos mientras esté en cooldown
 
     try {
+      setIsLoading(true);
+      setError(null);
+      setMessage(null);
+
       const res = await fetch("/api/auth/reset-password", {
         method: "POST",
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ identifier }),
         headers: { "Content-Type": "application/json" },
       });
 
@@ -48,6 +53,8 @@ export default function ForgotPasswordPage() {
     } catch (err: any) {
       console.error("Error en solicitud:", err);
       setError("Hubo un error, intenta nuevamente.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -57,23 +64,32 @@ export default function ForgotPasswordPage() {
         onSubmit={handleSubmit}
         className="bg-white p-8 rounded shadow-md w-full max-w-md"
       >
-        <h1 className="text-2xl font-bold mb-4">Recuperar Contraseña</h1>
+        <h1 className="text-2xl font-bold mb-2">Recuperar contraseña</h1>
+        <p className="mb-4 text-sm text-gray-600">
+          Ingresa tu usuario o correo registrado. Si existe un correo asociado,
+          enviaremos un enlace de recuperación.
+        </p>
         {message && <p className="text-green-600">{message}</p>}
         {error && <p className="text-red-500">{error}</p>}
         <input
-          type="email"
-          placeholder="Tu correo electrónico"
+          type="text"
+          placeholder="Usuario o correo electrónico"
           className="border p-2 w-full mb-4"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
+          autoComplete="username"
           required
         />
         <button
           type="submit"
-          disabled={cooldown > 0}
-          className="bg-yellow-400 text-black p-2 w-full rounded hover:bg-yellow-500"
+          disabled={cooldown > 0 || isLoading}
+          className="bg-yellow-400 text-black p-2 w-full rounded hover:bg-yellow-500 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {cooldown > 0 ? `Espera ${cooldown} segundos` : "Enviar Enlace"}
+          {isLoading
+            ? "Enviando..."
+            : cooldown > 0
+              ? `Espera ${cooldown} segundos`
+              : "Enviar enlace"}
         </button>
       </form>
     </div>

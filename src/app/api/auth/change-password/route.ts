@@ -14,6 +14,32 @@ export async function POST(request: Request) {
 
     const { currentPassword, newPassword } = await request.json();
 
+    if (
+      typeof currentPassword !== "string" ||
+      typeof newPassword !== "string" ||
+      !currentPassword ||
+      !newPassword
+    ) {
+      return NextResponse.json(
+        { message: "Completa la contraseña actual y la nueva contraseña" },
+        { status: 400 }
+      );
+    }
+
+    if (newPassword.length < 8) {
+      return NextResponse.json(
+        { message: "La nueva contraseña debe tener al menos 8 caracteres" },
+        { status: 400 }
+      );
+    }
+
+    if (currentPassword === newPassword) {
+      return NextResponse.json(
+        { message: "La nueva contraseña debe ser diferente a la actual" },
+        { status: 400 }
+      );
+    }
+
     // Buscar usuario
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
@@ -25,8 +51,15 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!user.password) {
+      return NextResponse.json(
+        { message: "Esta cuenta no tiene una contraseña local configurada" },
+        { status: 400 }
+      );
+    }
+
     // Verificar contraseña actual
-    const match = await bcrypt.compare(currentPassword, user.password ?? '');
+    const match = await bcrypt.compare(currentPassword, user.password);
     if (!match) {
       return NextResponse.json(
         { message: "Contraseña actual incorrecta" },
@@ -36,10 +69,15 @@ export async function POST(request: Request) {
 
     // Actualizar contraseña
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await prisma.user.update({
-      where: { id: session.user.id },
-      data: { password: hashedPassword },
-    });
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: session.user.id },
+        data: { password: hashedPassword },
+      }),
+      prisma.session.deleteMany({
+        where: { userId: session.user.id },
+      }),
+    ]);
 
     // Enviar correo de confirmación
     // sendPasswordChangedEmail(user.email, ...);

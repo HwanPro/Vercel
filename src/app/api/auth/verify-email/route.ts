@@ -7,12 +7,12 @@ const prisma = new PrismaClient();
 
 // Email transporter configuration
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || "smtp.gmail.com",
-  port: parseInt(process.env.SMTP_PORT || "587"),
-  secure: false,
+  host: process.env.SMTP_HOST || process.env.EMAIL_HOST || "smtp.gmail.com",
+  port: parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || "587"),
+  secure: parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || "587") === 465,
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    user: process.env.SMTP_USER || process.env.EMAIL_USER,
+    pass: process.env.SMTP_PASS || process.env.EMAIL_PASS,
   },
 });
 
@@ -65,7 +65,11 @@ export async function POST(req: NextRequest) {
     const verificationUrl = `${process.env.NEXTAUTH_URL}/auth/verify-email?token=${verificationToken}`;
     
     const mailOptions = {
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      from:
+        process.env.SMTP_FROM ||
+        process.env.EMAIL_FROM ||
+        process.env.SMTP_USER ||
+        process.env.EMAIL_USER,
       to: email,
       subject: "Verificación de Email - Wolf Gym",
       html: `
