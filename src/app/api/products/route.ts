@@ -5,6 +5,8 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { v4 as uuidv4 } from "uuid";
 import { getToken } from "next-auth/jwt";
 
+const DEFAULT_PRODUCT_IMAGE = "/uploads/images/logo2.jpg";
+
 // AWS S3 configuration
 const s3Client = new S3Client({
   region: process.env.AWS_REGION!,
@@ -27,7 +29,11 @@ export async function GET(request: NextRequest) {
 
   try {
     const products = await prisma.inventoryItem.findMany();
-    return NextResponse.json(products, { status: 200 });
+    const normalizedProducts = products.map((product) => ({
+      ...product,
+      item_image_url: product.item_image_url || DEFAULT_PRODUCT_IMAGE,
+    }));
+    return NextResponse.json(normalizedProducts, { status: 200 });
   } catch (error) {
     console.error("Error fetching products:", error);
     return NextResponse.json({ error: "Failed to fetch products" }, { status: 500 });

@@ -35,6 +35,7 @@ type Product = {
   imageUrl: string;
   quantity?: number;
 };
+const DEFAULT_PRODUCT_IMAGE = "/uploads/images/logo2.jpg";
 
 function getDiscountValue(discount?: number | string | null) {
   const value = Number(discount ?? 0);
@@ -149,7 +150,7 @@ export default function PublicProductList() {
             price: p.item_price,
             discount: p.item_discount || 0,
             stock: p.item_stock || 0,
-            imageUrl: p.item_image_url || "/placeholder-image.png",
+            imageUrl: p.item_image_url || DEFAULT_PRODUCT_IMAGE,
           })
         );
         setProducts(formatted);

@@ -3,6 +3,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/infrastructure/prisma/prisma";
 
+const DEFAULT_PRODUCT_IMAGE = "/uploads/images/logo2.jpg";
+
 // GET - Obtener productos disponibles para los clientes
 export async function GET(req: NextRequest) {
   try {
@@ -24,7 +26,12 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    return NextResponse.json(products);
+    const normalizedProducts = products.map((product) => ({
+      ...product,
+      item_image_url: product.item_image_url || DEFAULT_PRODUCT_IMAGE,
+    }));
+
+    return NextResponse.json(normalizedProducts);
   } catch (error) {
     console.error("Error al obtener los productos públicos:", error);
     return NextResponse.json(

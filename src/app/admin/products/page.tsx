@@ -28,6 +28,7 @@ type Product = {
 };
 
 type NewProduct = Omit<Product, "id">;
+const DEFAULT_PRODUCT_IMAGE = "/uploads/images/logo2.jpg";
 
 function getDiscountValue(discount?: number | string | null) {
   const value = Number(discount ?? 0);
@@ -63,7 +64,7 @@ export default function ProductList() {
           price: product.item_price,
           discount: product.item_discount || 0,
           stock: product.item_stock,
-          imageUrl: product.item_image_url || "/placeholder-image.png",
+          imageUrl: product.item_image_url || DEFAULT_PRODUCT_IMAGE,
         }))
       );
     } catch (error) {
@@ -214,7 +215,7 @@ export default function ProductList() {
             className="bg-white rounded-lg shadow-lg p-4 flex flex-col items-center text-center"
           >
             <Image
-              src={product.imageUrl || "/placeholder-image.png"}
+              src={product.imageUrl || DEFAULT_PRODUCT_IMAGE}
               alt={product.name || "Producto"}
               width={96}
               height={96}
