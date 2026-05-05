@@ -1,6 +1,91 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --wolf-black: #0A0A0A;
+  --wolf-ink: #141414;
+  --wolf-graph: #1C1C1C;
+  --wolf-yellow: #FFC21A;
+  --wolf-orange: #FF7A1A;
+  --wolf-danger: #E5484D;
+  --wolf-success: #2EBD75;
+  --wolf-line: rgba(255,194,26,0.15);
+  --wolf-line-strong: rgba(255,194,26,0.35);
+  --wolf-muted: rgba(255,255,255,0.60);
+  --wolf-faint: rgba(255,255,255,0.40);
+  --font-display: 'Bebas Neue', 'Arial Narrow', sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+}
+.wolf-eyebrow {
+  font-family: var(--font-body);
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--wolf-yellow);
+}
+.wolf-display { font-family: var(--font-display); letter-spacing: 0.02em; }
+.wolf-card {
+  background: var(--wolf-ink);
+  border: 1px solid var(--wolf-line);
+  border-radius: 14px;
+}
+.wolf-btn-primary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--wolf-yellow); color: var(--wolf-black);
+  border: 1px solid var(--wolf-yellow); border-radius: 10px;
+  font-family: var(--font-body); font-size: 13px; font-weight: 700;
+  height: 40px; padding: 0 16px; cursor: pointer; transition: background .15s;
+  text-decoration: none; white-space: nowrap;
+}
+.wolf-btn-primary:hover { background: var(--wolf-orange); border-color: var(--wolf-orange); }
+.wolf-btn-ghost {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  background: transparent; color: rgba(255,255,255,0.8);
+  border: 1px solid var(--wolf-line-strong); border-radius: 10px;
+  font-family: var(--font-body); font-size: 13px; font-weight: 600;
+  height: 40px; padding: 0 16px; cursor: pointer; transition: background .15s;
+  white-space: nowrap;
+}
+.wolf-btn-ghost:hover { background: rgba(255,255,255,0.06); }
+.wolf-badge-yellow {
+  display: inline-flex; align-items: center; padding: 4px 10px;
+  border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgba(255,194,26,0.14); color: var(--wolf-yellow);
+  border: 1px solid rgba(255,194,26,0.35);
+}
+.wolf-badge-success {
+  background: rgba(46,189,117,0.12); color: var(--wolf-success);
+  border: 1px solid rgba(46,189,117,0.35);
+  display: inline-flex; align-items: center; padding: 4px 10px;
+  border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.wolf-badge-danger {
+  background: rgba(229,72,77,0.12); color: var(--wolf-danger);
+  border: 1px solid rgba(229,72,77,0.35);
+  display: inline-flex; align-items: center; padding: 4px 10px;
+  border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.wolf-input {
+  width: 100%; height: 42px; padding: 0 14px;
+  background: var(--wolf-graph); border: 1px solid var(--wolf-line);
+  border-radius: 10px; color: #fff; font-family: var(--font-body); font-size: 14px;
+  outline: none; transition: border-color .15s;
+}
+.wolf-input::placeholder { color: rgba(255,255,255,0.35); }
+.wolf-input:focus { border-color: var(--wolf-yellow); }
+.wolf-input-light {
+  width: 100%; height: 42px; padding: 0 14px;
+  background: #fff; border: 1px solid #E7E5E1;
+  border-radius: 10px; color: #1A1A1A; font-family: var(--font-body); font-size: 14px;
+  outline: none; transition: border-color .15s;
+}
+.wolf-input-light::placeholder { color: #A8A8A4; }
+.wolf-input-light:focus { border-color: var(--wolf-yellow); }
 
 html,
 body {

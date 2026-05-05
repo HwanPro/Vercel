@@ -7,15 +7,6 @@ import { useRouter } from "next/navigation";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-import { Button } from "@/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/ui/table";
 import { cn } from "@/lib/utils";
 
 interface DashboardData {
@@ -81,44 +72,65 @@ const navigationItems = [
   { href: "/admin/Edit", label: "Contenido" },
 ];
 
-const cardClass =
-  "rounded-lg border border-yellow-400/25 bg-black p-4 shadow-sm transition hover:border-yellow-400/60";
-
 function formatCurrency(value: number) {
   return `S/. ${Number(value).toFixed(2)}`;
 }
 
 function formatDate(value?: string) {
   if (!value) return "N/A";
-
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "N/A" : date.toLocaleDateString("es-PE");
 }
 
 function getDaysRemaining(value?: string) {
   if (!value) return "N/A";
-
   const membershipEnd = new Date(value);
   if (Number.isNaN(membershipEnd.getTime())) return "N/A";
-
   const timeDiff = membershipEnd.getTime() - Date.now();
   return timeDiff > 0 ? Math.ceil(timeDiff / (1000 * 3600 * 24)) : "Finalizado";
 }
 
 function MetricCard({ label, value, helper, tone = "default" }: MetricCardProps) {
+  const valueColor =
+    tone === "success" ? "#FFC21A" : tone === "warning" ? "#FF7A1A" : "#fff";
   return (
-    <div className={cardClass}>
-      <p className="text-sm font-medium text-white">{label}</p>
+    <div
+      style={{
+        background: "#141414",
+        border: "1px solid rgba(255,194,26,0.15)",
+        borderRadius: 14,
+        padding: "20px 20px 16px",
+        transition: "border-color 0.15s",
+      }}
+    >
       <p
-        className={cn(
-          "mt-2 text-2xl font-semibold tracking-tight text-white",
-          tone === "success" && "text-yellow-300",
-          tone === "warning" && "text-orange-400",
-        )}
+        style={{
+          fontFamily: "'Inter', system-ui, sans-serif",
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: "0.14em",
+          textTransform: "uppercase",
+          color: "#FFC21A",
+          margin: 0,
+        }}
+      >
+        {label}
+      </p>
+      <p
+        style={{
+          fontFamily: "'Bebas Neue', 'Arial Narrow', sans-serif",
+          fontSize: 40,
+          color: valueColor,
+          margin: "8px 0 4px",
+          lineHeight: 1,
+          letterSpacing: "0.02em",
+        }}
       >
         {value}
       </p>
-      <p className="mt-1 text-xs text-white/50">{helper}</p>
+      <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", margin: 0 }}>
+        {helper}
+      </p>
     </div>
   );
 }
@@ -149,7 +161,6 @@ export default function AdminDashboard() {
 
   function redirectToLogin() {
     if (isRedirecting.current) return;
-
     isRedirecting.current = true;
     toast.error("Sesión expirada. Redirigiendo a login...");
     router.replace("/auth/login");
@@ -161,16 +172,10 @@ export default function AdminDashboard() {
         credentials: "include",
         cache: "no-store",
       });
-
       if (!res.ok) {
-        if (res.status === 401) {
-          redirectToLogin();
-          return;
-        }
-
+        if (res.status === 401) { redirectToLogin(); return; }
         throw new Error("Error al obtener métricas");
       }
-
       const data = await res.json();
       setDashboardData({
         totalIncome: Number(data?.totalIncome ?? 0),
@@ -194,24 +199,16 @@ export default function AdminDashboard() {
 
   async function fetchRecentClients(silent = false) {
     if (!silent) setLoadingClients(true);
-
     try {
       const response = await fetch("/api/clients", { credentials: "include" });
-
       if (!response.ok) {
-        if (response.status === 401) {
-          redirectToLogin();
-          return;
-        }
-
+        if (response.status === 401) { redirectToLogin(); return; }
         throw new Error("Error al obtener los clientes recientes");
       }
-
       const data = await response.json();
       const filtered = data.filter(
         (client: { user: { role: string } }) => client.user.role !== "admin",
       );
-
       setRecentClients(
         filtered.map(
           (client: {
@@ -242,19 +239,12 @@ export default function AdminDashboard() {
 
   async function fetchProducts(silent = false) {
     if (!silent) setLoadingProducts(true);
-
     try {
       const response = await fetch("/api/products", { credentials: "include" });
-
       if (!response.ok) {
-        if (response.status === 401) {
-          redirectToLogin();
-          return;
-        }
-
+        if (response.status === 401) { redirectToLogin(); return; }
         throw new Error("Error al obtener los productos");
       }
-
       setProducts(await response.json());
     } catch (error) {
       console.error("Error al obtener los productos:", error);
@@ -276,26 +266,65 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     refreshAll(false);
-
     const interval = setInterval(async () => {
       await refreshAll(true);
     }, 300000);
-
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const thStyles: React.CSSProperties = {
+    padding: "12px 16px",
+    textAlign: "left",
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: "0.12em",
+    textTransform: "uppercase",
+    color: "#FFC21A",
+    borderBottom: "1px solid rgba(255,194,26,0.15)",
+    background: "#141414",
+    fontFamily: "'Inter', system-ui, sans-serif",
+  };
+
+  const tdStyles: React.CSSProperties = {
+    padding: "12px 16px",
+    fontSize: 13,
+    color: "rgba(255,255,255,0.75)",
+    borderBottom: "1px solid rgba(255,194,26,0.07)",
+    fontFamily: "'Inter', system-ui, sans-serif",
+  };
+
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div style={{ minHeight: "100vh", background: "#0A0A0A", color: "#fff", fontFamily: "'Inter', system-ui, sans-serif" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap');`}</style>
       <ToastContainer position="top-right" autoClose={3000} />
 
-      <header className="sticky top-0 z-40 border-b border-yellow-400/15 bg-black/95 px-4 backdrop-blur lg:px-6">
-        <div className="mx-auto flex h-16 max-w-7xl items-center gap-4">
+      {/* Header */}
+      <header
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 40,
+          borderBottom: "1px solid rgba(255,194,26,0.15)",
+          background: "rgba(10,10,10,0.97)",
+          backdropFilter: "blur(8px)",
+          padding: "0 24px",
+        }}
+      >
+        <div style={{ maxWidth: 1280, margin: "0 auto", display: "flex", height: 64, alignItems: "center", gap: 16 }}>
           <Link
-            className="flex items-center gap-2 text-sm font-semibold text-wolf-primary no-underline transition hover:text-yellow-200"
             href="/"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              textDecoration: "none",
+              fontSize: 13,
+              fontWeight: 600,
+              color: "#FFC21A",
+            }}
           >
-            <Home className="h-5 w-5" />
+            <Home style={{ width: 18, height: 18 }} />
             Inicio
           </Link>
 
@@ -305,12 +334,28 @@ export default function AdminDashboard() {
               isMenuOpen && "block",
             )}
           >
-            <div className="flex flex-col gap-1 lg:flex-row lg:items-center lg:gap-1">
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
               {navigationItems.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="rounded-md px-3 py-2 text-sm font-medium text-white/80 no-underline transition hover:bg-yellow-400/10 hover:text-yellow-300"
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 500,
+                    color: "rgba(255,255,255,0.6)",
+                    textDecoration: "none",
+                    transition: "background 0.12s, color 0.12s",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,194,26,0.08)";
+                    (e.currentTarget as HTMLAnchorElement).style.color = "#FFC21A";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLAnchorElement).style.background = "transparent";
+                    (e.currentTarget as HTMLAnchorElement).style.color = "rgba(255,255,255,0.6)";
+                  }}
                 >
                   {item.label}
                 </Link>
@@ -318,16 +363,44 @@ export default function AdminDashboard() {
             </div>
           </nav>
 
-          <div className="ml-auto flex items-center gap-2 lg:ml-2">
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
             <button
               type="button"
               aria-label="Mostrar notificaciones"
-              className="relative inline-flex h-10 w-10 items-center justify-center rounded-md text-wolf-primary transition hover:bg-yellow-400/10"
+              style={{
+                position: "relative",
+                display: "inline-flex",
+                width: 40,
+                height: 40,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 8,
+                border: "none",
+                background: "transparent",
+                color: "#FFC21A",
+                cursor: "pointer",
+              }}
               onClick={() => setNotificationsOpen((prev) => !prev)}
             >
-              <Bell className="h-5 w-5" />
+              <Bell style={{ width: 18, height: 18 }} />
               {notifications.length > 0 && (
-                <span className="absolute right-1.5 top-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-wolf-danger px-1 text-[10px] font-bold text-white">
+                <span
+                  style={{
+                    position: "absolute",
+                    right: 6,
+                    top: 6,
+                    display: "inline-flex",
+                    width: 16,
+                    height: 16,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: "50%",
+                    background: "#E5484D",
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: "#fff",
+                  }}
+                >
                   {notifications.length}
                 </span>
               )}
@@ -336,192 +409,263 @@ export default function AdminDashboard() {
             <button
               type="button"
               aria-label="Abrir menú"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-md text-wolf-primary transition hover:bg-yellow-400/10 lg:hidden"
+              className="lg:hidden"
+              style={{
+                display: "inline-flex",
+                width: 40,
+                height: 40,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 8,
+                border: "none",
+                background: "transparent",
+                color: "#FFC21A",
+                cursor: "pointer",
+              }}
               onClick={() => setIsMenuOpen((prev) => !prev)}
             >
-              {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              {isMenuOpen ? <X style={{ width: 18, height: 18 }} /> : <Menu style={{ width: 18, height: 18 }} />}
             </button>
           </div>
 
           {notificationsOpen && (
-            <div className="absolute right-4 top-16 z-50 max-h-96 w-72 overflow-auto rounded-lg border border-yellow-400/25 bg-white p-4 text-black shadow-xl">
-              <h3 className="mb-2 font-semibold">Notificaciones</h3>
+            <div
+              style={{
+                position: "absolute",
+                right: 16,
+                top: 68,
+                zIndex: 50,
+                maxHeight: 384,
+                width: 288,
+                overflowY: "auto",
+                borderRadius: 12,
+                border: "1px solid rgba(255,194,26,0.25)",
+                background: "#141414",
+                padding: 16,
+                boxShadow: "0 20px 40px rgba(0,0,0,0.6)",
+              }}
+            >
+              <h3 style={{ marginBottom: 8, fontWeight: 700, fontSize: 14, color: "#fff" }}>Notificaciones</h3>
               {notifications.length > 0 ? (
                 notifications.map((notification) => (
-                  <p key={notification.id} className="mb-2 text-sm text-black/70">
+                  <p key={notification.id} style={{ marginBottom: 8, fontSize: 13, color: "rgba(255,255,255,0.6)" }}>
                     {notification.message}
                   </p>
                 ))
               ) : (
-                <p className="text-sm text-black/70">No hay notificaciones</p>
+                <p style={{ fontSize: 13, color: "rgba(255,255,255,0.4)" }}>No hay notificaciones</p>
               )}
             </div>
           )}
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8 flex flex-col gap-4 border-b border-yellow-400/15 pb-6 md:flex-row md:items-end md:justify-between">
+      <main style={{ maxWidth: 1280, margin: "0 auto", padding: "32px 24px" }}>
+        {/* Page hero strip */}
+        <div
+          style={{
+            background: "linear-gradient(135deg, #141414 0%, #0A0A0A 100%)",
+            border: "1px solid rgba(255,194,26,0.25)",
+            borderRadius: 14,
+            padding: 24,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 32,
+            flexWrap: "wrap",
+            gap: 16,
+          }}
+        >
           <div>
-            <p className="text-sm font-medium text-wolf-primary">Administración</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
-              Panel operativo
-            </h1>
-            <p className="mt-2 text-sm text-white/70">
+            <p
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                color: "#FFC21A",
+                margin: "0 0 8px",
+              }}
+            >
+              Hoy
+            </p>
+            <p
+              style={{
+                fontFamily: "'Bebas Neue', 'Arial Narrow', sans-serif",
+                fontSize: 64,
+                color: "#fff",
+                margin: 0,
+                lineHeight: 1,
+                letterSpacing: "0.02em",
+              }}
+            >
+              <span style={{ color: "#FFC21A" }}>{dashboardData.todayAttendance}</span> CHECK-INS
+            </p>
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 8 }}>
               Última actualización: {lastUpdatedLabel}
             </p>
           </div>
-
-          <Button
-            type="button"
-            onClick={() => refreshAll(true)}
-            disabled={refreshing}
-            variant="outline"
-            className="border-yellow-400/70 bg-transparent text-yellow-300 hover:bg-yellow-400 hover:text-black"
-          >
-            <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
-            {refreshing ? "Actualizando" : "Actualizar"}
-          </Button>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+            <div style={{ background: "#141414", border: "1px solid rgba(255,194,26,0.15)", borderRadius: 10, padding: "14px 20px", minWidth: 120 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.4)", margin: "0 0 6px" }}>Activos</p>
+              <p style={{ fontFamily: "'Bebas Neue', 'Arial Narrow', sans-serif", fontSize: 32, color: "#2EBD75", margin: 0 }}>{dashboardData.activeMemberships}</p>
+            </div>
+            <div style={{ background: "#141414", border: "1px solid rgba(255,194,26,0.15)", borderRadius: 10, padding: "14px 20px", minWidth: 120 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.4)", margin: "0 0 6px" }}>Stock bajo</p>
+              <p style={{ fontFamily: "'Bebas Neue', 'Arial Narrow', sans-serif", fontSize: 32, color: dashboardData.lowStockProducts > 0 ? "#FF7A1A" : "#FFC21A", margin: 0 }}>{dashboardData.lowStockProducts}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => refreshAll(true)}
+              disabled={refreshing}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                height: 40,
+                padding: "0 16px",
+                background: "transparent",
+                border: "1px solid rgba(255,194,26,0.35)",
+                borderRadius: 10,
+                color: "rgba(255,255,255,0.8)",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+                fontFamily: "'Inter', system-ui, sans-serif",
+              }}
+            >
+              <RefreshCw style={{ width: 14, height: 14 }} className={refreshing ? "animate-spin" : ""} />
+              {refreshing ? "Actualizando" : "Actualizar"}
+            </button>
+          </div>
         </div>
 
-        <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            label="Ingresos totales"
-            value={formatCurrency(dashboardData.totalIncome)}
-            helper="Todos los pagos"
-            tone="success"
-          />
-          <MetricCard
-            label="Nuevos clientes"
-            value={dashboardData.newClients}
-            helper="Últimos 30 días"
-          />
-          <MetricCard
-            label="Asistencia hoy"
-            value={dashboardData.todayAttendance}
-            helper="Check-ins de hoy"
-          />
-          <MetricCard
-            label="Membresías activas"
-            value={dashboardData.activeMemberships}
-            helper="Clientes activos"
-          />
+        {/* Metric cards row 1 */}
+        <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 16 }}>
+          <MetricCard label="Ingresos totales" value={formatCurrency(dashboardData.totalIncome)} helper="Todos los pagos" tone="success" />
+          <MetricCard label="Nuevos clientes" value={dashboardData.newClients} helper="Últimos 30 días" />
+          <MetricCard label="Asistencia hoy" value={dashboardData.todayAttendance} helper="Check-ins de hoy" />
+          <MetricCard label="Membresías activas" value={dashboardData.activeMemberships} helper="Clientes activos" />
         </section>
 
-        <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
-          <MetricCard
-            label="Asistencia semanal"
-            value={dashboardData.classAttendance}
-            helper="Últimos 7 días"
-          />
-          <MetricCard
-            label="Ventas de productos"
-            value={formatCurrency(dashboardData.productSales)}
-            helper="Total vendido"
-            tone="success"
-          />
-          <MetricCard
-            label="Stock bajo"
-            value={dashboardData.lowStockProducts}
-            helper="Productos ≤ 10 unidades"
-            tone={dashboardData.lowStockProducts > 0 ? "warning" : "default"}
-          />
+        {/* Metric cards row 2 */}
+        <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 32 }}>
+          <MetricCard label="Asistencia semanal" value={dashboardData.classAttendance} helper="Últimos 7 días" />
+          <MetricCard label="Ventas de productos" value={formatCurrency(dashboardData.productSales)} helper="Total vendido" tone="success" />
+          <MetricCard label="Stock bajo" value={dashboardData.lowStockProducts} helper="Productos ≤ 10 unidades" tone={dashboardData.lowStockProducts > 0 ? "warning" : "default"} />
         </section>
 
         {refreshing && (
-          <p className="mb-6 text-sm text-wolf-primary">Actualizando datos...</p>
+          <p style={{ marginBottom: 24, fontSize: 13, color: "#FFC21A" }}>Actualizando datos...</p>
         )}
 
-        <section className="mb-8 rounded-lg border border-yellow-400/25 bg-black p-4">
-          <h2 className="mb-4 text-xl font-semibold text-white">Clientes recientes</h2>
+        {/* Recent clients table */}
+        <section
+          style={{
+            background: "#141414",
+            border: "1px solid rgba(255,194,26,0.15)",
+            borderRadius: 14,
+            overflow: "hidden",
+            marginBottom: 24,
+          }}
+        >
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(255,194,26,0.10)" }}>
+            <h2 style={{ fontFamily: "'Bebas Neue', 'Arial Narrow', sans-serif", fontSize: 22, color: "#fff", margin: 0, letterSpacing: "0.04em" }}>
+              Clientes recientes
+            </h2>
+          </div>
           {loadingClients ? (
-            <p className="text-sm text-wolf-primary">Cargando clientes...</p>
+            <p style={{ padding: 24, fontSize: 13, color: "#FFC21A" }}>Cargando clientes...</p>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-yellow-400/15 hover:bg-transparent">
-                    <TableHead className="text-white">Nombre</TableHead>
-                    <TableHead className="text-white">Apellidos</TableHead>
-                    <TableHead className="text-white">Plan</TableHead>
-                    <TableHead className="text-white">Inicio</TableHead>
-                    <TableHead className="text-white">Fin</TableHead>
-                    <TableHead className="text-white">Días</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    {["Nombre", "Apellidos", "Plan", "Inicio", "Fin", "Días"].map((h) => (
+                      <th key={h} style={thStyles}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
                   {recentClients.length > 0 ? (
                     recentClients.map((client) => (
-                      <TableRow
+                      <tr
                         key={client.id}
-                        className="border-yellow-400/10 hover:bg-yellow-400/5"
+                        style={{ transition: "background 0.1s" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,194,26,0.04)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                       >
-                        <TableCell className="max-w-48 truncate text-white">
-                          {client.name}
-                        </TableCell>
-                        <TableCell className="text-white/80">{client.lastName}</TableCell>
-                        <TableCell className="text-white/80">{client.plan}</TableCell>
-                        <TableCell className="text-white/70">
-                          {client.membershipStartFormatted}
-                        </TableCell>
-                        <TableCell className="text-white/70">
-                          {client.membershipEndFormatted}
-                        </TableCell>
-                        <TableCell className="text-white/70">
-                          {client.daysRemaining}
-                        </TableCell>
-                      </TableRow>
+                        <td style={{ ...tdStyles, color: "#fff", fontWeight: 600 }}>{client.name}</td>
+                        <td style={tdStyles}>{client.lastName}</td>
+                        <td style={tdStyles}>{client.plan}</td>
+                        <td style={tdStyles}>{client.membershipStartFormatted}</td>
+                        <td style={tdStyles}>{client.membershipEndFormatted}</td>
+                        <td style={tdStyles}>{client.daysRemaining}</td>
+                      </tr>
                     ))
                   ) : (
-                    <TableRow className="border-yellow-400/10">
-                      <TableCell colSpan={6} className="text-white/50">
+                    <tr>
+                      <td colSpan={6} style={{ ...tdStyles, textAlign: "center", color: "rgba(255,255,255,0.3)", padding: 32 }}>
                         No hay clientes disponibles
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   )}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </div>
           )}
         </section>
 
-        <section className="rounded-lg border border-yellow-400/25 bg-black p-4">
-          <h2 className="mb-4 text-xl font-semibold text-white">Gestión de productos</h2>
+        {/* Products table */}
+        <section
+          style={{
+            background: "#141414",
+            border: "1px solid rgba(255,194,26,0.15)",
+            borderRadius: 14,
+            overflow: "hidden",
+          }}
+        >
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(255,194,26,0.10)" }}>
+            <h2 style={{ fontFamily: "'Bebas Neue', 'Arial Narrow', sans-serif", fontSize: 22, color: "#fff", margin: 0, letterSpacing: "0.04em" }}>
+              Gestión de productos
+            </h2>
+          </div>
           {loadingProducts ? (
-            <p className="text-sm text-wolf-primary">Cargando productos...</p>
+            <p style={{ padding: 24, fontSize: 13, color: "#FFC21A" }}>Cargando productos...</p>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-yellow-400/15 hover:bg-transparent">
-                    <TableHead className="text-white">Nombre</TableHead>
-                    <TableHead className="text-white">Stock</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    {["Nombre", "Stock"].map((h) => (
+                      <th key={h} style={thStyles}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
                   {products.length > 0 ? (
                     products.map((product) => (
-                      <TableRow
+                      <tr
                         key={product.item_id}
-                        className="border-yellow-400/10 hover:bg-yellow-400/5"
+                        style={{ transition: "background 0.1s" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,194,26,0.04)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                       >
-                        <TableCell className="max-w-96 truncate text-white">
-                          {product.item_name}
-                        </TableCell>
-                        <TableCell className="text-white/80">
+                        <td style={{ ...tdStyles, color: "#fff" }}>{product.item_name}</td>
+                        <td style={{ ...tdStyles, color: product.item_stock <= 10 ? "#FF7A1A" : "rgba(255,255,255,0.75)" }}>
                           {product.item_stock}
-                        </TableCell>
-                      </TableRow>
+                        </td>
+                      </tr>
                     ))
                   ) : (
-                    <TableRow className="border-yellow-400/10">
-                      <TableCell colSpan={2} className="text-white/50">
+                    <tr>
+                      <td colSpan={2} style={{ ...tdStyles, textAlign: "center", color: "rgba(255,255,255,0.3)", padding: 32 }}>
                         No hay productos disponibles
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   )}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </div>
           )}
         </section>

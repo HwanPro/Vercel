@@ -1,12 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Home, UserRound } from "lucide-react";
 import ProfileModal from "@/ui/components/ProfileModal";
-import { Button } from "@/ui/button";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -21,6 +18,30 @@ type AdminMe = {
   profile?: {
     profile_emergency_phone?: string | null;
   } | null;
+};
+
+const sty = {
+  card: {
+    background: "#141414",
+    border: "1px solid rgba(255,194,26,0.15)",
+    borderRadius: 14,
+  } as React.CSSProperties,
+  eyebrow: {
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: "0.14em",
+    textTransform: "uppercase" as const,
+    color: "#FF7A1A",
+    margin: "0 0 14px",
+  } as React.CSSProperties,
+  fieldLabel: {
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: "0.10em",
+    textTransform: "uppercase" as const,
+    color: "rgba(255,255,255,0.45)",
+    margin: "0 0 6px",
+  } as React.CSSProperties,
 };
 
 export default function AdminProfilePage() {
@@ -67,91 +88,320 @@ export default function AdminProfilePage() {
     loadAdminProfile();
   }, []);
 
+  const initials = adminMe
+    ? `${adminMe.firstName?.[0] ?? ""}${adminMe.lastName?.[0] ?? ""}`.toUpperCase()
+    : "—";
+
+  const fields = adminMe
+    ? [
+        { label: "Usuario", value: adminMe.username },
+        { label: "Nombre completo", value: `${adminMe.firstName} ${adminMe.lastName}` },
+        { label: "Teléfono", value: adminMe.phoneNumber || "No definido" },
+        { label: "Emergencia", value: adminMe.profile?.profile_emergency_phone || "No definido" },
+      ]
+    : [];
+
   return (
-    <div className="min-h-screen bg-wolf-page px-4 text-wolf-ink sm:px-6">
-      <ToastContainer position="top-right" autoClose={3000} />
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#0A0A0A",
+        fontFamily: "'Inter', system-ui, sans-serif",
+        color: "#fff",
+      }}
+    >
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap');`}</style>
+      <ToastContainer position="top-right" autoClose={3000} theme="dark" />
 
-      <header className="relative flex h-14 items-center border-b border-wolf-border bg-white px-4 lg:px-6">
-        <Link className="flex items-center justify-center no-underline" href="/">
-          <Home className="mr-2 h-6 w-6 text-wolf-primary-strong" />
-          <span className="font-semibold text-wolf-ink">Inicio</span>
-        </Link>
-        <nav className="ml-auto flex gap-3 sm:gap-4">
-          <Link
+      {/* Page header */}
+      <div
+        style={{
+          padding: "24px 32px 20px",
+          borderBottom: "1px solid rgba(255,194,26,0.12)",
+          display: "flex",
+          alignItems: "flex-end",
+          justifyContent: "space-between",
+        }}
+      >
+        <div>
+          <p
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              color: "rgba(255,194,26,0.6)",
+              margin: "0 0 4px",
+            }}
+          >
+            Cuenta
+          </p>
+          <h1
+            style={{
+              fontFamily: "'Bebas Neue', 'Arial Narrow', sans-serif",
+              fontSize: 36,
+              letterSpacing: "0.02em",
+              color: "#fff",
+              margin: 0,
+              lineHeight: 1,
+            }}
+          >
+            PERFIL DE ADMINISTRADOR
+          </h1>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <a
             href="/admin/dashboard"
-            className="rounded border border-wolf-border px-4 py-2 text-center text-wolf-ink hover:bg-wolf-muted"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              height: 40,
+              padding: "0 16px",
+              background: "transparent",
+              border: "1px solid rgba(255,255,255,0.15)",
+              borderRadius: 10,
+              color: "rgba(255,255,255,0.7)",
+              fontSize: 13,
+              fontWeight: 600,
+              textDecoration: "none",
+            }}
           >
-            Dashboard
-          </Link>
-          <Link
-            href="/admin/reportes"
-            className="rounded bg-wolf-primary px-4 py-2 text-center font-semibold text-wolf-ink hover:bg-yellow-300"
+            ← Dashboard
+          </a>
+          {!loading && adminMe && (
+          <button
+            type="button"
+            onClick={() => setShowProfileModal(true)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              height: 40,
+              padding: "0 20px",
+              background: "#FFC21A",
+              color: "#0A0A0A",
+              border: "1px solid #FFC21A",
+              borderRadius: 10,
+              fontFamily: "'Inter', system-ui, sans-serif",
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: "pointer",
+              transition: "background 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "#FF7A1A";
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "#FF7A1A";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "#FFC21A";
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "#FFC21A";
+            }}
           >
-            Reportes
-          </Link>
-        </nav>
-      </header>
+            ✎ Editar perfil
+          </button>
+          )}
+        </div>
+      </div>
 
-      <main className="mx-auto w-full max-w-3xl py-8">
-        <h1 className="mb-6 text-center text-3xl font-black text-wolf-ink">
-          Perfil de administrador
-        </h1>
-
+      {/* Body */}
+      <div style={{ padding: "28px 32px" }}>
         {loading && (
-          <div className="rounded border border-wolf-border bg-white p-6 text-wolf-subtle shadow-sm">
+          <div
+            style={{
+              ...sty.card,
+              padding: "20px 24px",
+              color: "rgba(255,255,255,0.5)",
+              fontSize: 14,
+            }}
+          >
             Cargando perfil...
           </div>
         )}
 
         {!loading && adminMe && (
-          <section className="rounded-xl border border-wolf-border bg-white p-6 shadow-sm">
-            <div className="mb-4 flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full border border-wolf-primary bg-wolf-muted">
-                <UserRound className="h-8 w-8 text-wolf-primary-strong" />
-              </div>
-              <div>
-                <p className="text-lg font-semibold text-wolf-ink">
-                  {adminMe.firstName} {adminMe.lastName}
+          <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 18, alignItems: "start" }}>
+            {/* Identity card */}
+            <div style={{ ...sty.card, overflow: "hidden", textAlign: "center" }}>
+              {/* Stripe strip */}
+              <div
+                style={{
+                  height: 80,
+                  background: "#0A0A0A",
+                  backgroundImage:
+                    "repeating-linear-gradient(135deg, rgba(255,194,26,0.08) 0px, rgba(255,194,26,0.08) 12px, transparent 12px, transparent 28px)",
+                  position: "relative",
+                }}
+              />
+              <div style={{ padding: "0 24px 28px", marginTop: -48 }}>
+                {/* Avatar circle */}
+                <div
+                  style={{
+                    width: 96,
+                    height: 96,
+                    borderRadius: 999,
+                    background: "#FFC21A",
+                    border: "4px solid #141414",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontFamily: "'Bebas Neue', 'Arial Narrow', sans-serif",
+                    fontSize: 38,
+                    color: "#0A0A0A",
+                    margin: "0 auto",
+                    letterSpacing: "0.04em",
+                  }}
+                >
+                  {initials}
+                </div>
+
+                <div
+                  style={{
+                    fontFamily: "'Bebas Neue', 'Arial Narrow', sans-serif",
+                    fontSize: 26,
+                    letterSpacing: "0.02em",
+                    color: "#fff",
+                    marginTop: 12,
+                    lineHeight: 1,
+                  }}
+                >
+                  {adminMe.firstName.toUpperCase()} {adminMe.lastName.toUpperCase()}
+                </div>
+
+                {/* Role badge */}
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "4px 12px",
+                    background: "rgba(255,194,26,0.12)",
+                    border: "1px solid rgba(255,194,26,0.35)",
+                    borderRadius: 999,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: "#FFC21A",
+                    marginTop: 8,
+                  }}
+                >
+                  ★ {adminMe.role}
+                </div>
+
+                {/* Username */}
+                <p
+                  style={{
+                    fontSize: 13,
+                    color: "rgba(255,255,255,0.45)",
+                    marginTop: 8,
+                    fontFamily: "monospace",
+                  }}
+                >
+                  @{adminMe.username}
                 </p>
-                <p className="text-sm text-wolf-subtle">Rol: {adminMe.role}</p>
               </div>
             </div>
 
-            <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="rounded border border-wolf-border bg-wolf-muted p-3">
-                <dt className="text-xs font-semibold text-wolf-subtle">
-                  Usuario
-                </dt>
-                <dd className="mt-1 text-sm font-medium text-wolf-ink">{adminMe.username}</dd>
+            {/* Details panel */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ ...sty.card, padding: 24 }}>
+                <p style={sty.eyebrow}>Información personal</p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                  {fields.map((field) => (
+                    <div key={field.label}>
+                      <p style={sty.fieldLabel}>{field.label}</p>
+                      <div
+                        style={{
+                          padding: "11px 14px",
+                          background: "#0A0A0A",
+                          border: "1px solid rgba(255,194,26,0.12)",
+                          borderRadius: 10,
+                          fontSize: 14,
+                          fontWeight: 500,
+                          color:
+                            field.value === "No definido"
+                              ? "rgba(255,255,255,0.3)"
+                              : "#fff",
+                        }}
+                      >
+                        {field.value}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="rounded border border-wolf-border bg-wolf-muted p-3">
-                <dt className="text-xs font-semibold text-wolf-subtle">
-                  Teléfono
-                </dt>
-                <dd className="mt-1 text-sm font-medium text-wolf-ink">{adminMe.phoneNumber || "No definido"}</dd>
-              </div>
-              <div className="rounded border border-wolf-border bg-wolf-muted p-3 sm:col-span-2">
-                <dt className="text-xs font-semibold text-wolf-subtle">
-                  Emergencia
-                </dt>
-                <dd className="mt-1 text-sm font-medium text-wolf-ink">
-                  {adminMe.profile?.profile_emergency_phone || "No definido"}
-                </dd>
-              </div>
-            </dl>
 
-            <div className="mt-6 flex justify-end">
-              <Button
-                type="button"
-                className="bg-wolf-primary font-semibold text-wolf-ink hover:bg-yellow-300"
-                onClick={() => setShowProfileModal(true)}
-              >
-                Editar perfil
-              </Button>
+              {/* Role card */}
+              <div style={{ ...sty.card, padding: 24 }}>
+                <p style={sty.eyebrow}>Acceso y permisos</p>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 16,
+                    padding: "14px 16px",
+                    background: "rgba(255,194,26,0.05)",
+                    border: "1px solid rgba(255,194,26,0.2)",
+                    borderRadius: 10,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 10,
+                      background: "rgba(255,194,26,0.12)",
+                      color: "#FFC21A",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 20,
+                      flexShrink: 0,
+                    }}
+                  >
+                    ★
+                  </div>
+                  <div>
+                    <p
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        letterSpacing: "0.1em",
+                        textTransform: "uppercase",
+                        color: "rgba(255,255,255,0.45)",
+                        margin: 0,
+                      }}
+                    >
+                      Rol del sistema
+                    </p>
+                    <p
+                      style={{
+                        fontFamily: "'Bebas Neue', 'Arial Narrow', sans-serif",
+                        fontSize: 22,
+                        color: "#FFC21A",
+                        margin: "2px 0 0",
+                        letterSpacing: "0.04em",
+                        lineHeight: 1,
+                      }}
+                    >
+                      {adminMe.role.toUpperCase()}
+                    </p>
+                  </div>
+                  <p
+                    style={{
+                      marginLeft: "auto",
+                      fontSize: 12,
+                      color: "rgba(255,255,255,0.4)",
+                    }}
+                  >
+                    Acceso completo al panel de administración
+                  </p>
+                </div>
+              </div>
             </div>
-          </section>
+          </div>
         )}
-      </main>
+      </div>
 
       {showProfileModal && (
         <ProfileModal

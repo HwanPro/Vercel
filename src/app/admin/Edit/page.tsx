@@ -182,23 +182,28 @@ export default function StoriesManagement() {
   // ========== Render ============
   // =============================
   return (
-    <div className="min-h-screen bg-black text-white p-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-yellow-400 mb-6">
-          Gestión de Contenido
-        </h1>
+    <div style={{ minHeight: "100vh", background: "#0A0A0A", color: "#fff", fontFamily: "'Inter', system-ui, sans-serif" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap');`}</style>
+      <div style={{ padding: "24px 32px 20px", borderBottom: "1px solid rgba(255,194,26,0.12)", display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 24 }}>
+        <div>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(255,194,26,0.6)", margin: "0 0 4px" }}>Contenido</p>
+          <h1 style={{ fontFamily: "'Bebas Neue', 'Arial Narrow', sans-serif", fontSize: 36, letterSpacing: "0.02em", color: "#fff", margin: 0, lineHeight: 1 }}>
+            GESTIÓN DE CONTENIDO
+          </h1>
+        </div>
         <Link
           href="/admin/dashboard"
-          className="bg-yellow-400 text-black px-4 py-2 rounded hover:bg-yellow-500"
+          style={{ display: "inline-flex", alignItems: "center", height: 38, padding: "0 16px", background: "#FFC21A", color: "#0A0A0A", borderRadius: 10, fontSize: 13, fontWeight: 700, textDecoration: "none" }}
         >
-          Volver al Dashboard
+          ← Dashboard
         </Link>
       </div>
+      <div style={{ padding: "0 32px 32px" }}>
 
-      <Card className="bg-white">
+      <Card className="bg-zinc-900 border-yellow-500/20">
         <CardHeader>
-          <div className="flex justify-between items-center text-white">
-            <CardTitle className="text-yellow-500">Historias</CardTitle>
+          <div className="flex justify-between items-center">
+            <CardTitle className="text-yellow-400">Historias</CardTitle>
 
             {/* Botón para crear historia */}
             <Dialog>
@@ -367,6 +372,7 @@ export default function StoriesManagement() {
           </DragDropContext>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

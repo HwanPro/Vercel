@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Dumbbell, Filter, Plus, Search } from "lucide-react";
-import { Input } from "@/ui/input";
 import { Button } from "@/ui/button";
 
 interface ExerciseItem {
@@ -13,6 +12,28 @@ interface ExerciseItem {
   equipment: string;
   level: string;
   isPublished: boolean;
+}
+
+const W = {
+  black: "#0A0A0A",
+  ink: "#141414",
+  graph: "#1C1C1C",
+  yellow: "#FFC21A",
+  orange: "#FF7A1A",
+  danger: "#E5484D",
+  success: "#2EBD75",
+  line: "rgba(255,194,26,0.15)",
+  lineStrong: "rgba(255,194,26,0.35)",
+  muted: "rgba(255,255,255,0.60)",
+  faint: "rgba(255,255,255,0.40)",
+  font: "'Inter', system-ui, sans-serif",
+  display: "'Bebas Neue', 'Arial Narrow', sans-serif",
+};
+
+function levelColor(level: string) {
+  if (level === "beginner") return W.success;
+  if (level === "intermediate") return W.yellow;
+  return W.orange;
 }
 
 export default function AdminRoutinesPage() {
@@ -48,75 +69,157 @@ export default function AdminRoutinesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const inputStyle: React.CSSProperties = {
+    height: 40,
+    padding: "0 12px",
+    background: W.graph,
+    border: `1px solid ${W.line}`,
+    borderRadius: 10,
+    color: "#fff",
+    fontSize: 13,
+    outline: "none",
+    fontFamily: W.font,
+    width: "100%",
+  };
+
   return (
-    <div className="min-h-screen bg-black text-white p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-yellow-400 flex items-center gap-2">
-          <Dumbbell className="h-5 w-5" /> Biblioteca de ejercicios
-        </h1>
-        <div className="flex items-center gap-3">
-          <Button type="button" className="bg-yellow-400 text-black hover:bg-yellow-500">
-            <Plus className="h-4 w-4 mr-2" /> Nuevo ejercicio (próximo)
-          </Button>
-          <Link
-            href="/admin/dashboard"
-            className="rounded border border-yellow-400 px-4 py-2 text-center text-yellow-400 hover:bg-yellow-400 hover:text-black"
-          >
-            Volver al Dashboard
-          </Link>
-        </div>
-      </div>
+    <div style={{ minHeight: "100vh", background: W.black, color: "#fff", fontFamily: W.font, padding: 24 }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap');`}</style>
 
-      {/* Filtros */}
-      <div className="bg-white text-black rounded-md p-4 mb-4">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
-          <div className="md:col-span-2">
-            <label className="text-xs text-gray-600">Búsqueda</label>
-            <div className="flex gap-2">
-              <Input placeholder="Nombre / descripción" value={query} onChange={(e) => setQuery(e.target.value)} />
-              <Button variant="outline" onClick={load}>
-                <Search className="h-4 w-4" />
-              </Button>
+      {/* Header */}
+      <div style={{ maxWidth: 1280, margin: "0 auto" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", justifyContent: "space-between", marginBottom: 24, paddingBottom: 20, borderBottom: `1px solid ${W.line}` }}>
+          <h1 style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: W.display, fontSize: 28, color: W.yellow, margin: 0, letterSpacing: "0.04em" }}>
+            <Dumbbell style={{ width: 24, height: 24 }} />
+            Biblioteca de Ejercicios
+          </h1>
+          <div style={{ display: "flex", gap: 10 }}>
+            <Button
+              type="button"
+              style={{ height: 40, background: W.yellow, border: `1px solid ${W.yellow}`, borderRadius: 10, color: W.black, fontSize: 13, fontWeight: 700, cursor: "pointer", padding: "0 16px", display: "inline-flex", alignItems: "center", gap: 6 }}
+            >
+              <Plus style={{ width: 15, height: 15 }} /> Nuevo ejercicio (próximo)
+            </Button>
+            <Link
+              href="/admin/dashboard"
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "0 16px", height: 40, background: "transparent", border: `1px solid ${W.lineStrong}`, borderRadius: 10, color: W.muted, fontSize: 13, fontWeight: 600, textDecoration: "none" }}
+            >
+              ← Dashboard
+            </Link>
+          </div>
+        </div>
+
+        {/* Filter bar */}
+        <div style={{ background: W.ink, border: `1px solid ${W.line}`, borderRadius: 14, padding: 20, marginBottom: 20 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
+            <div>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: W.faint, marginBottom: 6 }}>Búsqueda</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  placeholder="Nombre / descripción"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  style={inputStyle}
+                />
+                <button
+                  onClick={load}
+                  style={{ width: 40, height: 40, background: "transparent", border: `1px solid ${W.lineStrong}`, borderRadius: 10, color: W.muted, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+                >
+                  <Search style={{ width: 15, height: 15 }} />
+                </button>
+              </div>
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: W.faint, marginBottom: 6 }}>Músculo</label>
+              <input placeholder="Pecho / Dorsales / ..." value={muscle} onChange={(e) => setMuscle(e.target.value)} style={inputStyle} />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: W.faint, marginBottom: 6 }}>Equipo</label>
+              <input placeholder="Barra / Mancuernas / ..." value={equipment} onChange={(e) => setEquipment(e.target.value)} style={inputStyle} />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: W.faint, marginBottom: 6 }}>Nivel</label>
+              <input placeholder="beginner / intermediate / advanced" value={level} onChange={(e) => setLevel(e.target.value)} style={inputStyle} />
             </div>
           </div>
-          <div>
-            <label className="text-xs text-gray-600">Músculo</label>
-            <Input placeholder="Pecho / Dorsales / ..." value={muscle} onChange={(e) => setMuscle(e.target.value)} />
-          </div>
-          <div>
-            <label className="text-xs text-gray-600">Equipo</label>
-            <Input placeholder="Barra / Mancuernas / ..." value={equipment} onChange={(e) => setEquipment(e.target.value)} />
-          </div>
-          <div>
-            <label className="text-xs text-gray-600">Nivel</label>
-            <Input placeholder="beginner / intermediate / advanced" value={level} onChange={(e) => setLevel(e.target.value)} />
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={load}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 38, padding: "0 14px", background: "transparent", border: `1px solid ${W.lineStrong}`, borderRadius: 10, color: W.muted, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: W.font }}
+            >
+              <Filter style={{ width: 14, height: 14 }} /> Aplicar
+            </button>
+            <button
+              onClick={() => { setQuery(""); setMuscle(""); setEquipment(""); setLevel(""); load(); }}
+              style={{ display: "inline-flex", alignItems: "center", height: 38, padding: "0 14px", background: "transparent", border: "none", color: W.faint, fontSize: 13, cursor: "pointer", fontFamily: W.font }}
+            >
+              Limpiar
+            </button>
           </div>
         </div>
-        <div className="mt-3 flex gap-2">
-          <Button variant="outline" onClick={load}>
-            <Filter className="h-4 w-4 mr-1" /> Aplicar
-          </Button>
-          <Button variant="ghost" onClick={() => { setQuery(""); setMuscle(""); setEquipment(""); setLevel(""); load(); }}>
-            Limpiar
-          </Button>
-        </div>
-      </div>
 
-      {/* Grid resultados */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {loading ? (
-          <div className="col-span-full text-center text-yellow-400">Cargando...</div>
-        ) : items.length === 0 ? (
-          <div className="col-span-full text-center text-gray-400">Sin resultados</div>
-        ) : (
-          items.map((ex) => (
-            <div key={ex.id} className="bg-white text-black rounded-md p-4 space-y-1">
-              <div className="font-semibold">{ex.name}</div>
-              <div className="text-xs text-gray-600">{ex.primaryMuscle} • {ex.equipment} • {ex.level}</div>
-              <div className="text-xs mt-1">{ex.isPublished ? "Publicado" : "Borrador"}</div>
+        {/* Exercise grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
+          {loading ? (
+            <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: 40, color: W.yellow, fontFamily: W.display, fontSize: 24, letterSpacing: "0.06em" }}>
+              Cargando...
             </div>
-          ))
-        )}
+          ) : items.length === 0 ? (
+            <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: 40, color: W.faint, fontSize: 14 }}>
+              Sin resultados
+            </div>
+          ) : (
+            items.map((ex) => (
+              <div
+                key={ex.id}
+                style={{ background: W.ink, border: `1px solid ${W.line}`, borderRadius: 14, padding: 18, transition: "border-color 0.15s" }}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = W.lineStrong)}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = W.line)}
+              >
+                {/* Level indicator dots */}
+                <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
+                  {["beginner", "intermediate", "advanced"].map((l) => (
+                    <span
+                      key={l}
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        background: ex.level === l || (l === "intermediate" && ex.level !== "beginner") || (l === "advanced" && ex.level === "advanced")
+                          ? levelColor(ex.level)
+                          : "rgba(255,255,255,0.1)",
+                        transition: "background 0.15s",
+                      }}
+                    />
+                  ))}
+                  <span style={{ marginLeft: 6, fontSize: 11, color: levelColor(ex.level), fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                    {ex.level}
+                  </span>
+                </div>
+                <h3 style={{ fontFamily: W.display, fontSize: 18, color: "#fff", margin: "0 0 6px", letterSpacing: "0.04em" }}>
+                  {ex.name}
+                </h3>
+                <p style={{ fontSize: 12, color: W.faint, margin: "0 0 10px" }}>
+                  {ex.primaryMuscle} · {ex.equipment}
+                </p>
+                <span style={{
+                  display: "inline-flex",
+                  padding: "3px 8px",
+                  borderRadius: 999,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  background: ex.isPublished ? "rgba(46,189,117,0.12)" : "rgba(255,255,255,0.05)",
+                  color: ex.isPublished ? W.success : W.faint,
+                  border: ex.isPublished ? "1px solid rgba(46,189,117,0.35)" : "1px solid rgba(255,255,255,0.1)",
+                }}>
+                  {ex.isPublished ? "Publicado" : "Borrador"}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );
