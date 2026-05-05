@@ -948,7 +948,7 @@ export default function ClientsPage() {
               return (
                 <article
                   key={client.id}
-                  className="rounded-lg border border-zinc-700 bg-black p-3 shadow-[0_1px_0_rgba(250,204,21,0.16)]"
+                  className="rounded-lg border border-yellow-400/80 bg-black p-3 shadow-[0_0_0_1px_rgba(250,204,21,0.18)]"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -1045,7 +1045,7 @@ export default function ClientsPage() {
 
         <div className="hidden overflow-x-auto min-[1360px]:block">
           <div>
-            <Table className="w-full min-w-[1160px] table-fixed border-collapse text-sm">
+            <Table className="w-full min-w-[1160px] table-fixed border-separate border-spacing-y-2 text-sm [&_tbody_tr>td]:border-y [&_tbody_tr>td]:border-yellow-400/80 [&_tbody_tr>td]:bg-black [&_tbody_tr>td:first-child]:rounded-l-lg [&_tbody_tr>td:first-child]:border-l [&_tbody_tr>td:last-child]:rounded-r-lg [&_tbody_tr>td:last-child]:border-r [&_tbody_tr:hover>td]:bg-zinc-950">
               <colgroup>
                 <col className="w-[10%]" />
                 <col className="w-[12%]" />
@@ -1156,7 +1156,7 @@ export default function ClientsPage() {
                     return (
                       <TableRow
                         key={client.id}
-                        className="border-b border-zinc-800 odd:bg-black even:bg-zinc-950/80 hover:bg-zinc-900/70"
+                        className="border-0"
                       >
                         <TableCell className="font-semibold text-white">
                           <div className="flex min-w-0 items-center gap-2">
@@ -1211,7 +1211,7 @@ export default function ClientsPage() {
                             {has ? "Registrada" : "Sin huella"}
                           </span>
                         </TableCell>
-                        <TableCell className="border-l border-zinc-800 bg-black/30">
+                        <TableCell className="bg-black/30">
                           <div className="grid grid-cols-2 gap-1.5">
                             <Button
                             className={`${busy[uid] ? "opacity-50 cursor-not-allowed" : "hover:bg-yellow-300"} h-9 min-w-0 whitespace-normal bg-yellow-400 px-2 text-xs leading-tight text-black`}
