@@ -12,7 +12,7 @@ internal static class Program
     private const string ReleaseApiUrl = "https://api.github.com/repos/HwanPro/Wolf-Gym/releases/latest";
 
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(2) };
-    private static readonly HttpClient UpdateHttp = new() { Timeout = TimeSpan.FromSeconds(30) };
+    private static readonly HttpClient UpdateHttp = new() { Timeout = TimeSpan.FromMinutes(3) };
     private static readonly List<Process> StartedProcesses = [];
     private static string _logDir = "";
 
@@ -136,7 +136,7 @@ internal static class Program
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine();
             Console.WriteLine($"Actualizacion disponible: {currentVersion} -> {release.TagName}");
-            Console.WriteLine("Descargando e instalando automaticamente. No cierre esta ventana.");
+            Console.WriteLine("Descargando paquete desde GitHub Releases. Si falla, se usara la version instalada.");
             Console.ResetColor();
 
             var zipPath = Path.Combine(Path.GetTempPath(), $"WolfGym-{release.TagName}.zip");
@@ -158,7 +158,7 @@ internal static class Program
             var updaterProcess = Process.Start(psi);
             if (updaterProcess is null)
             {
-                AppendLog(updaterLog, "No se pudo iniciar el actualizador.");
+                AppendLog(updaterLog, "No se pudo iniciar el actualizador. Se continua con la version instalada.");
                 return false;
             }
 
@@ -166,7 +166,7 @@ internal static class Program
             updaterProcess.Refresh();
             if (updaterProcess.HasExited && updaterProcess.ExitCode != 0)
             {
-                AppendLog(updaterLog, $"Actualizador finalizo demasiado pronto. ExitCode={updaterProcess.ExitCode}");
+                AppendLog(updaterLog, $"Actualizador finalizo demasiado pronto. ExitCode={updaterProcess.ExitCode}. Se continua con la version instalada.");
                 return false;
             }
 
@@ -176,7 +176,7 @@ internal static class Program
         }
         catch (Exception ex)
         {
-            AppendLog(Path.Combine(_logDir, "updater.log"), $"Update check skipped: {ex.Message}");
+            AppendLog(Path.Combine(_logDir, "updater.log"), $"Update skipped; continuing with installed version: {ex.Message}");
             return false;
         }
     }
@@ -237,6 +237,7 @@ $launcher = Join-Path $Root "WolfGymLauncher.exe"
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $stage = Join-Path $env:TEMP ("WolfGym-stage-" + [guid]::NewGuid().ToString("N"))
 $backup = Join-Path $Root ("_backup_" + $timestamp)
+$backupReady = $false
 $preserve = @(
     "logs",
     "biometric\appsettings.json",
@@ -250,6 +251,28 @@ function Write-Log([string]$message) {
         $line = "[{0}] {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $message
         Add-Content -Path $Log -Value $line -Encoding UTF8
     } catch { }
+}
+
+function Remove-CurrentPayload {
+    Get-ChildItem -LiteralPath $Root -Force -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -notlike "_backup_*" } |
+        ForEach-Object {
+            Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction Stop
+        }
+}
+
+function Restore-Backup {
+    if (-not $backupReady -or -not (Test-Path $backup)) {
+        Write-Log "No hay backup listo; se conserva la instalacion actual."
+        return
+    }
+
+    Write-Log "Restaurando version anterior desde backup: $backup"
+    Remove-CurrentPayload
+    Get-ChildItem -LiteralPath $backup -Force |
+        ForEach-Object {
+            Move-Item -LiteralPath $_.FullName -Destination (Join-Path $Root $_.Name) -Force -ErrorAction Stop
+        }
 }
 
 Write-Host "Actualizando WolfGym..." -ForegroundColor Yellow
@@ -297,6 +320,7 @@ try {
         ForEach-Object {
             Move-Item -LiteralPath $_.FullName -Destination (Join-Path $backup $_.Name) -Force
         }
+    $backupReady = $true
     Write-Log "Contenido actual movido a backup: $backup"
 
     Copy-Item -Path (Join-Path $payload "*") -Destination $Root -Recurse -Force
@@ -318,12 +342,9 @@ try {
 } catch {
     Write-Host ("Error actualizando: " + $_.Exception.Message) -ForegroundColor Red
     Write-Log ("ERROR: " + $_.Exception.Message)
-    if (Test-Path $backup) {
-        Copy-Item -Path (Join-Path $backup "*") -Destination $Root -Recurse -Force
-        Write-Log "Rollback aplicado desde backup."
-    }
+    Restore-Backup
     if (Test-Path $launcher) {
-        Write-Log "Reiniciando launcher tras fallo."
+        Write-Log "Continuando con la version anterior tras fallo de actualizacion."
         Start-Process -FilePath $launcher -ArgumentList "--skip-update" -WorkingDirectory $Root
     }
 } finally {

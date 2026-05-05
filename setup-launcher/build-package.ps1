@@ -324,6 +324,8 @@ $readme = @(
     "  2. Doble clic en WolfGymLauncher.exe",
     "  3. El navegador se abre automaticamente en http://localhost:3000",
     "  4. Si hay una version nueva publicada en GitHub Releases, el launcher la descarga e instala automaticamente.",
+    "     No requiere Git instalado ni acceso al repositorio por consola.",
+    "     Si no puede descargar o instalar la actualizacion, continua con la version anterior.",
     "",
     "RESPALDO:",
     "  Si el launcher no abre, use WolfGym.bat y revise la carpeta logs.",

@@ -1,12 +1,15 @@
 // src/app/api/check-in/history/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/infrastructure/prisma/prisma";
+import { autoCloseExpiredAttendances } from "@/lib/attendanceAutoClose";
 
 export const dynamic = "force-dynamic";
 
 // Obtener historial de actividad reciente
 export async function GET(request: NextRequest) {
   try {
+    await autoCloseExpiredAttendances();
+
     const { searchParams } = new URL(request.url);
     const room = searchParams.get("room") || "default";
     const limit = parseInt(searchParams.get("limit") || "50");

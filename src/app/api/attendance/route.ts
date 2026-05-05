@@ -1,6 +1,7 @@
 // src/app/api/attendance/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/infrastructure/prisma/prisma";
+import { autoCloseExpiredAttendances } from "@/lib/attendanceAutoClose";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,8 @@ const MAX_ENTRIES_PER_DAY = 2;    // (p.ej. GYM + FULL BODY)
  * ========================= */
 export async function GET() {
   try {
+    await autoCloseExpiredAttendances();
+
     const records = await prisma.attendance.findMany({
       orderBy: { checkInTime: "desc" },
       include: {
@@ -114,6 +117,8 @@ export async function GET() {
  * ========================= */
 export async function POST(req: NextRequest) {
   try {
+    await autoCloseExpiredAttendances();
+
     const body = await req.json().catch(() => ({} as any));
     const rawIdentifier = String(body?.identifier || body?.dni || body?.phone || "");
     const digits = rawIdentifier.replace(/\D/g, "");

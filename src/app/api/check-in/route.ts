@@ -1,6 +1,7 @@
 // src/app/api/check-in/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/infrastructure/prisma/prisma";
+import { autoCloseExpiredAttendances } from "@/lib/attendanceAutoClose";
 import { broadcastToRoom } from "@/lib/stream-manager";
 export const dynamic = "force-dynamic";
 
@@ -91,6 +92,8 @@ const MAX_ENTRIES_PER_DAY = 2;   // cantidad máxima de entradas por día
 type AttendanceIntent = "checkin" | "checkout";
 
 async function closeIfOpenOrCreate(userId: string, intent: AttendanceIntent) {
+  await autoCloseExpiredAttendances();
+
   const { start, end } = todayRangeLima();
 
   const profile = await prisma.clientProfile.findUnique({
