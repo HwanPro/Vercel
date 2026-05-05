@@ -1,6 +1,7 @@
 // src/app/api/plans/[id]/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/infrastructure/prisma/prisma";
+import { toMembershipPlanView } from "@/lib/membershipPlans";
 
 
 export async function PUT(
@@ -17,7 +18,7 @@ export async function PUT(
       data: { name, price, description },
     });
 
-    return NextResponse.json(updatedPlan, { status: 200 });
+    return NextResponse.json(toMembershipPlanView(updatedPlan), { status: 200 });
   } catch (error) {
     console.error("Error en PUT /api/plans/[id]:", error);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });

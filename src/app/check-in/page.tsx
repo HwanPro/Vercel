@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import "sweetalert2/dist/sweetalert2.min.css";
 import { useSession } from "next-auth/react";
 import {
   ArrowLeft,
+  BadgeDollarSign,
   Clock3,
   Clipboard,
   DoorOpen,
@@ -14,10 +15,8 @@ import {
   Fingerprint,
   Loader2,
   Phone,
-  Power,
   Radio,
   ShieldAlert,
-  Square,
   Tv,
   UserCheck,
 } from "lucide-react";
@@ -41,6 +40,15 @@ function formatDate(value?: string | null) {
     month: "short",
     year: "numeric",
   });
+}
+
+function calcDisplayDaysLeft(value?: string | null) {
+  if (!value) return null;
+  const end = new Date(value);
+  if (Number.isNaN(end.getTime())) return null;
+  const today = new Date();
+  const floorToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  return Math.max(0, Math.ceil((end.getTime() - floorToday.getTime()) / 86_400_000));
 }
 
 function isCheckInError(
@@ -95,6 +103,19 @@ type ActiveGymMember = {
   fullName: string;
   checkInTime: Date;
   minutesOpen: number;
+  plan?: string | null;
+  daysLeft?: number | null;
+  monthlyDebt: number;
+  dailyDebt: number;
+  totalDebt: number;
+  profileId?: string | null;
+};
+
+type DebtTarget = Pick<
+  RegisterResult,
+  "profileId" | "fullName" | "plan" | "daysLeft" | "monthlyDebt" | "dailyDebt" | "totalDebt"
+> & {
+  userId?: string;
 };
 
 export default function CheckInPage() {
@@ -109,7 +130,7 @@ export default function CheckInPage() {
   // ----- estados para admin -----
   const [activityLog, setActivityLog] = useState<ActivityLog[]>([]);
   const [showDebtDialog, setShowDebtDialog] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<RegisterResult | null>(
+  const [selectedClient, setSelectedClient] = useState<DebtTarget | null>(
     null,
   );
   const [activeGymMembers, setActiveGymMembers] = useState<ActiveGymMember[]>([]);
@@ -153,6 +174,14 @@ export default function CheckInPage() {
         checkInTime: string;
         checkOutTime?: string | null;
         user?: { firstName?: string; lastName?: string; username?: string };
+        profile?: {
+          profileId?: string | null;
+          plan?: string | null;
+          endDate?: string | null;
+          monthlyDebt?: number;
+          dailyDebt?: number;
+          totalDebt?: number;
+        } | null;
       };
       const rows = (await response.json().catch(() => [])) as AttendanceResponse[];
       const todayStart = new Date();
@@ -171,6 +200,12 @@ export default function CheckInPage() {
             fullName,
             checkInTime,
             minutesOpen: Math.max(0, Math.round((Date.now() - checkInTime.getTime()) / 60000)),
+            plan: row.profile?.plan ?? null,
+            daysLeft: row.profile?.endDate ? Number(calcDisplayDaysLeft(row.profile.endDate)) : null,
+            monthlyDebt: Number(row.profile?.monthlyDebt || 0),
+            dailyDebt: Number(row.profile?.dailyDebt || 0),
+            totalDebt: Number(row.profile?.totalDebt || 0),
+            profileId: row.profile?.profileId ?? null,
           };
         })
         .sort((a, b) => b.checkInTime.getTime() - a.checkInTime.getTime());
@@ -293,11 +328,17 @@ export default function CheckInPage() {
   };
 
   // ── Dialog de escaneo ──
-  const showScanDialog = (tipo: "entrada" | "salida" = "entrada") => {
-    const color = tipo === "entrada" ? "#facc15" : "#dc3545";
+  const showScanDialog = (tipo: "entrada" | "salida" | "deuda" = "entrada") => {
+    const color = tipo === "salida" ? "#dc3545" : "#facc15";
+    const title =
+      tipo === "entrada"
+        ? "Marcando entrada"
+        : tipo === "salida"
+          ? "Marcando salida"
+          : "Buscando cliente para deuda";
     Swal.fire({
       ...swalBase,
-      title: tipo === "entrada" ? "Marcando entrada" : "Marcando salida",
+      title,
       html: `
         <div style="text-align:center;padding:10px">
           <div style="position:relative;display:inline-block;margin:10px 0 24px">
@@ -319,7 +360,7 @@ export default function CheckInPage() {
         </style>`,
       allowOutsideClick: true,
       showConfirmButton: true,
-      confirmButtonText: "Detener",
+      confirmButtonText: "Cancelar",
       showCancelButton: false,
       didOpen: () => {
         document
@@ -475,6 +516,75 @@ export default function CheckInPage() {
     if (isAdmin && result.isConfirmed && data.profileId) {
       setSelectedClient(data);
       setShowDebtDialog(true);
+    }
+  };
+
+  const lookupClientForDebt = async (payload: {
+    userId?: string;
+    identifier?: string;
+  }): Promise<DebtTarget> => {
+    const response = await fetch("/api/check-in/client-lookup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      cache: "no-store",
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data?.ok || !data?.profileId) {
+      throw new Error(data?.message || "No se encontró un perfil para agregar deuda");
+    }
+    return {
+      userId: data.userId,
+      profileId: data.profileId,
+      fullName: data.fullName,
+      plan: data.plan,
+      daysLeft: data.daysLeft,
+      monthlyDebt: Number(data.monthlyDebt || 0),
+      dailyDebt: Number(data.dailyDebt || 0),
+      totalDebt: Number(data.totalDebt || 0),
+    };
+  };
+
+  const startDebtScan = async () => {
+    if (scanningRef.current) return;
+    scanningRef.current = true;
+    setLoading(true);
+
+    showScanDialog("deuda");
+
+    try {
+      const template = await captureFingerprint();
+      Swal.close();
+
+      let target: DebtTarget | null = null;
+
+      if (template && scanningRef.current) {
+        const identified = await identifyByTemplate(template);
+        if (identified.match && identified.userId) {
+          target = await lookupClientForDebt({ userId: identified.userId });
+        }
+      }
+
+      if (!target) {
+        const identifier = await askIdentifier(
+          "No te reconocimos. Busca por DNI o teléfono",
+        );
+        if (!identifier) return;
+        target = await lookupClientForDebt({ identifier });
+      }
+
+      setSelectedClient(target);
+      setShowDebtDialog(true);
+    } catch (error) {
+      await Swal.fire({
+        ...swalBase,
+        icon: "error",
+        title: "No se pudo agregar deuda",
+        text: error instanceof Error ? error.message : "Inténtalo nuevamente.",
+      });
+    } finally {
+      setLoading(false);
+      scanningRef.current = false;
     }
   };
 
@@ -644,6 +754,7 @@ export default function CheckInPage() {
         });
         setShowDebtDialog(false);
         setSelectedClient(null);
+        await refreshActiveGymMembers();
       } else {
         throw new Error("Error al agregar deuda");
       }
@@ -652,12 +763,48 @@ export default function CheckInPage() {
         ...swalBase,
         icon: "error",
         title: "Error",
-        text: "No se pudo agregar la deuda",
+        text: error instanceof Error ? error.message : "No se pudo agregar la deuda",
       });
     }
   };
 
   const isAdmin = session?.user?.role === "admin";
+  const gymActivity = useMemo(() => {
+    const activeProfileIds = new Set(
+      activeGymMembers.map((member) => member.profileId).filter(Boolean),
+    );
+    const activeItems = activeGymMembers.map((member) => ({
+      id: `active-${member.id}`,
+      fullName: member.fullName,
+      status: "Dentro" as const,
+      timestamp: member.checkInTime,
+      minutesOpen: member.minutesOpen,
+      plan: member.plan,
+      daysLeft: member.daysLeft,
+      monthlyDebt: member.monthlyDebt,
+      dailyDebt: member.dailyDebt,
+      totalDebt: member.totalDebt,
+      profileId: member.profileId,
+    }));
+    const recentItems = activityLog
+      .filter((log) => !log.profileId || !activeProfileIds.has(log.profileId))
+      .slice(0, 12)
+      .map((log) => ({
+        id: `recent-${log.id}`,
+        fullName: log.fullName,
+        status: log.action === "checkin" ? ("Entrada" as const) : ("Salida" as const),
+        timestamp: log.timestamp,
+        minutesOpen: null,
+        plan: null,
+        daysLeft: log.daysLeft ?? null,
+        monthlyDebt: log.monthlyDebt,
+        dailyDebt: log.dailyDebt,
+        totalDebt: log.monthlyDebt + log.dailyDebt,
+        profileId: log.profileId,
+      }));
+
+    return [...activeItems, ...recentItems];
+  }, [activeGymMembers, activityLog]);
 
   // ==================== UI ====================
   return (
@@ -698,7 +845,7 @@ export default function CheckInPage() {
       </header>
 
       <main
-        className={`mx-auto grid max-w-7xl gap-6 p-4 md:p-8 ${isAdmin ? "lg:grid-cols-[minmax(0,1fr)_340px_340px]" : "min-h-[calc(100vh-96px)] place-items-center"}`}
+        className={`mx-auto grid max-w-7xl gap-6 p-4 md:p-8 ${isAdmin ? "min-[1180px]:grid-cols-[minmax(0,1fr)_430px]" : "min-h-[calc(100vh-96px)] place-items-center"}`}
       >
         <section
           className={`${isAdmin ? "" : "w-full max-w-3xl"} flex flex-col justify-center gap-6`}
@@ -738,15 +885,12 @@ export default function CheckInPage() {
                 </button>
 
                 <button
-                  onClick={() => {
-                    scanningRef.current = false;
-                    setLoading(false);
-                    Swal.close();
-                  }}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900 px-6 py-4 font-semibold text-zinc-100 transition hover:border-zinc-500"
+                  onClick={startDebtScan}
+                  disabled={loading || !isAdmin}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-500/60 bg-blue-600 px-6 py-4 font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <Square className="h-4 w-4" />
-                  Detener
+                  <BadgeDollarSign className="h-4 w-4" />
+                  Agregar deuda
                 </button>
 
                 <button
@@ -841,11 +985,11 @@ export default function CheckInPage() {
                 Marcar salida
               </button>
               <button
-                onClick={() => sendCommand("stop")}
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-yellow-500 px-6 py-3 font-semibold text-yellow-400 hover:bg-yellow-600/20"
+                onClick={startDebtScan}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-500 bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-500"
               >
-                <Power className="h-4 w-4" />
-                Detener
+                <BadgeDollarSign className="h-4 w-4" />
+                Agregar deuda
               </button>
 
               <p className="text-gray-400 text-xs mt-1">
@@ -862,103 +1006,91 @@ export default function CheckInPage() {
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-bold text-yellow-400">
-                  Marcaciones recientes
+                  Actividad del gym
                 </h2>
                 <p className="text-sm text-zinc-500">
-                  Últimos registros de la sesión local
+                  {activeGymMembers.length} dentro ahora · {activityLog.length} marcaciones recientes
                 </p>
               </div>
-              <ShieldAlert className="h-5 w-5 text-yellow-400" />
+              <div className="flex items-center gap-2 text-yellow-400">
+                <ShieldAlert className="h-5 w-5" />
+                <UserCheck className="h-5 w-5" />
+              </div>
             </div>
             <div className="max-h-[calc(100vh-220px)] overflow-y-auto pr-1">
-              {activityLog.length === 0 ? (
+              {gymActivity.length === 0 ? (
                 <p className="rounded-md border border-dashed border-zinc-800 p-6 text-center text-sm text-zinc-500">
-                  No hay actividad reciente
+                  No hay actividad ni clientes dentro ahora
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {activityLog.map((log) => (
-                    <div
-                      key={log.id}
-                      className="rounded-lg border border-zinc-800 bg-black p-3"
-                    >
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={
-                            log.avatarUrl ||
-                            `https://ui-avatars.com/api/?background=0D8ABC&color=fff&name=${encodeURIComponent(log.fullName)}`
-                          }
-                          alt="Avatar"
-                          className="h-10 w-10 rounded-full object-cover"
-                        />
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <span className="font-semibold text-white">
-                              {log.fullName}
-                            </span>
-                            <span className="text-xs text-gray-400">
-                              {log.timestamp.toLocaleTimeString()}
-                            </span>
-                          </div>
-                          <div className="text-sm text-gray-300">
+                  {gymActivity.map((item) => (
+                    <div key={item.id} className="rounded-lg border border-zinc-800 bg-black p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="font-semibold text-white">{item.fullName}</div>
+                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-400">
                             <span
-                              className={`inline-block rounded px-2 py-1 text-xs font-semibold ${
-                                log.action === "checkin"
+                              className={`rounded px-2 py-1 font-bold ${
+                                item.status === "Dentro"
                                   ? "bg-yellow-400 text-black"
-                                  : "bg-red-600 text-white"
+                                  : item.status === "Salida"
+                                    ? "bg-red-600 text-white"
+                                    : "bg-zinc-800 text-yellow-300"
                               }`}
                             >
-                              {log.action === "checkin" ? "Entrada" : "Salida"}
+                              {item.status}
                             </span>
-                            {log.daysLeft !== undefined && (
-                              <span className="ml-2 text-gray-300">
-                                {log.daysLeft} días restantes
-                              </span>
-                            )}
+                            <span className="inline-flex items-center gap-1">
+                              <Clock3 className="h-3.5 w-3.5 text-yellow-400" />
+                              {item.status === "Dentro" ? "Entró" : "Marcó"}{" "}
+                              {item.timestamp.toLocaleTimeString()}
+                            </span>
                           </div>
-                          <div className="text-xs text-gray-400 mt-1">
-                            Deuda mensual: S/. {log.monthlyDebt.toFixed(2)} |
-                            Deuda diaria: S/. {log.dailyDebt.toFixed(2)}
-                          </div>
+                        </div>
+                        {item.minutesOpen !== null && (
+                          <span className="rounded-md bg-yellow-400 px-2 py-1 text-xs font-bold text-black">
+                            {item.minutesOpen} min
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-2 gap-2 border-t border-zinc-800 pt-3 text-xs">
+                        <div>
+                          <p className="text-zinc-500">Plan</p>
+                          <p className="mt-1 font-semibold text-zinc-100">{item.plan || "Sin plan"}</p>
+                        </div>
+                        <div>
+                          <p className="text-zinc-500">Días</p>
+                          <p className="mt-1 font-semibold text-zinc-100">
+                            {item.daysLeft === null || item.daysLeft === undefined
+                              ? "Sin fecha"
+                              : `${item.daysLeft} restantes`}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-zinc-500">Deuda mensual</p>
+                          <p className={item.monthlyDebt > 0 ? "mt-1 font-bold text-red-300" : "mt-1 font-semibold text-green-300"}>
+                            S/. {item.monthlyDebt.toFixed(2)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-zinc-500">Deuda diaria</p>
+                          <p className={item.dailyDebt > 0 ? "mt-1 font-bold text-red-300" : "mt-1 font-semibold text-green-300"}>
+                            S/. {item.dailyDebt.toFixed(2)}
+                          </p>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </aside>
-        )}
-
-        {isAdmin && (
-          <aside className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-bold text-yellow-400">En el gym</h2>
-                <p className="text-sm text-zinc-500">{activeGymMembers.length} con entrada abierta</p>
-              </div>
-              <UserCheck className="h-5 w-5 text-yellow-400" />
-            </div>
-            <div className="max-h-[calc(100vh-220px)] overflow-y-auto pr-1">
-              {activeGymMembers.length === 0 ? (
-                <p className="rounded-md border border-dashed border-zinc-800 p-6 text-center text-sm text-zinc-500">
-                  No hay clientes dentro ahora
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {activeGymMembers.map((member) => (
-                    <div key={member.id} className="rounded-lg border border-zinc-800 bg-black p-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="font-semibold text-white">{member.fullName}</div>
-                          <div className="mt-1 inline-flex items-center gap-2 text-xs text-zinc-400">
-                            <Clock3 className="h-3.5 w-3.5 text-yellow-400" />
-                            Entró {member.checkInTime.toLocaleTimeString()}
-                          </div>
-                        </div>
-                        <span className="rounded-md bg-yellow-400 px-2 py-1 text-xs font-bold text-black">
-                          {member.minutesOpen} min
-                        </span>
+                      <div
+                        className={`mt-3 rounded-md px-3 py-2 text-sm font-black ${
+                          item.totalDebt > 0
+                            ? "bg-red-500/15 text-red-200"
+                            : "bg-green-500/10 text-green-300"
+                        }`}
+                      >
+                        {item.totalDebt > 0
+                          ? `Debe S/. ${item.totalDebt.toFixed(2)}`
+                          : "Sin deuda"}
                       </div>
                     </div>
                   ))}

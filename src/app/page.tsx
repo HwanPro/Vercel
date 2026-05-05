@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FaFacebook, FaInstagram, FaTwitter } from "react-icons/fa";
 import Image from "next/image";
@@ -18,17 +18,15 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/ui/dialog";
+import {
+  DEFAULT_MEMBERSHIP_PLANS,
+  type MembershipPlanView,
+} from "@/lib/membershipPlans";
 
 // ------------------------
 // COMPONENTE AUXILIAR: EditPlanForm
 // ------------------------
-type Plan = {
-  id: string;
-  name: string;
-  price: number;
-  description: string;
-  amountCents: number;
-};
+type Plan = MembershipPlanView;
 
 interface EditPlanFormProps {
   plan: Plan;
@@ -39,10 +37,15 @@ interface EditPlanFormProps {
 function EditPlanForm({ plan, onClose, onSaveSuccess }: EditPlanFormProps) {
   const [name, setName] = useState(plan.name);
   const [price, setPrice] = useState(plan.price);
-  const [description, setDescription] = useState(plan.description);
+  const [description, setDescription] = useState(plan.description || "");
 
   const handleSave = async () => {
     try {
+      if (!plan.id) {
+        toast.error("Este plan no tiene ID para actualizarse.");
+        return;
+      }
+
       const resp = await fetch(`/api/plans/${plan.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -240,20 +243,53 @@ export default function WolfGymLanding() {
   const { data: session } = useSession();
   const router = useRouter();
   const isAdmin = session?.user?.role === "admin";
-  const [membershipPlans, setMembershipPlans] = useState<Plan[]>([]);
+  const [membershipPlans, setMembershipPlans] = useState<Plan[]>(
+    DEFAULT_MEMBERSHIP_PLANS
+  );
+
+  const fetchPlans = useCallback(async () => {
+    try {
+      const res = await fetch("/api/plans");
+      const data = await res.json();
+      setMembershipPlans(
+        Array.isArray(data) && data.length > 0
+          ? data
+          : DEFAULT_MEMBERSHIP_PLANS
+      );
+    } catch (err) {
+      console.error("Error al cargar planes:", err);
+      setMembershipPlans(DEFAULT_MEMBERSHIP_PLANS);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchPlans = async () => {
-      try {
-        const res = await fetch("/api/plans");
-        const data = await res.json();
-        setMembershipPlans(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error("Error al cargar planes:", err);
-      }
-    };
     fetchPlans();
-  }, []);
+  }, [fetchPlans]);
+
+  function getPlanAmountCents(plan: Plan) {
+    return plan.amountCents ?? Math.round(Number(plan.price || 0) * 100);
+  }
+
+  function getPlanDescription(plan: Plan) {
+    return `${plan.name} - S/${Number(plan.price || 0).toFixed(2)}`;
+  }
+
+  function formatPlanDuration(plan: Plan) {
+    const days = plan.durationDays;
+    if (!days) return "Acceso vigente";
+    if (days === 1) return "1 día";
+    if (days % 30 === 0 && days < 365) {
+      const months = days / 30;
+      return `${months} mes${months === 1 ? "" : "es"}`;
+    }
+    if (days === 365) return "1 año";
+    return `${days} días`;
+  }
+
+  function canEditPlan(plan: Plan) {
+    return Boolean(plan.id);
+  }
+
   // Función para abrir el modal de edición de un plan (admin)
   function openEditPlanModal(plan: Plan) {
     setModalPlan(plan);
@@ -421,10 +457,7 @@ export default function WolfGymLanding() {
             <EditPlanForm
               plan={modalPlan}
               onClose={() => setShowEditPlanModal(false)}
-              onSaveSuccess={() => {
-                // O recargar la lista
-                // fetchPlanes() o algo similar
-              }}
+              onSaveSuccess={fetchPlans}
             />
           </DialogContent>
         </Dialog>
@@ -634,7 +667,7 @@ export default function WolfGymLanding() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {membershipPlans.map((plan) => (
                 <div
-                  key={plan.id}
+                  key={plan.id || plan.name}
                   className="flex min-h-[310px] flex-col border border-[#FFC21A]/20 bg-[#141414] p-6 text-white transition hover:border-[#FFC21A]/60"
                 >
                   <p className="text-xs font-black uppercase text-[#FF7A1A]">
@@ -653,15 +686,16 @@ export default function WolfGymLanding() {
                     <Button
                       onClick={() => openEditPlanModal(plan)}
                       className="mt-6 bg-[#FFC21A] font-bold text-[#0A0A0A] hover:bg-[#E5A800]"
+                      disabled={!canEditPlan(plan)}
                     >
-                      Editar Plan
+                      {canEditPlan(plan) ? "Editar Plan" : "Plan base"}
                     </Button>
                   ) : (
                     <Button
                       onClick={() =>
                         handlePlanSelection({
-                          amount: plan.amountCents,
-                          description: `${plan.name} - S/${plan.price.toFixed(2)}`,
+                          amount: getPlanAmountCents(plan),
+                          description: getPlanDescription(plan),
                         })
                       }
                       className="mt-6 bg-[#FFC21A] font-bold text-[#0A0A0A] hover:bg-[#E5A800]"
@@ -859,50 +893,27 @@ export default function WolfGymLanding() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-6">
-            <Button
-              className="rounded-none bg-[#FFC21A] px-4 py-2 text-sm font-bold text-[#0A0A0A] hover:bg-[#E5A800]"
-              onClick={() =>
-                handlePlanSelection({
-                  amount: 6000,
-                  description: "Plan Mensual - S/60.00",
-                })
-              }
-            >
-              Plan Mensual - S/60.00
-            </Button>
-            <Button
-              className="rounded-none bg-[#FFC21A] px-4 py-2 text-sm font-bold text-[#0A0A0A] hover:bg-[#E5A800]"
-              onClick={() =>
-                handlePlanSelection({
-                  amount: 15000,
-                  description: "Plan Básico - S/150.00",
-                })
-              }
-            >
-              Plan Básico - S/150.00
-            </Button>
-            <Button
-              className="rounded-none bg-[#FFC21A] px-4 py-2 text-sm font-bold text-[#0A0A0A] hover:bg-[#E5A800]"
-              onClick={() =>
-                handlePlanSelection({
-                  amount: 10000,
-                  description: "Plan Pro - S/100.00",
-                })
-              }
-            >
-              Plan Pro - S/100.00
-            </Button>
-            <Button
-              className="rounded-none bg-[#FFC21A] px-4 py-2 text-sm font-bold text-[#0A0A0A] hover:bg-[#E5A800]"
-              onClick={() =>
-                handlePlanSelection({
-                  amount: 35000,
-                  description: "Plan Elite - S/350.00",
-                })
-              }
-            >
-              Plan Elite - S/350.00
-            </Button>
+            {membershipPlans.map((plan) => (
+              <Button
+                key={plan.id || plan.name}
+                className="h-auto rounded-none bg-[#FFC21A] px-4 py-3 text-left text-sm font-bold text-[#0A0A0A] hover:bg-[#E5A800]"
+                onClick={() =>
+                  handlePlanSelection({
+                    amount: getPlanAmountCents(plan),
+                    description: getPlanDescription(plan),
+                  })
+                }
+              >
+                <span className="flex w-full items-center justify-between gap-3">
+                  <span>
+                    {plan.name} - S/{Number(plan.price || 0).toFixed(2)}
+                  </span>
+                  <span className="text-xs font-black uppercase opacity-70">
+                    {formatPlanDuration(plan)}
+                  </span>
+                </span>
+              </Button>
+            ))}
           </div>
         </DialogContent>
       </Dialog>

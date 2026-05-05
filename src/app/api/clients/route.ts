@@ -8,10 +8,10 @@ import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { getToken } from "next-auth/jwt";
 
 /* ========= helpers ========= */
-const PlanEnum = z.enum(["Mensual", "Básico", "Pro", "Elite"]);
+const PlanSchema = z.string().trim().min(1).max(80);
 
 const ProfileSchema = z.object({
-  plan: PlanEnum,
+  plan: PlanSchema,
   startDate: z.preprocess((v) => (v === "" ? null : v ?? null), z.string().nullable()),
   endDate: z.preprocess((v) => (v === "" ? null : v ?? null), z.string().nullable()),
   emergencyPhone: z.preprocess((v) => (v === "" ? null : v ?? null), z.string().nullable()),
@@ -112,9 +112,10 @@ export async function POST(request: NextRequest) {
           debt: Number(raw?.debt ?? 0),
         };
 
-    const plan = PlanEnum.options.includes(baseProfile.plan as any)
-      ? (baseProfile.plan as z.infer<typeof PlanEnum>)
-      : "Mensual";
+    const plan =
+      typeof baseProfile.plan === "string" && baseProfile.plan.trim()
+        ? baseProfile.plan.trim()
+        : "Plan Mes";
 
     const body = BodySchema.parse({
       username,

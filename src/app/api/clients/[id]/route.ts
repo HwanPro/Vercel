@@ -16,7 +16,7 @@ async function ensureAdmin(req: NextRequest) {
 const clientUpdateSchema = z.object({
   firstName: z.string().min(1, "El nombre es obligatorio"),
   lastName: z.string().min(1, "El apellido es obligatorio"),
-  plan: z.enum(["Sin plan", "Mensual", "Básico", "Pro", "Elite"]),
+  plan: z.string().trim().min(1, "El plan es obligatorio").max(80),
   startDate: z
     .string()
     .nullable()

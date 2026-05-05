@@ -38,10 +38,35 @@ export async function GET() {
             firstName: true,
             lastName: true,
             phoneNumber: true,
+            profile: {
+              select: {
+                profile_id: true,
+                profile_plan: true,
+                profile_end_date: true,
+                debt: true,
+              },
+            },
           },
         },
       },
     });
+
+    const profileIds = records
+      .map((r) => r.user.profile?.profile_id)
+      .filter(Boolean) as string[];
+    const dailyDebts = profileIds.length
+      ? await prisma.dailyDebt.groupBy({
+          by: ["clientProfileId"],
+          where: { clientProfileId: { in: profileIds } },
+          _sum: { amount: true },
+        })
+      : [];
+    const dailyDebtByProfile = new Map(
+      dailyDebts.map((debt) => [
+        debt.clientProfileId,
+        Number(debt._sum.amount || 0),
+      ]),
+    );
 
     // Aseguramos userId en la respuesta (por si tu modelo cambia)
     const data = records.map((r) => ({
@@ -50,7 +75,25 @@ export async function GET() {
       checkInTime: r.checkInTime,
       checkOutTime: r.checkOutTime ?? null,
       durationMins: r.durationMins ?? null,
-      user: r.user,
+      user: {
+        id: r.user.id,
+        username: r.user.username,
+        firstName: r.user.firstName,
+        lastName: r.user.lastName,
+        phoneNumber: r.user.phoneNumber,
+      },
+      profile: r.user.profile
+        ? {
+            profileId: r.user.profile.profile_id,
+            plan: r.user.profile.profile_plan,
+            endDate: r.user.profile.profile_end_date,
+            monthlyDebt: Number(r.user.profile.debt || 0),
+            dailyDebt: dailyDebtByProfile.get(r.user.profile.profile_id) || 0,
+            totalDebt:
+              Number(r.user.profile.debt || 0) +
+              (dailyDebtByProfile.get(r.user.profile.profile_id) || 0),
+          }
+        : null,
     }));
 
     return NextResponse.json(data, {

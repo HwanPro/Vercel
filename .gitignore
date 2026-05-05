@@ -30,6 +30,7 @@ public/uploads/*
 !public/uploads/.gitkeep
 
 # Local agent/tooling artifacts
+.tmp/
 .claude/
 .playwright-mcp/
 check-in-ui.png

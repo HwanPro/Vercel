@@ -49,25 +49,22 @@ export async function POST(
         ? (body.template as string)
         : null;
 
-    // Si no envías plantillas, capturar 3 muestras del dispositivo
+    // Si no envías plantilla, capturar una muestra del dispositivo.
     const templates: string[] = [];
     if (templatesBody?.length) {
       templates.push(...templatesBody);
     } else if (templateBody) {
       templates.push(templateBody);
     } else {
-      // Capturar 3 muestras para registro robusto
-      for (let i = 0; i < 3; i++) {
-        const capRes = await timeoutFetch(`${BIOMETRIC_BASE}/capture`, { method: "POST", cache: "no-store" });
-        const cap = (await capRes.json().catch(() => ({ ok: false, template: null, message: "Respuesta inválida" }))) as CaptureResponse;
-        if (!capRes.ok || !cap?.ok || !cap?.template) {
-          return NextResponse.json(
-            { ok: false, message: cap?.message || `No se pudo capturar muestra ${i + 1}/3.` },
-            { status: 400 }
-          );
-        }
-        templates.push(cap.template);
+      const capRes = await timeoutFetch(`${BIOMETRIC_BASE}/capture`, { method: "POST", cache: "no-store" });
+      const cap = (await capRes.json().catch(() => ({ ok: false, template: null, message: "Respuesta inválida" }))) as CaptureResponse;
+      if (!capRes.ok || !cap?.ok || !cap?.template) {
+        return NextResponse.json(
+          { ok: false, message: cap?.message || "No se pudo capturar la huella." },
+          { status: 400 }
+        );
       }
+      templates.push(cap.template);
     }
 
     // Registrar usando el endpoint /enroll del servicio C# biometric-service

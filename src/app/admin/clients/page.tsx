@@ -196,6 +196,7 @@ export default function ClientsPage() {
   // State management
   const [filteredClients, setFilteredClients] = useState<Client[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "expired" | "noDate">("all");
   const [showConfirm, setShowConfirm] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<string | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -300,6 +301,14 @@ export default function ClientsPage() {
     };
   };
 
+  const getClientStatus = (membershipEnd: string): "active" | "expired" | "noDate" => {
+    if (!membershipEnd) return "noDate";
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const end = new Date(`${membershipEnd}T00:00:00`);
+    return end.getTime() >= today.getTime() ? "active" : "expired";
+  };
+
   // Define Client type for the new client data
   interface NewClientData {
     firstName: string;
@@ -373,8 +382,12 @@ export default function ClientsPage() {
     if (!clients || clients.length === 0) return;
 
     const q = searchQuery.trim().toLowerCase();
+    const byStatus =
+      statusFilter === "all"
+        ? [...clients]
+        : clients.filter((client) => getClientStatus(client.membershipEnd) === statusFilter);
     const base = q
-      ? clients.filter((c) =>
+      ? byStatus.filter((c) =>
           (
             `${c.firstName || ""} ${c.lastName || ""} ${c.userName || ""} ${c.phone || ""}` +
             ` ${c.documentNumber || ""}`
@@ -382,7 +395,7 @@ export default function ClientsPage() {
             .toLowerCase()
             .includes(q)
         )
-      : [...clients];
+      : byStatus;
 
     base.sort((a, b) => {
       const r = cmp(a, b, sortBy);
@@ -390,7 +403,7 @@ export default function ClientsPage() {
     });
 
     setFilteredClients(base);
-  }, [searchQuery, clients, sortBy, sortDir]);
+  }, [searchQuery, clients, statusFilter, sortBy, sortDir, cmp]);
 
   useEffect(() => {
     if (!clients.length) return;
@@ -537,57 +550,52 @@ export default function ClientsPage() {
         if (!ask.isConfirmed) return;
       }
 
-      const templates: string[] = [];
+      await Swal.fire({
+        ...swalBase,
+        title: "Coloca tu dedo",
+        text: "Manténlo firme hasta que termine la captura",
+        icon: "info",
+        timer: 2200,
+        showConfirmButton: false,
+        allowOutsideClick: false,
+      });
 
-      for (let i = 1; i <= 3; i++) {
+      Swal.fire({
+        ...swalBase,
+        title: "Capturando huella...",
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading(),
+      });
+
+      let template: string;
+      let image: string | undefined;
+      try {
+        const capture = await captureOnce();
+        template = capture.template;
+        image = capture.image;
+
         await Swal.fire({
           ...swalBase,
-          title: `Coloca tu dedo (${i}/3)`,
-          text:
-            i === 1
-              ? "Manténlo firme hasta que termine la captura"
-              : "Retira el dedo y vuelve a colocarlo firmemente",
-          icon: "info",
-          timer: 2500,
+          title: "✓ Huella capturada correctamente",
+          html: image
+            ? `<img src="data:image/bmp;base64,${image}" style="max-width:250px; margin:10px auto; display:block; border:2px solid #22c55e; border-radius:8px;" alt="Huella capturada"/>`
+            : undefined,
+          text: !image ? "Guardando la huella..." : "",
+          icon: "success",
+          timer: image ? 1600 : 900,
           showConfirmButton: false,
-          allowOutsideClick: false,
         });
-
-        Swal.fire({
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "No se pudo capturar la huella";
+        await Swal.fire({
           ...swalBase,
-          title: `Capturando (${i}/3)…`,
-          allowOutsideClick: false,
-          showConfirmButton: false,
-          didOpen: () => Swal.showLoading(),
+          title: "❌ Error al capturar huella",
+          text: errorMessage,
+          icon: "error" as const,
         });
-
-        try {
-          const {template, image} = await captureOnce();
-          templates.push(template);
-
-          // Mostrar imagen de huella capturada si está disponible
-          await Swal.fire({
-            ...swalBase,
-            title: "✓ Muestra capturada correctamente",
-            html: image 
-              ? `<img src="data:image/bmp;base64,${image}" style="max-width:250px; margin:10px auto; display:block; border:2px solid #22c55e; border-radius:8px;" alt="Huella capturada"/>`
-              : undefined,
-            text: !image && i < 3 ? "Prepárate para la siguiente captura" : !image ? "Procesando todas las muestras..." : "",
-            icon: "success",
-            timer: image ? 2000 : 1200,
-            showConfirmButton: false,
-          });
-        } catch (error) {
-          const errorMessage =
-            error instanceof Error ? error.message : "No se pudo capturar la huella";
-          await Swal.fire({
-            ...swalBase,
-            title: "❌ Error al capturar huella",
-            text: errorMessage,
-            icon: "error" as const,
-          });
-          return;
-        }
+        return;
       }
 
         Swal.fire({
@@ -601,7 +609,7 @@ export default function ClientsPage() {
         const res = await fetch(`/api/biometric/register/${userId}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ templates }),
+          body: JSON.stringify({ template }),
         });
         const jr: RegisterFingerprintResponse = await res
           .json()
@@ -869,6 +877,19 @@ export default function ClientsPage() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
+              <select
+                value={statusFilter}
+                onChange={(event) =>
+                  setStatusFilter(event.target.value as "all" | "active" | "expired" | "noDate")
+                }
+                className="h-10 rounded-md border border-zinc-700 bg-black px-3 text-sm font-semibold text-white outline-none transition focus:border-yellow-400 focus:ring-2 focus:ring-yellow-300/20"
+                aria-label="Filtrar clientes por estado"
+              >
+                <option value="all">Todos</option>
+                <option value="active">Solo activos</option>
+                <option value="expired">Solo vencidos</option>
+                <option value="noDate">Sin fecha</option>
+              </select>
               <div className="flex gap-2">
             <Button 
               onClick={async () => {
@@ -917,7 +938,7 @@ export default function ClientsPage() {
           <p className="text-sm text-zinc-500">Vista operativa para pagos, huellas y edición de perfiles.</p>
         </div>
 
-        <div className="grid gap-3 p-3 lg:hidden">
+        <div className="grid gap-3 p-3 min-[1360px]:hidden">
           {filteredClients.length > 0 ? (
             filteredClients.map((client) => {
               const uid = client.userId || client.id;
@@ -927,18 +948,18 @@ export default function ClientsPage() {
               return (
                 <article
                   key={client.id}
-                  className="rounded-lg border border-zinc-800 bg-black p-3"
+                  className="rounded-lg border border-zinc-700 bg-black p-3 shadow-[0_1px_0_rgba(250,204,21,0.16)]"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="font-bold text-white">
+                      <p className="break-words font-bold text-white">
                         {client.firstName} {client.lastName}
                       </p>
                       <p className="text-sm text-zinc-400">
                         DNI: {client.documentNumber || "Sin DNI"}
                       </p>
                     </div>
-                    <span className="shrink-0 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs font-semibold text-zinc-100">
+                    <span className="max-w-[8rem] shrink-0 break-words rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs font-semibold text-zinc-100">
                       {client.plan}
                     </span>
                   </div>
@@ -955,7 +976,11 @@ export default function ClientsPage() {
                     </div>
                   </div>
 
-                  <div className="mt-3 flex flex-wrap gap-2">
+                  <div className="mt-4 border-t border-zinc-800 pt-3">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                      Operaciones
+                    </p>
+                    <div className="grid grid-cols-1 gap-2 min-[440px]:grid-cols-2">
                     <Button
                       onClick={() => {
                         setSelectedClientForDebt({
@@ -965,30 +990,32 @@ export default function ClientsPage() {
                         });
                         setShowDebtDialog(true);
                       }}
-                      className="bg-blue-600 text-white hover:bg-blue-500"
+                      className="w-full justify-center bg-blue-600 text-white hover:bg-blue-500"
                     >
                       <BadgeDollarSign className="h-4 w-4" />
                       Cobros
                     </Button>
                     <Button
-                      className={`${busy[uid] ? "cursor-not-allowed opacity-50" : "hover:bg-yellow-300"} bg-yellow-400 text-black`}
+                      className={`${busy[uid] ? "cursor-not-allowed opacity-50" : "hover:bg-yellow-300"} w-full justify-center bg-yellow-400 text-black`}
                       onClick={() => registerFingerprint(uid)}
                       disabled={!!busy[uid] || !!deleting[uid]}
                     >
                       {has ? "Reemplazar huella" : "Registrar huella"}
                     </Button>
-                    <EditClientDialog
-                      client={{ ...client, email: client.userName }}
-                      onUpdate={async (updated) => {
-                        await mutate();
-                        setFilteredClients((prev) =>
-                          prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c))
-                        );
-                        toast.success("Cliente actualizado");
-                      }}
-                    />
+                    <div className="[&>button]:w-full [&>button]:justify-center">
+                      <EditClientDialog
+                        client={{ ...client, email: client.userName }}
+                        onUpdate={async (updated) => {
+                          await mutate();
+                          setFilteredClients((prev) =>
+                            prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c))
+                          );
+                          toast.success("Cliente actualizado");
+                        }}
+                      />
+                    </div>
                     <Button
-                      className="!border-green-500 !bg-zinc-950 !text-green-300 hover:!bg-green-600 hover:!text-white"
+                      className="w-full justify-center !border-green-500 !bg-zinc-950 !text-green-300 hover:!bg-green-600 hover:!text-white"
                       onClick={() => sendCredentials(client)}
                       disabled={!!busy[client.id] || !!deleting[client.id]}
                       variant="outline"
@@ -997,13 +1024,14 @@ export default function ClientsPage() {
                       Credenciales
                     </Button>
                     <Button
-                      className="bg-red-500 text-white hover:bg-red-600"
+                      className="w-full justify-center bg-red-500 text-white hover:bg-red-600"
                       onClick={() => handleDeleteClick(client.id)}
                       disabled={!!deleting[client.id] || isPageLoading}
                     >
                       <Trash2 className="h-4 w-4" />
                       Eliminar
                     </Button>
+                    </div>
                   </div>
                 </article>
               );
@@ -1015,9 +1043,22 @@ export default function ClientsPage() {
           )}
         </div>
 
-        <div className="hidden overflow-x-auto lg:block">
+        <div className="hidden overflow-x-auto min-[1360px]:block">
           <div>
-            <Table className="w-full min-w-[1180px] table-auto border-collapse">
+            <Table className="w-full min-w-[1160px] table-fixed border-collapse text-sm">
+              <colgroup>
+                <col className="w-[10%]" />
+                <col className="w-[12%]" />
+                <col className="w-[8%]" />
+                <col className="w-[6%]" />
+                <col className="w-[6%]" />
+                <col className="w-[11%]" />
+                <col className="w-[7%]" />
+                <col className="w-[7%]" />
+                <col className="w-[7%]" />
+                <col className="w-[8%]" />
+                <col className="w-[18%]" />
+              </colgroup>
               {/* Encabezado sticky */}
               <TableHeader className="sticky top-0 z-10 !bg-zinc-950">
                 <TableRow className="border-zinc-800 !bg-zinc-950">
@@ -1115,29 +1156,29 @@ export default function ClientsPage() {
                     return (
                       <TableRow
                         key={client.id}
-                        className="border-zinc-900 hover:bg-zinc-900/70"
+                        className="border-b border-zinc-800 odd:bg-black even:bg-zinc-950/80 hover:bg-zinc-900/70"
                       >
                         <TableCell className="font-semibold text-white">
-                          <div className="flex items-center gap-2">
+                          <div className="flex min-w-0 items-center gap-2">
                             <UserRound className="h-4 w-4 text-yellow-400" />
-                            {client.firstName}
+                            <span className="truncate">{client.firstName}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-zinc-300">{client.lastName}</TableCell>
+                        <TableCell className="break-words text-zinc-300">{client.lastName}</TableCell>
                         <TableCell>
                           <span className="inline-flex rounded-md border border-zinc-800 bg-black px-2 py-1 text-xs font-semibold text-zinc-200">
                             {client.plan}
                           </span>
                         </TableCell>
-                        <TableCell className="text-zinc-300">{client.membershipStart || "—"}</TableCell>
-                        <TableCell className="text-zinc-300">{client.membershipEnd || "—"}</TableCell>
+                        <TableCell className="break-words text-zinc-300">{client.membershipStart || "—"}</TableCell>
+                        <TableCell className="break-words text-zinc-300">{client.membershipEnd || "—"}</TableCell>
                         <TableCell>
                           <span className={`inline-flex whitespace-nowrap rounded-full border px-2 py-1 text-xs font-semibold ${membershipDays.className}`}>
                             {membershipDays.label}
                           </span>
                         </TableCell>
-                        <TableCell className="text-zinc-400">{client.documentNumber || "—"}</TableCell>
-                        <TableCell className="text-zinc-400">{client.createdAt || "—"}</TableCell>
+                        <TableCell className="break-words text-zinc-400">{client.documentNumber || "—"}</TableCell>
+                        <TableCell className="break-words text-zinc-400">{client.createdAt || "—"}</TableCell>
                         <TableCell>
                           <Button
                             onClick={() => {
@@ -1170,10 +1211,10 @@ export default function ClientsPage() {
                             {has ? "Registrada" : "Sin huella"}
                           </span>
                         </TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap gap-2">
+                        <TableCell className="border-l border-zinc-800 bg-black/30">
+                          <div className="grid grid-cols-2 gap-1.5">
                             <Button
-                            className={`${busy[uid] ? "opacity-50 cursor-not-allowed" : "hover:bg-yellow-300"} bg-yellow-400 text-black`}
+                            className={`${busy[uid] ? "opacity-50 cursor-not-allowed" : "hover:bg-yellow-300"} h-9 min-w-0 whitespace-normal bg-yellow-400 px-2 text-xs leading-tight text-black`}
                               onClick={() => registerFingerprint(uid)}
                               disabled={!!busy[uid] || !!deleting[uid]}
                             >
@@ -1182,7 +1223,7 @@ export default function ClientsPage() {
                             </Button>
 
                             <Button
-                              className={`!border-yellow-400 !bg-zinc-950 !text-yellow-300 hover:!bg-yellow-400 hover:!text-black ${
+                              className={`h-9 min-w-0 px-2 text-xs !border-yellow-400 !bg-zinc-950 !text-yellow-300 hover:!bg-yellow-400 hover:!text-black ${
                                 busy[uid] ? "opacity-50 cursor-not-allowed" : ""
                               }`}
                               onClick={() => verifyFingerprint(uid)}
@@ -1192,34 +1233,36 @@ export default function ClientsPage() {
                               Verificar
                             </Button>
 
-                            <EditClientDialog
-                              client={{ ...client, email: client.userName }}
-                              onUpdate={async (updated) => {
-                                // Update SWR cache by refetching data
-                                await mutate();
-                                setFilteredClients((prev) =>
-                                  prev.map((c) =>
-                                    c.id === updated.id
-                                      ? { ...c, ...updated }
-                                      : c
-                                  )
-                                );
-                                toast.success("Cliente actualizado");
-                              }}
-                            />
+                            <div className="[&>button]:h-9 [&>button]:w-full [&>button]:min-w-0 [&>button]:px-2 [&>button]:text-xs">
+                              <EditClientDialog
+                                client={{ ...client, email: client.userName }}
+                                onUpdate={async (updated) => {
+                                  // Update SWR cache by refetching data
+                                  await mutate();
+                                  setFilteredClients((prev) =>
+                                    prev.map((c) =>
+                                      c.id === updated.id
+                                        ? { ...c, ...updated }
+                                        : c
+                                    )
+                                  );
+                                  toast.success("Cliente actualizado");
+                                }}
+                              />
+                            </div>
 
                             <Button
-                              className="inline-flex items-center gap-2 !border-green-500 !bg-zinc-950 !text-green-300 hover:!bg-green-600 hover:!text-white"
+                              className="inline-flex h-9 min-w-0 items-center gap-1 px-2 text-xs !border-green-500 !bg-zinc-950 !text-green-300 hover:!bg-green-600 hover:!text-white"
                               onClick={() => sendCredentials(client)}
                               disabled={!!busy[client.id] || !!deleting[client.id]}
                               variant="outline"
                             >
-                              <Send className="h-4 w-4" />
+                              <Send className="h-3.5 w-3.5" />
                               Credenciales
                             </Button>
 
                             <Button
-                              className="inline-flex items-center gap-2 bg-red-500 text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+                              className="inline-flex h-9 min-w-0 items-center gap-1 bg-red-500 px-2 text-xs text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
                               onClick={() => handleDeleteClick(client.id)}
                               disabled={!!deleting[client.id] || isPageLoading}
                             >
@@ -1229,14 +1272,14 @@ export default function ClientsPage() {
                                 </span>
                               ) : (
                                 <>
-                                  <Trash2 className="h-4 w-4" />
+                                  <Trash2 className="h-3.5 w-3.5" />
                                   Eliminar
                                 </>
                               )}
                             </Button>
 
                             <Button
-                              className={`!border-red-500 !bg-zinc-950 !text-red-300 hover:!bg-red-600 hover:!text-white ${
+                              className={`col-span-2 h-9 min-w-0 px-2 text-xs !border-red-500 !bg-zinc-950 !text-red-300 hover:!bg-red-600 hover:!text-white ${
                                 busy[uid] ? "opacity-50 cursor-not-allowed" : ""
                               }`}
                               onClick={() => deleteFingerprint(uid)}
